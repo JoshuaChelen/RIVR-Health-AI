@@ -1,0 +1,646 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:f44949eb-404a-44a9-a697-477ee7880b4f",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "f44949eb-404a-44a9-a697-477ee7880b4f",
+        "gender": "male"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a6abca36-a69d-49d2-9ed8-41b757d8ce17",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "a6abca36-a69d-49d2-9ed8-41b757d8ce17",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "period": {
+          "start": "2024-12-31"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c13d0a04-a036-4221-b1fb-c498554308f0",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "c13d0a04-a036-4221-b1fb-c498554308f0",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I48.0",
+              "display": "Paroxysmal atrial fibrillation"
+            }
+          ],
+          "text": "Paroxysmal atrial fibrillation"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:58690172-3685-4374-a307-3fd55cf860f3",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "58690172-3685-4374-a307-3fd55cf860f3",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I10",
+              "display": "Essential (primary) hypertension"
+            }
+          ],
+          "text": "Essential (primary) hypertension"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:0962665a-f481-4cd6-bb63-675d81147db6",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "0962665a-f481-4cd6-bb63-675d81147db6",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "E78.5",
+              "display": "Hyperlipidemia, unspecified"
+            }
+          ],
+          "text": "Hyperlipidemia, unspecified"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:05345806-8742-494c-a7ff-36397f26da44",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "05345806-8742-494c-a7ff-36397f26da44",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "G47.33",
+              "display": "Obstructive sleep apnea (adult)"
+            }
+          ],
+          "text": "Obstructive sleep apnea (adult)"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:dd6e2748-da35-4087-9d44-e7123ace5d11",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "dd6e2748-da35-4087-9d44-e7123ace5d11",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "J44.9",
+              "display": "Chronic obstructive pulmonary disease, unspecified"
+            }
+          ],
+          "text": "Chronic obstructive pulmonary disease, unspecified"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:58febc2e-69b5-453f-9773-af5d29fb34d8",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "58febc2e-69b5-453f-9773-af5d29fb34d8",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I45.2",
+              "display": "Bifascicular block"
+            }
+          ],
+          "text": "Bifascicular block"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9e170b5f-bf14-4f51-a3f9-c60a651c484e",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "9e170b5f-bf14-4f51-a3f9-c60a651c484e",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I77.810",
+              "display": "Thoracic aortic ectasia"
+            }
+          ],
+          "text": "Thoracic aortic ectasia"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:15e0be78-9aeb-41ab-a170-c339978dbe42",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "15e0be78-9aeb-41ab-a170-c339978dbe42",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I42.9",
+              "display": "Cardiomyopathy, unspecified"
+            }
+          ],
+          "text": "Cardiomyopathy, unspecified"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:fb520833-4406-4b9e-87c4-f19e9841a7c3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "fb520833-4406-4b9e-87c4-f19e9841a7c3",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8480-6",
+              "display": "Systolic blood pressure"
+            }
+          ],
+          "text": "Systolic blood pressure"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "effectiveDateTime": "2024-12-31",
+        "valueQuantity": {
+          "value": 157,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a47d73ce-76a8-4bdd-a366-988237301e59",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a47d73ce-76a8-4bdd-a366-988237301e59",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8462-4",
+              "display": "Diastolic blood pressure"
+            }
+          ],
+          "text": "Diastolic blood pressure"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "effectiveDateTime": "2024-12-31",
+        "valueQuantity": {
+          "value": 79,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:d52b7de4-7eca-4ec5-a855-4979400e1a0f",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "d52b7de4-7eca-4ec5-a855-4979400e1a0f",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "effectiveDateTime": "2024-12-31",
+        "valueQuantity": {
+          "value": 105,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2ed9a839-77fb-4d22-86c7-c64a946ceb36",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "2ed9a839-77fb-4d22-86c7-c64a946ceb36",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "59408-5",
+              "display": "Oxygen saturation in Arterial blood by Pulse oximetry"
+            }
+          ],
+          "text": "Oxygen saturation in Arterial blood by Pulse oximetry"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "effectiveDateTime": "2024-12-31",
+        "valueQuantity": {
+          "value": 92,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a7fbdd57-2df5-4562-93c7-99a09cb7a241",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a7fbdd57-2df5-4562-93c7-99a09cb7a241",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            }
+          ],
+          "text": "Body weight"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "effectiveDateTime": "2024-12-31",
+        "valueQuantity": {
+          "value": 193,
+          "unit": "[lb_av]",
+          "system": "http://unitsofmeasure.org",
+          "code": "[lb_av]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:99ec3b15-3892-49fd-801e-2789ddf60780",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "99ec3b15-3892-49fd-801e-2789ddf60780",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "39156-5",
+              "display": "Body mass index (BMI) [Ratio]"
+            }
+          ],
+          "text": "Body mass index (BMI) [Ratio]"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "effectiveDateTime": "2024-12-31",
+        "valueQuantity": {
+          "value": 32.9,
+          "unit": "kg/m2",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg/m2"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9373d3a4-8f96-4404-9d77-fd049750c063",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "9373d3a4-8f96-4404-9d77-fd049750c063",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "41801008",
+              "display": "Computed tomography of chest (procedure)"
+            }
+          ],
+          "text": "Chest CT angiography to evaluate aorta"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        },
+        "performedDateTime": "2024-08-06"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:cfd521b7-0612-4e17-b73b-28712c10c962",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "cfd521b7-0612-4e17-b73b-28712c10c962",
+        "status": "planned",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "714785006",
+              "display": "Insertion of implantable loop recorder into chest"
+            }
+          ],
+          "text": "Planned implantation of Medtronic LINQ implantable loop recorder"
+        },
+        "subject": {
+          "reference": "Patient/f44949eb-404a-44a9-a697-477ee7880b4f"
+        },
+        "encounter": {
+          "reference": "Encounter/a6abca36-a69d-49d2-9ed8-41b757d8ce17"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "patient": {
+    "name": null,
+    "dob": null,
+    "sex": null
+  },
+  "diagnoses": [
+    "Elevated circulating tumor cells and cell-free DNA",
+    "Toxin exposure with identified organic toxins, mold toxins, and heavy metals",
+    "Mitochondrial dysfunction with low mitochondrial membrane potential and increased mitochondrial clumping",
+    "Hyperlipidemia, unspecified",
+    "Benign prostatic hyperplasia with lower urinary tract symptoms",
+    "Gastro-esophageal reflux disease without esophagitis"
+  ],
+  "medications": [
+    "Pregnyl 10000 units; inject 1,000 units subcutaneously twice weekly",
+    "Testosterone cypionate 200 mg/mL; inject 0.5 mL intramuscularly weekly",
+    "Mounjaro 5 mg/0.5 mL; inject 5 mg subcutaneously every other week",
+    "Anastrozole 1 mg tablet; take 1 tablet by mouth once a week",
+    "Omnitrope 5.8 mg; inject 20 units (0.2 mL) subcutaneously at bedtime 5 days on, 2 days off",
+    "Ultra Binder capsules supplement; oral, once daily",
+    "Body Bio Liposomal Glutathione 60 capsules supplement; oral, once daily"
+  ],
+  "allergies": [
+    "NKDA"
+  ],
+  "recent_vitals": {
+    "date": "2024-02-08",
+    "bp": "124/90",
+    "hr": 73,
+    "weight_lb": 165
+  },
+  "alerts": [
+    "Elevated circulating tumor cells / cfDNA",
+    "Significant toxin exposure history",
+    "Mitochondrial dysfunction",
+    "On androgen / hormone therapy",
+    "On GLP-1 agonist (Mounjaro)",
+    "On growth hormone (Omnitrope)",
+    "NKDA",
+    "Diastolic HTN (BP 124/90)"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "patient": {
+    "name": null,
+    "dob": null,
+    "sex": "male"
+  },
+  "diagnoses": [
+    "Chronic right shoulder pain",
+    "Chronic right medial knee pain",
+    "Moderate medial compartment osteoarthritis with degenerative complex tear of medial meniscus (right knee).",
+    "Chronic pain syndrome",
+    "Head region somatic dysfunction",
+    "Cervical segment dysfunction",
+    "Rib cage somatic dysfunction"
+  ],
+  "procedures_devices": [
+    "Osteopathic manipulative treatment to head, cervical, thoracic, rib, lumbar, sacral, upper and lower extremity, and abdominal regions 2023-08-31"
+  ],
+  "recent_vitals": {
+    "date": "2023-08-31",
+    "bp": "130/76",
+    "hr": 54,
+    "spo2": 99,
+    "weight_kg": 90.7,
+    "height_cm": 180.3,
+    "bmi": 27.89,
+    "pain_score": 4
+  }
+}

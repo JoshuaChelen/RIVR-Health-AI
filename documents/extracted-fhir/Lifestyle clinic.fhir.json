@@ -1,0 +1,803 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:864c9879-bdd7-487f-9fc2-41801d89b4cf",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "864c9879-bdd7-487f-9fc2-41801d89b4cf"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3deb724d-5d5d-4185-9944-ec9eb1582aa0",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "3deb724d-5d5d-4185-9944-ec9eb1582aa0",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "period": {
+          "start": "2024-04-18T11:15:00"
+        },
+        "reasonCode": [
+          {
+            "text": "Concerns about toxin exposure, mitochondrial function, and preventive health optimization"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:084157c2-2872-4500-a82d-a9cdf5ba04ab",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "084157c2-2872-4500-a82d-a9cdf5ba04ab",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Herpesviral [herpes simplex] infections; HSV1 antibodies positive on labs",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "B00",
+              "display": "Herpesviral [herpes simplex] infections; HSV1 antibodies positive on labs"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:eefbfe6f-9bbd-4d65-8a24-57c17e99d610",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "eefbfe6f-9bbd-4d65-8a24-57c17e99d610",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Other long term (current) drug therapy",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "Z79.899",
+              "display": "Other long term (current) drug therapy"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:dc47713b-309b-4d89-a6c1-35fb6626feb4",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "dc47713b-309b-4d89-a6c1-35fb6626feb4",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Gastro-esophageal reflux disease without esophagitis",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "K21.9",
+              "display": "Gastro-esophageal reflux disease without esophagitis"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2a40f79b-4f52-4b9a-b972-75bd2bec1ab2",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "2a40f79b-4f52-4b9a-b972-75bd2bec1ab2",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Benign prostatic hyperplasia with lower urinary tract symptoms",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "N40.1",
+              "display": "Benign prostatic hyperplasia with lower urinary tract symptoms"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:40b979c0-c615-4d4b-8469-948f68081412",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "40b979c0-c615-4d4b-8469-948f68081412",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Hyperlipidemia, unspecified",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "E78.5",
+              "display": "Hyperlipidemia, unspecified"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9d7fe220-5e4b-493d-8dd8-f1ec1ed27c6e",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "9d7fe220-5e4b-493d-8dd8-f1ec1ed27c6e",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Hormone replacement therapy",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "Z79.890",
+              "display": "Hormone replacement therapy"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:13594788-52e4-441b-9f02-b1a215f858a7",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "13594788-52e4-441b-9f02-b1a215f858a7",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Toxin exposure with identified organic toxins, mold toxins, and heavy metals"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:0c66d769-00ac-4445-ac83-5a950cac4618",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "0c66d769-00ac-4445-ac83-5a950cac4618",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Mitochondrial dysfunction with low mitochondrial membrane potential and increased mitochondrial clumping"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9d44ea46-49dd-49ef-8f4f-a6f0d064ec78",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "9d44ea46-49dd-49ef-8f4f-a6f0d064ec78",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Elevated circulating tumor cells and cell-free DNA"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8c791a7a-b150-4da8-9706-f92ccfb7e2f5",
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "8c791a7a-b150-4da8-9706-f92ccfb7e2f5",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+              "code": "inactive"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "716186003",
+              "display": "No known drug allergy"
+            }
+          ],
+          "text": "NKDA"
+        },
+        "patient": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:523f3dbf-e22a-4572-aeb2-5f36d2446002",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "523f3dbf-e22a-4572-aeb2-5f36d2446002",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8480-6",
+              "display": "Systolic blood pressure"
+            }
+          ],
+          "text": "Systolic blood pressure"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-02-08",
+        "valueQuantity": {
+          "value": 124,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:ff2e5c7e-911b-4c0d-809e-62a634176df7",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "ff2e5c7e-911b-4c0d-809e-62a634176df7",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8462-4",
+              "display": "Diastolic blood pressure"
+            }
+          ],
+          "text": "Diastolic blood pressure"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-02-08",
+        "valueQuantity": {
+          "value": 90,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:66089a41-0f31-4109-8d07-d4307f652c33",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "66089a41-0f31-4109-8d07-d4307f652c33",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-02-08",
+        "valueQuantity": {
+          "value": 73,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:170560cc-2982-4aa8-8002-3e54341dff84",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "170560cc-2982-4aa8-8002-3e54341dff84",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            }
+          ],
+          "text": "Body weight"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-02-08",
+        "valueQuantity": {
+          "value": 165,
+          "unit": "[lb_av]",
+          "system": "http://unitsofmeasure.org",
+          "code": "[lb_av]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:58dbf068-a8e7-4eda-ae16-c48a998ac8a0",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "58dbf068-a8e7-4eda-ae16-c48a998ac8a0",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8302-2",
+              "display": "Body height"
+            }
+          ],
+          "text": "Body height"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2021-02-03",
+        "valueQuantity": {
+          "value": 69,
+          "unit": "[in_i]",
+          "system": "http://unitsofmeasure.org",
+          "code": "[in_i]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:7d2e466c-0847-4f78-9183-00f6497ad5f1",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "7d2e466c-0847-4f78-9183-00f6497ad5f1",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Pregnyl 10000 units; inject 1,000 units subcutaneously twice weekly"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8d5427ab-ec3f-4d47-b86c-8cedec1475b5",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "8d5427ab-ec3f-4d47-b86c-8cedec1475b5",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Testosterone cypionate 200 mg/mL; inject 0.5 mL intramuscularly weekly"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a040e2ae-3e5c-4a4d-9860-fc77a88e3dad",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "a040e2ae-3e5c-4a4d-9860-fc77a88e3dad",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Mounjaro 5 mg/0.5 mL; inject 5 mg subcutaneously every other week"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:fa4c0d08-ad93-437b-87a2-93f014da1738",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "fa4c0d08-ad93-437b-87a2-93f014da1738",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Anastrozole 1 mg tablet; take 1 tablet by mouth once a week"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:7cc17404-f003-46ed-8c99-ccb4c264b91b",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "7cc17404-f003-46ed-8c99-ccb4c264b91b",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Omnitrope 5.8 mg; inject 20 units (0.2 mL) subcutaneously at bedtime 5 days on, 2 days off"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e05ec090-676b-4740-b6ab-0af63ece70dc",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "e05ec090-676b-4740-b6ab-0af63ece70dc",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Ultra Binder capsules supplement; oral, once daily"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9acfdf9f-04c3-4a62-ba60-c929dc64ae0c",
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "9acfdf9f-04c3-4a62-ba60-c929dc64ae0c",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Body Bio Liposomal Glutathione 60 capsules supplement; oral, once daily"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "effectiveDateTime": "2024-04-18"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:d5286ac3-9bac-4390-973b-323d4b9cdd62",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "d5286ac3-9bac-4390-973b-323d4b9cdd62",
+        "status": "final",
+        "code": {
+          "text": "Toxin panel"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        },
+        "conclusion": "Toxin panel identified presence of hexamethylenediol, benzoate, aflatoxin, fuminosin, mold toxins, and heavy metals including chromium 6 and cadmium, as well as lindane, mercury, phthalates, and nitrosamine."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:b03862de-ffe4-45ca-bad3-d30287b74a81",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "b03862de-ffe4-45ca-bad3-d30287b74a81",
+        "status": "final",
+        "code": {
+          "text": "NAD test"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        },
+        "conclusion": "NAD test results were reported as normal."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:98c5f388-c388-468b-b102-4fd6214877b0",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "98c5f388-c388-468b-b102-4fd6214877b0",
+        "status": "final",
+        "code": {
+          "text": "Circulating tumor cells and cell-free DNA testing"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        },
+        "conclusion": "Elevated levels of circulating tumor cells and cell-free DNA were noted."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e80bc251-35f4-4da4-b1ed-3d9b7e028bcd",
+      "resource": {
+        "resourceType": "CarePlan",
+        "id": "e80bc251-35f4-4da4-b1ed-3d9b7e028bcd",
+        "status": "active",
+        "intent": "plan",
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        },
+        "description": "Management plan addressing toxin exposure and gene binding (ozone therapy, extracorporeal blood oxygenation and ozonation (EBO2), binders such as Quicksilver UltraBinder, and liposomal glutathione); mitochondrial dysfunction (EBO2 treatment and IV phosphatidylcholine therapy); elevated circulating tumor cells and cell-free DNA (RGCC testing such as OncoDeclare and Oncotrace); detoxification and health optimization (infrared sauna 3-4 times per week and consideration of red light therapy); monitoring of prior stem cell and ozone treatments, and future cancer testing and prevention using available assays."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:f0e8d3b7-c481-4a8c-838f-8a41a4ccc809",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "f0e8d3b7-c481-4a8c-838f-8a41a4ccc809",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "exam",
+                "display": "Exam"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Physical examination"
+        },
+        "subject": {
+          "reference": "Patient/864c9879-bdd7-487f-9fc2-41801d89b4cf"
+        },
+        "encounter": {
+          "reference": "Encounter/3deb724d-5d5d-4185-9944-ec9eb1582aa0"
+        },
+        "effectiveDateTime": "2024-04-18",
+        "valueString": "Physical examination deferred due to nature of telemedicine visit."
+      }
+    }
+  ]
+}

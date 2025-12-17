@@ -1,0 +1,316 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:5f881bd9-7ea0-40b2-8a2f-18a77bb11071",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "5f881bd9-7ea0-40b2-8a2f-18a77bb11071",
+        "gender": "female"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:1a9ca566-0f41-4b96-867d-36aec5f0477c",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "1a9ca566-0f41-4b96-867d-36aec5f0477c",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "period": {
+          "start": "2023-06-22"
+        },
+        "reasonCode": [
+          {
+            "text": "Right knee pain"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:54b98c59-aced-498d-8a31-a29310d42403",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "54b98c59-aced-498d-8a31-a29310d42403",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "period": {
+          "start": "2021-11-17"
+        },
+        "reasonCode": [
+          {
+            "text": "Right knee pain"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:20864d34-5642-47bf-9d39-e7e8c503786a",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "20864d34-5642-47bf-9d39-e7e8c503786a",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis",
+                "display": "Encounter Diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "M17.11",
+              "display": "Unilateral primary osteoarthritis, right knee"
+            }
+          ],
+          "text": "Primary osteoarthritis of right knee"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/54b98c59-aced-498d-8a31-a29310d42403"
+        },
+        "recordedDate": "2021-11-17"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:dd35fd21-e3e2-41b5-9d07-332efd67d224",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "dd35fd21-e3e2-41b5-9d07-332efd67d224",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8302-2",
+              "display": "Body height"
+            }
+          ],
+          "text": "Body height"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/1a9ca566-0f41-4b96-867d-36aec5f0477c"
+        },
+        "effectiveDateTime": "2023-06-22",
+        "valueString": "5 ft 9 in"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6cdda0a7-7075-4508-9c41-8e490e908101",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "6cdda0a7-7075-4508-9c41-8e490e908101",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            }
+          ],
+          "text": "Body weight"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/1a9ca566-0f41-4b96-867d-36aec5f0477c"
+        },
+        "effectiveDateTime": "2023-06-22",
+        "valueString": "213.6 lb"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c1f77a5-6972-43cf-b41f-4c118f9576ec",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "5c1f77a5-6972-43cf-b41f-4c118f9576ec",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "39156-5",
+              "display": "Body mass index (BMI) [Ratio]"
+            }
+          ],
+          "text": "Body mass index (BMI) [Ratio]"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/1a9ca566-0f41-4b96-867d-36aec5f0477c"
+        },
+        "effectiveDateTime": "2023-06-22",
+        "valueString": "31.5"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:529ab254-d62c-4724-a9a7-afda48aa6395",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "529ab254-d62c-4724-a9a7-afda48aa6395",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "exam",
+                "display": "Exam"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "Right knee musculoskeletal examination"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/1a9ca566-0f41-4b96-867d-36aec5f0477c"
+        },
+        "effectiveDateTime": "2023-06-22",
+        "valueString": "Right knee: joint line tenderness medially; mild effusion; range of motion reduced but functional; stability preserved; antalgic gait reported."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8f1c96d2-b1e4-48f1-b598-4a0e0b103b7d",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "8f1c96d2-b1e4-48f1-b598-4a0e0b103b7d",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                "code": "RAD",
+                "display": "Radiology"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "363874003",
+              "display": "Plain x-ray of knee (procedure)"
+            }
+          ],
+          "text": "X-ray of right knee, 4 or more views"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/54b98c59-aced-498d-8a31-a29310d42403"
+        },
+        "effectiveDateTime": "2021-11-17",
+        "conclusion": "Radiographs of the right knee demonstrate degenerative changes consistent with osteoarthritis, including joint space narrowing and osteophyte formation."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6ef335bc-4c1b-40e7-a620-4d723f3c6ec7",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "6ef335bc-4c1b-40e7-a620-4d723f3c6ec7",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "73564",
+              "display": "Radiologic examination, knee; complete, 4 or more views"
+            }
+          ],
+          "text": "X-ray of right knee, complete, 4 or more views"
+        },
+        "subject": {
+          "reference": "Patient/5f881bd9-7ea0-40b2-8a2f-18a77bb11071"
+        },
+        "encounter": {
+          "reference": "Encounter/54b98c59-aced-498d-8a31-a29310d42403"
+        },
+        "performedDateTime": "2021-11-17"
+      }
+    }
+  ]
+}

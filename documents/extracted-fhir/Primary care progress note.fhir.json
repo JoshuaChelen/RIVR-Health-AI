@@ -1,0 +1,866 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1",
+        "gender": "male"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3e548985-c90f-4b90-8296-e64c3dc80f1b",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "3e548985-c90f-4b90-8296-e64c3dc80f1b",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "period": {
+          "start": "2023-08-31"
+        },
+        "reasonCode": [
+          {
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "279043006",
+                "display": "Follow-up visit"
+              }
+            ],
+            "text": "Follow-up visit for shoulder pain"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4a9eb3dd-18b7-48a9-81c0-e894334e563a",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4a9eb3dd-18b7-48a9-81c0-e894334e563a",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Chronic right shoulder pain",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "M25.511",
+              "display": "Chronic right shoulder pain"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:535f9d3d-02e4-4fa6-806c-0d118d45d3ef",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "535f9d3d-02e4-4fa6-806c-0d118d45d3ef",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Chronic pain syndrome",
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "G89.29",
+              "display": "Chronic pain syndrome"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:f676210a-870f-4d59-a662-a6cedba6f353",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "f676210a-870f-4d59-a662-a6cedba6f353",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Head region somatic dysfunction"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9ef5a242-210e-4313-a94c-20a2326021d5",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "9ef5a242-210e-4313-a94c-20a2326021d5",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Cervical segment dysfunction"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c941ab6e-4d48-4841-bc0f-347b6887b173",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "c941ab6e-4d48-4841-bc0f-347b6887b173",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Rib cage somatic dysfunction"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e18c1342-5ce2-4e25-a2d4-dc7b7b095baf",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "e18c1342-5ce2-4e25-a2d4-dc7b7b095baf",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Segmental and somatic dysfunction of thoracic region"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:bd39390d-60bb-4e3e-a4c1-84e18fd3da86",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "bd39390d-60bb-4e3e-a4c1-84e18fd3da86",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Segmental and somatic dysfunction of lumbar region"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:13627b65-17f6-4d79-8863-aaf0797a69d1",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "13627b65-17f6-4d79-8863-aaf0797a69d1",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Segmental and somatic dysfunction of sacral region"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4e78b484-2a64-44ed-96ca-60116b3c0bc5",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4e78b484-2a64-44ed-96ca-60116b3c0bc5",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Segmental and somatic dysfunction of abdomen and other regions"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:9c1d51d7-3893-4e8c-88cf-cad210d7bbb6",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "9c1d51d7-3893-4e8c-88cf-cad210d7bbb6",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Somatic dysfunction of upper extremities"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e87438a7-81f8-4278-a732-75cf99cf1b82",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "e87438a7-81f8-4278-a732-75cf99cf1b82",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Somatic dysfunction of lower extremities"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:b4f3a0ba-c8a5-4ebb-a85a-1c5445729537",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "b4f3a0ba-c8a5-4ebb-a85a-1c5445729537",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Chronic right medial knee pain"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4c902001-1380-4198-bb5e-d046beac4e82",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4c902001-1380-4198-bb5e-d046beac4e82",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "text": "Muscle hypertrophy"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a2c8b16d-c77d-40d8-8dcc-1b149ec39418",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a2c8b16d-c77d-40d8-8dcc-1b149ec39418",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8480-6",
+              "display": "Systolic blood pressure"
+            }
+          ],
+          "text": "Systolic blood pressure"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 130,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:44351550-3a4c-4100-a5a4-acb99dec81fe",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "44351550-3a4c-4100-a5a4-acb99dec81fe",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8462-4",
+              "display": "Diastolic blood pressure"
+            }
+          ],
+          "text": "Diastolic blood pressure"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 76,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c570a64-4ec0-44a9-ba1b-7f2291f44563",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "5c570a64-4ec0-44a9-ba1b-7f2291f44563",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 54,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:0e3394b0-d1c4-414d-b147-a9262e9c9bd9",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "0e3394b0-d1c4-414d-b147-a9262e9c9bd9",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "59408-5",
+              "display": "Oxygen saturation in Arterial blood by Pulse oximetry"
+            }
+          ],
+          "text": "Oxygen saturation in Arterial blood by Pulse oximetry"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 99,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:b296b59f-51a5-4b7c-b300-bb3621b6f49a",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "b296b59f-51a5-4b7c-b300-bb3621b6f49a",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8302-2",
+              "display": "Body height"
+            }
+          ],
+          "text": "Body height"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 180.3,
+          "unit": "cm",
+          "system": "http://unitsofmeasure.org",
+          "code": "cm"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e94bda18-73a1-4dff-bd23-c2fb2b1f43ca",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "e94bda18-73a1-4dff-bd23-c2fb2b1f43ca",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            }
+          ],
+          "text": "Body weight"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 90.7,
+          "unit": "kg",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3474015e-0975-4f41-9462-b4b207146f6e",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "3474015e-0975-4f41-9462-b4b207146f6e",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "39156-5",
+              "display": "Body mass index (BMI) [Ratio]"
+            }
+          ],
+          "text": "Body mass index (BMI) [Ratio]"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 27.89,
+          "unit": "kg/m2",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg/m2"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:3e48b1bd-17de-48a4-9ce3-469efa7a4403",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "3e48b1bd-17de-48a4-9ce3-469efa7a4403",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "72514-3",
+              "display": "Pain severity - 0-10 verbal numeric rating [Score] - Reported"
+            }
+          ],
+          "text": "Pain severity - 0-10 verbal numeric rating [Score] - Reported"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-31",
+        "valueQuantity": {
+          "value": 4,
+          "unit": "{score}",
+          "system": "http://unitsofmeasure.org",
+          "code": "{score}"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c4875a5e-7cb9-4db1-ada0-218b6ecb2c5b",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "c4875a5e-7cb9-4db1-ada0-218b6ecb2c5b",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                "code": "RAD",
+                "display": "Radiology"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "text": "MRI of right knee"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "effectiveDateTime": "2023-08-18",
+        "conclusion": "Moderate medial compartment osteoarthritis with degenerative complex tear of medial meniscus (right knee)."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:1e940881-9ac5-4da2-af34-c75864f2c542",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "1e940881-9ac5-4da2-af34-c75864f2c542",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "410590009",
+              "display": "Osteopathic manipulation (procedure)"
+            }
+          ],
+          "text": "Osteopathic manipulative treatment to head, cervical, thoracic, rib, lumbar, sacral, upper and lower extremity, and abdominal regions"
+        },
+        "subject": {
+          "reference": "Patient/f7cd51bf-3370-4d03-b7d4-8cf2f2a0c9d1"
+        },
+        "encounter": {
+          "reference": "Encounter/3e548985-c90f-4b90-8296-e64c3dc80f1b"
+        },
+        "performedDateTime": "2023-08-31"
+      }
+    }
+  ]
+}
