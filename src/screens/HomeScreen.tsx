@@ -1,8 +1,9 @@
 // src/screens/HomeScreen.tsx
 import React from "react";
-import { View, Button } from "react-native";
+import { View, Button, StyleSheet } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
+import { supabase } from "../lib/supabase";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
@@ -13,6 +14,19 @@ export function HomeScreen({ navigation }: Props) {
         title="Share a document"
         onPress={() => navigation.navigate("ShareFile")}
       />
+
+      <Button
+        title="See all documents"
+        onPress={() => navigation.navigate("DocumentsList")}
+      />
+      
+      <Button
+        title = "Logout"
+        onPress = {async () =>{
+          await supabase.auth.signOut();
+        }}
+      />
+
     </View>
   );
 }
