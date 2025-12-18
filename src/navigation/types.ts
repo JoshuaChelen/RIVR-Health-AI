@@ -3,4 +3,5 @@ export type RootStackParamList = {
   Home: undefined;
   Details: { id: string } | undefined;
   ShareFile: undefined
+  DocumentsList: undefined
 };
