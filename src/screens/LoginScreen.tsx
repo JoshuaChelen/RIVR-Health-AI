@@ -3,8 +3,8 @@ import { View, Text, TextInput, Button } from "react-native";
 import { supabase } from "../lib/supabase";
 
 export function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("guest@email.com");
+  const [password, setPassword] = useState("123");
   const [error, setError] = useState<string | null>(null);
 
   const signIn = async () => {
@@ -15,6 +15,8 @@ export function LoginScreen() {
 
     if (error) setError(error.message);
   };
+
+  
 
   return (
     <View style={{ padding: 16, gap: 12 }}>
