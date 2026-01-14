@@ -11,21 +11,17 @@ export function HomeScreen({ navigation }: Props) {
   
   return (
     <View style={{ padding: 16 }}>
-      <Button
-        title="See all documents"
-        onPress={() => navigation.navigate("DocumentsList")}
-      />
+      
       
       <Button
         title="Share a document"
-        onPress={() => navigation.navigate("ShareSelectDocument")}
+        onPress={() => navigation.navigate("Share")}
       />
 
       <Button
-        title="Debug Storage"
-        onPress={() => navigation.navigate("DebugStorage")}
+        title = "Timeline Page"
+        onPress={() => navigation.navigate("Timeline")}
       />
-
 
       <Button
         title = "Logout"
