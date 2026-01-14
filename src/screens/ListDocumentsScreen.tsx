@@ -9,7 +9,7 @@ type DocRow = {
   status: string | null;
 };
 
-export function DocumentsListScreen() {
+export function ListDocumentsScreen() {
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 

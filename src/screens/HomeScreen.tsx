@@ -18,6 +18,11 @@ export function HomeScreen({ navigation }: Props) {
         onPress={() => navigation.navigate("Share")}
       />
 
+      <Button 
+        title = "List of Documents"
+        onPress={() => navigation.navigate("ListDocuments")}
+      />
+
       <Button
         title = "Timeline Page"
         onPress={() => navigation.navigate("Timeline")}
