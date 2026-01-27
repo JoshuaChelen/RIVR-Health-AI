@@ -2,10 +2,10 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "./appTypes"
-import {HomeScreen} from "../screens/HomeScreen"
-import { ShareScreen } from "../screens/ShareScreen";
-import { TimelineScreen } from "../screens/TimelineScreen";
-import { ListDocumentsScreen } from "../screens/ListDocumentsScreen";
+import {HomeScreen} from "../screens/App/HomeScreen"
+import { ShareScreen } from "../screens/App/ShareScreen";
+import { TimelineScreen } from "../screens/App/TimelineScreen";
+import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -14,7 +14,7 @@ export function AppNavigator() {
   return (
     <Stack.Navigator initialRouteName="Home">
       <Stack.Screen name="Home" component={HomeScreen}/>
-      <Stack.Screen name="ListDocuments" component={ListDocumentsScreen}/>
+      <Stack.Screen name="ManageDocuments" component={ManageDocumentsScreen}/>
       <Stack.Screen name="Share" component={ShareScreen}/>
       <Stack.Screen name="Timeline" component={TimelineScreen} />
     </Stack.Navigator>

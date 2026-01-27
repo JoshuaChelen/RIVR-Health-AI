@@ -10,15 +10,15 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
-import { supabase } from "../lib/supabase";
-import { createSignedFileUrl } from "../lib/storage";
+import { supabase } from "../../lib/supabase";
+import { createSignedFileUrl } from "../../lib/storage";
 
 import {
   ShareFileType,
   ShareFormatToggle,
-} from "../components/ui/ShareScreen/ShareFormatToggle";
-import { SelectableDocRow } from "../components/ui/ShareScreen/SelectableDocRow";
-import { ShareItemCard } from "../components/ui/ShareScreen/ShareItemCard";
+} from "../../components/ui/ShareScreen/ShareFormatToggle";
+import { SelectableDocRow } from "../../components/ui/ShareScreen/SelectableDocRow";
+import { ShareItemCard } from "../../components/ui/ShareScreen/ShareItemCard";
 
 type DocRow = {
   id: string;

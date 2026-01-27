@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList } from "react-native";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 type DocRow = {
   id: string;
@@ -9,7 +9,7 @@ type DocRow = {
   status: string | null;
 };
 
-export function ListDocumentsScreen() {
+export function ManageDocumentsScreen() {
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 

@@ -2,7 +2,7 @@
 export type AppStackParamList = {
   Home: undefined;
   Details: { id: string } | undefined;
-  ListDocuments: undefined;
+  ManageDocuments: undefined;
   Share: undefined;
   Timeline: undefined;
 };
