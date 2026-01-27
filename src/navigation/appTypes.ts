@@ -1,5 +1,5 @@
-// src/navigation/types.ts
-export type RootStackParamList = {
+// src/navigation/appTypes.ts
+export type AppStackParamList = {
   Home: undefined;
   Details: { id: string } | undefined;
   ListDocuments: undefined;

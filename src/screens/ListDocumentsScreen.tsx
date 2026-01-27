@@ -37,7 +37,10 @@ export function ListDocumentsScreen() {
             <Text style={{ fontSize: 16, fontWeight: "600" }}>
               {item.title ?? "(untitled)"}
             </Text>
-            <Text>{item.status ?? "unknown"} • {new Date(item.created_at).toLocaleString()}</Text>
+            <Text>
+              {item.status ?? "unknown"} •{" "}
+              {new Date(item.created_at).toLocaleString()}
+            </Text>
           </View>
         )}
       />

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { supabase } from "./src/lib/supabase";
 import { AppNavigator } from "./src/navigation/AppNavigator";
-import { LoginScreen } from "./src/screens/LoginScreen";
+import { AuthNavigator } from "./src/navigation/AuthNavigator";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -23,7 +23,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      {session ? <AppNavigator /> : <LoginScreen />}
+      {session ? <AppNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }

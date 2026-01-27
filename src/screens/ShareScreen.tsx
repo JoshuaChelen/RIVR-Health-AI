@@ -13,7 +13,10 @@ import * as Clipboard from "expo-clipboard";
 import { supabase } from "../lib/supabase";
 import { createSignedFileUrl } from "../lib/storage";
 
-import { ShareFileType, ShareFormatToggle } from "../components/ui/ShareScreen/ShareFormatToggle";
+import {
+  ShareFileType,
+  ShareFormatToggle,
+} from "../components/ui/ShareScreen/ShareFormatToggle";
 import { SelectableDocRow } from "../components/ui/ShareScreen/SelectableDocRow";
 import { ShareItemCard } from "../components/ui/ShareScreen/ShareItemCard";
 
@@ -63,7 +66,9 @@ export function ShareScreen() {
   }, [docs, selectedIds]);
 
   const toggleSelected = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
   const openShare = () => setModalVisible(true);
@@ -93,12 +98,14 @@ export function ShareScreen() {
             const path = fileType === "fhir" ? row.fhir_path : row.summary_path;
 
             if (!path) {
-              throw new Error(`Missing ${fileType} path for: ${row.title ?? row.id}`);
+              throw new Error(
+                `Missing ${fileType} path for: ${row.title ?? row.id}`,
+              );
             }
 
             const signedUrl = await createSignedFileUrl(path, 60 * 10);
             return [row.id, signedUrl] as const;
-          })
+          }),
         );
 
         const next: Record<string, string> = {};
@@ -162,10 +169,16 @@ export function ShareScreen() {
       </View>
 
       {/* Modal = your old ShareOut screen, but repeated per doc */}
-      <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Sharing • {fileType.toUpperCase()}</Text>
+            <Text style={styles.modalTitle}>
+              Sharing • {fileType.toUpperCase()}
+            </Text>
             <Button title="Close" onPress={() => setModalVisible(false)} />
           </View>
 
@@ -189,7 +202,9 @@ export function ShareScreen() {
                   />
                 ) : (
                   <View key={doc.id} style={styles.missingCard}>
-                    <Text style={{ fontWeight: "700" }}>{doc.title ?? "(untitled)"}</Text>
+                    <Text style={{ fontWeight: "700" }}>
+                      {doc.title ?? "(untitled)"}
+                    </Text>
                     <Text>No link generated.</Text>
                   </View>
                 );
