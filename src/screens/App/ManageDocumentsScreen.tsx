@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList } from "react-native";
+import {  View, Text, FlatList } from "react-native";
 import { supabase } from "../../lib/supabase";
-
+import { UploadFile } from "../../components/ui/ManageDocuments/UploadFile";
 type DocRow = {
   id: string;
   title: string | null;
@@ -25,10 +25,13 @@ export function ManageDocumentsScreen() {
     })();
   }, []);
 
+ 
   return (
     <View style={{ padding: 16, gap: 12 }}>
+
       {error ? <Text>{error}</Text> : null}
 
+      <UploadFile />
       <FlatList
         data={docs}
         keyExtractor={(item) => item.id}
