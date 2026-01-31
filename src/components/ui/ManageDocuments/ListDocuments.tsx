@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList } from "react-native";
-import { supabase } from "../lib/supabase";
-
+import {  View, Text, FlatList } from "react-native";
+import { supabase } from "../../../lib/supabase";
 type DocRow = {
   id: string;
   title: string | null;
@@ -9,24 +8,38 @@ type DocRow = {
   status: string | null;
 };
 
-export function ListDocumentsScreen() {
+export function ListDocuments() {
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("documents")
-        .select("id,title,created_at,status")
-        .order("created_at", { ascending: false });
+  (async () => {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-      if (error) setError(error.message);
-      else setDocs((data ?? []) as DocRow[]);
-    })();
-  }, []);
+    if (authError || !user) {
+      setError("Not authenticated");
+      return;
+    }
 
+    const { data, error } = await supabase
+      .from("documents")
+      .select("id,title,created_at,status")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) setError(error.message);
+    else setDocs((data ?? []) as DocRow[]);
+  })();
+}, []);
+
+
+ 
   return (
     <View style={{ padding: 16, gap: 12 }}>
+
       {error ? <Text>{error}</Text> : null}
 
       <FlatList
