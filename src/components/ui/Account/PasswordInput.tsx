@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, TextInputProps } from "react-native";
+import { TextInputProps } from "react-native";
+import { TextField, SmallTextButton } from "../Primitives/TextField";
 
 interface PasswordInputProps extends TextInputProps {
   value: string;
@@ -10,27 +11,23 @@ interface PasswordInputProps extends TextInputProps {
 export function PasswordInput({
   value,
   onChangeText,
-  label = "Enter Password",
+  label = "Password",
   ...props
 }: PasswordInputProps) {
-  const [showPassword, setShowPassword] = useState(false);
+  const [show, setShow] = useState(false);
 
   return (
-    <View style={{ gap: 4 }}>
-      <Text>{label}</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <TextInput
-          secureTextEntry={!showPassword}
-          value={value}
-          onChangeText={onChangeText}
-          style={{ borderWidth: 1, padding: 8, flex: 1 }}
-          {...props}
-        />
-        <Button
-          title={showPassword ? "Hide" : "Show"}
-          onPress={() => setShowPassword(prev => !prev)}
-        />
-      </View>
-    </View>
+    <TextField
+      label={label}
+      value={value}
+      onChangeText={onChangeText}
+      secureTextEntry={!show}
+      placeholder="Enter password"
+      autoCapitalize="none"
+      rightAccessory={
+        <SmallTextButton label={show ? "Hide" : "Show"} onPress={() => setShow((p) => !p)} />
+      }
+      {...props}
+    />
   );
 }

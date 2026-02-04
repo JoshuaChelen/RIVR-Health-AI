@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, TextInput, TextInputProps } from "react-native";
+import { TextInputProps } from "react-native";
+import { TextField } from "../Primitives/TextField";
 
 interface EmailInputProps extends TextInputProps {
   value: string;
@@ -7,22 +8,16 @@ interface EmailInputProps extends TextInputProps {
   label?: string;
 }
 
-export function EmailInput({
-  value,
-  onChangeText,
-  label = "Email",
-  ...props
-}: EmailInputProps) {
+export function EmailInput({ value, onChangeText, label = "Email", ...props }: EmailInputProps) {
   return (
-    <View style={{ gap: 4 }}>
-      <Text>{label}</Text>
-      <TextInput
-        autoCapitalize="none"
-        value={value}
-        onChangeText={onChangeText}
-        style={{ borderWidth: 1, padding: 8 }}
-        {...props}
-      />
-    </View>
+    <TextField
+      label={label}
+      autoCapitalize="none"
+      keyboardType="email-address"
+      value={value}
+      onChangeText={onChangeText}
+      placeholder="email@address.com"
+      {...props}
+    />
   );
 }

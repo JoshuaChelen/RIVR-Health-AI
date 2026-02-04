@@ -1,18 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
-  Text,
   FlatList,
-  StyleSheet,
-  Button,
   Modal,
   ScrollView,
+  StyleSheet,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
 import { supabase } from "../../lib/supabase";
 import { createSignedFileUrl } from "../../lib/storage";
 
+// Primitives
+import { AppText } from "../../components/ui/Primitives/AppText";
+import { Card } from "../../components/ui/Primitives/Card";
+import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
+
+// UI Components
 import {
   ShareFileType,
   ShareFormatToggle,
@@ -37,15 +41,11 @@ type DocPathsRow = {
 export function ShareScreen() {
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-
   const [fileType, setFileType] = useState<ShareFileType>("card");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-
-  // id -> signed url
   const [urls, setUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -73,10 +73,8 @@ export function ShareScreen() {
 
   const openShare = () => setModalVisible(true);
 
-  // Generate links whenever modal opens (or selection/type changes while open)
   useEffect(() => {
-    if (!modalVisible) return;
-    if (selectedIds.length === 0) return;
+    if (!modalVisible || selectedIds.length === 0) return;
 
     (async () => {
       try {
@@ -90,19 +88,12 @@ export function ShareScreen() {
           .in("id", selectedIds);
 
         if (error) throw error;
-
         const rows = (data ?? []) as DocPathsRow[];
 
         const pairs = await Promise.all(
           rows.map(async (row) => {
             const path = fileType === "fhir" ? row.fhir_path : row.summary_path;
-
-            if (!path) {
-              throw new Error(
-                `Missing ${fileType} path for: ${row.title ?? row.id}`,
-              );
-            }
-
+            if (!path) throw new Error(`Missing ${fileType} path for: ${row.title ?? row.id}`);
             const signedUrl = await createSignedFileUrl(path, 60 * 10);
             return [row.id, signedUrl] as const;
           }),
@@ -110,7 +101,6 @@ export function ShareScreen() {
 
         const next: Record<string, string> = {};
         for (const [id, url] of pairs) next[id] = url;
-
         setUrls(next);
       } catch (e: any) {
         setShareError(e?.message ?? "Failed to create share link(s).");
@@ -135,11 +125,12 @@ export function ShareScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.h1}>Share</Text>
+      {/* Polish: Replaced style with variant="h1" */}
+      <AppText variant="h1">Share</AppText>
 
       <ShareFormatToggle value={fileType} onChange={setFileType} />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <AppText style={{ color: "red" }}>{error}</AppText> : null}
 
       <FlatList
         data={docs}
@@ -147,18 +138,22 @@ export function ShareScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         contentContainerStyle={{ paddingBottom: 12 }}
         renderItem={({ item }) => (
-          <SelectableDocRow
-            title={item.title ?? "(untitled)"}
-            subtitle={`${item.status ?? "unknown"} • ${new Date(item.created_at).toLocaleString()}`}
-            selected={selectedIds.includes(item.id)}
-            onToggle={() => toggleSelected(item.id)}
-          />
+          /* Polish: Wrap list rows in Card */
+          <Card>
+            <SelectableDocRow
+              title={item.title ?? "(untitled)"}
+              subtitle={`${item.status ?? "unknown"} • ${new Date(item.created_at).toLocaleDateString()}`}
+              selected={selectedIds.includes(item.id)}
+              onToggle={() => toggleSelected(item.id)}
+            />
+          </Card>
         )}
       />
 
       <View style={styles.bottom}>
-        <Button
-          title={
+        {/* Polish: Replaced Button with PrimaryButton */}
+        <PrimaryButton
+          label={
             selectedIds.length > 0
               ? `Share ${selectedIds.length} document${selectedIds.length === 1 ? "" : "s"}`
               : "Select at least 1 document"
@@ -168,7 +163,6 @@ export function ShareScreen() {
         />
       </View>
 
-      {/* Modal = your old ShareOut screen, but repeated per doc */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -176,37 +170,39 @@ export function ShareScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
+            <AppText variant="title">
               Sharing • {fileType.toUpperCase()}
-            </Text>
-            <Button title="Close" onPress={() => setModalVisible(false)} />
+            </AppText>
+            {/* Modal close often looks better as a subtle button or icon, but sticking to PrimaryButton for now */}
+            <PrimaryButton label="Close" onPress={() => setModalVisible(false)} style={{ width: 80 }} />
           </View>
 
-          {shareError ? <Text style={styles.error}>{shareError}</Text> : null}
+          {shareError ? <AppText style={{ color: "red" }}>{shareError}</AppText> : null}
 
           <View style={{ marginBottom: 10 }}>
-            <Button title="Copy all links" onPress={copyAll} />
+            <PrimaryButton label="Copy all links" onPress={copyAll} />
           </View>
 
           {shareLoading ? (
-            <Text>Generating link(s)…</Text>
+            <AppText>Generating link(s)…</AppText>
           ) : (
             <ScrollView style={{ flex: 1 }}>
               {selectedDocs.map((doc) => {
                 const url = urls[doc.id];
                 return url ? (
-                  <ShareItemCard
-                    key={doc.id}
-                    title={doc.title ?? "(untitled)"}
-                    url={url}
-                  />
+                  /* Polish: Wrap ShareItemCard in Card */
+                  <Card style={{ marginBottom: 12 }} key={doc.id}>
+                    <ShareItemCard
+                      title={doc.title ?? "(untitled)"}
+                      url={url}
+                    />
+                  </Card>
                 ) : (
-                  <View key={doc.id} style={styles.missingCard}>
-                    <Text style={{ fontWeight: "700" }}>
-                      {doc.title ?? "(untitled)"}
-                    </Text>
-                    <Text>No link generated.</Text>
-                  </View>
+                  /* Polish: Replaced manual border View with Card */
+                  <Card key={doc.id} style={{ marginBottom: 12 }}>
+                    <AppText variant="title">{doc.title ?? "(untitled)"}</AppText>
+                    <AppText variant="caption">No link generated.</AppText>
+                  </Card>
                 );
               })}
             </ScrollView>
@@ -219,24 +215,12 @@ export function ShareScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, gap: 12 },
-  h1: { fontSize: 18, fontWeight: "800" },
-  error: { color: "red" },
-
   bottom: { paddingTop: 6 },
-
   modalContainer: { flex: 1, padding: 16, gap: 12 },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  modalTitle: { fontSize: 16, fontWeight: "800" },
-
-  missingCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    gap: 6,
-    marginBottom: 12,
-  },
+    marginBottom: 10
+  }
 });
