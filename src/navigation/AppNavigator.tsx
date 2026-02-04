@@ -1,21 +1,30 @@
-// src/navigation/AppNavigator.tsx
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import type { AppStackParamList } from "./appTypes"
-import {HomeScreen} from "../screens/App/HomeScreen"
+import type { AppStackParamList } from "./appTypes";
+import { HomeScreen } from "../screens/App/HomeScreen";
 import { ShareScreen } from "../screens/App/ShareScreen";
 import { TimelineScreen } from "../screens/App/TimelineScreen";
 import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
+// New import for styling tokens
+import { colors } from "../theme/tokens";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export function AppNavigator() {
-  
   return (
-    <Stack.Navigator initialRouteName="Home">
-      <Stack.Screen name="Home" component={HomeScreen}/>
-      <Stack.Screen name="ManageDocuments" component={ManageDocumentsScreen}/>
-      <Stack.Screen name="Share" component={ShareScreen}/>
+    <Stack.Navigator
+      initialRouteName="Home"
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bg },
+        headerShadowVisible: false,
+        headerTitleStyle: { fontSize: 15, fontWeight: "800", color: colors.text },
+        headerTintColor: colors.text,
+        contentStyle: { backgroundColor: colors.bg },
+      }}
+    >
+      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="ManageDocuments" component={ManageDocumentsScreen} />
+      <Stack.Screen name="Share" component={ShareScreen} />
       <Stack.Screen name="Timeline" component={TimelineScreen} />
     </Stack.Navigator>
   );

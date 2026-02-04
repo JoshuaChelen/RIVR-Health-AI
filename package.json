@@ -15,7 +15,7 @@
     "base64-arraybuffer": "^1.0.2",
     "expo": "~54.0.25",
     "expo-clipboard": "~8.0.8",
-    "expo-document-picker": "^14.0.8",
+    "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.21",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",

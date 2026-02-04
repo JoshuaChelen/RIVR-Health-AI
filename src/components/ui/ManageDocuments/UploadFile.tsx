@@ -1,12 +1,16 @@
 import React, { useState } from "react";
-import { Button, View, Text } from "react-native";
 import { supabase } from "../../../lib/supabase";
 import * as DocumentPicker from "expo-document-picker";
+
+// Import Primitives
+import { Card } from "../Primitives/Card";
+import { AppText } from "../Primitives/AppText";
+import { PrimaryButton } from "../Primitives/PrimaryButton";
 
 async function insertDocumentRow(params: {
   userId: string;
   title: string;
-  pdfPath: string; // path AFTER the user uuid prefix
+  pdfPath: string;
 }) {
   const { data, error } = await supabase
     .from("documents")
@@ -15,7 +19,7 @@ async function insertDocumentRow(params: {
         user_id: params.userId,
         title: params.title,
         pdf_path: params.pdfPath,
-        status: "uploaded", // change if you want: "processing", etc.
+        status: "uploaded",
       },
     ])
     .select()
@@ -41,12 +45,8 @@ export function UploadFile() {
     try {
       setBusy(true);
       setStatus("Reading file…");
-
       const asset = picked_files.assets[0];
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) throw new Error("User not authenticated");
 
@@ -54,8 +54,6 @@ export function UploadFile() {
       const fileBlob = await response.blob();
 
       setStatus("Uploading file…");
-
-      // Full storage object path (includes uuid)
       const storageObjectPath = `${user.id}/medical-documents/${asset.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -68,8 +66,6 @@ export function UploadFile() {
       if (uploadError) throw uploadError;
 
       setStatus("Creating document row…");
-
-      // Everything AFTER the uuid prefix
       const pdfPath = `medical-documents/${asset.name}`;
 
       await insertDocumentRow({
@@ -87,13 +83,15 @@ export function UploadFile() {
   };
 
   return (
-    <View style={{ padding: 16, gap: 12 }}>
-      <Button
-        title={busy ? "Busy…" : "Upload Document"}
+    <Card style={{ gap: 10 }}>
+      <AppText variant="title">Upload PDF</AppText>
+      <AppText variant="caption">Status: {status}</AppText>
+
+      <PrimaryButton
+        label={busy ? "Uploading..." : "Upload Document"}
         onPress={pickAndUpload}
         disabled={busy}
       />
-      <Text>Status: {status}</Text>
-    </View>
+    </Card>
   );
 }
