@@ -3,10 +3,10 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { ActionCard } from "../../components/ui/ActionCard";
-import { TimelineCard } from "../../components/ui/TimelineCard";
-import { SectionHeader } from "../../components/ui/SectionHeader";
-import { MonthDivider } from "../../components/ui/MonthDivider";
+import { ActionCard } from "../../components/ui/Timeline/ActionCard";
+import { TimelineCard } from "../../components/ui/Timeline/TimelineCard";
+import { SectionHeader } from "../../components/ui/Timeline/SectionHeader";
+import { MonthDivider } from "../../components/ui/Timeline/MonthDivider";
 type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
 
 export function TimelineScreen({ route }: Props) {
