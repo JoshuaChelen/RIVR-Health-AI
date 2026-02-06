@@ -102,7 +102,7 @@ export function LoginScreen({ navigation }: Props) {
                 )}
 
                 <View style={styles.rowBetween}>
-                  <Pressable onPress={() => Alert.alert("Reset Password", "Check your email for a reset link.")}>
+                  <Pressable onPress={() => navigation.navigate("ForgotPassword")}>
                     <AppText variant="caption" style={styles.link}>Forgot password?</AppText>
                   </Pressable>
 
