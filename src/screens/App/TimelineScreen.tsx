@@ -175,7 +175,7 @@ export function TimelineScreen({ navigation }: Props) {
                 included={ev.included_in_previsit}
                 onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
                 onPress={() => navigation.navigate("Details", { id: ev.id })}
-                onPressEdit={() => {}}
+                
               />
             );
           })
