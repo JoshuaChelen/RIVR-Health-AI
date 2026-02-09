@@ -1,87 +1,186 @@
 // src/screens/TimelineScreen.tsx
-import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
+
+import { supabase } from "../../lib/supabase";
 import { ActionCard } from "../../components/ui/Timeline/ActionCard";
 import { TimelineCard } from "../../components/ui/Timeline/TimelineCard";
 import { SectionHeader } from "../../components/ui/Timeline/SectionHeader";
 import { MonthDivider } from "../../components/ui/Timeline/MonthDivider";
+import { colors } from "../../theme/tokens";
+
 type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
 
-export function TimelineScreen({ route }: Props) {
+type DatePrecision = "day" | "month" | "year";
+
+type TimelineEventRow = {
+  id: string;
+  occurred_at: string; // YYYY-MM-DD
+  date_precision: DatePrecision;
+  title: string;
+  event_type: string;
+  category: string;
+  source: string;
+  summary: string;
+  included_in_previsit: boolean;
+};
+
+type RenderRow =
+  | { kind: "month"; key: string; label: string }
+  | { kind: "event"; key: string; event: TimelineEventRow };
+
+// 1. Update function signature to include navigation
+export function TimelineScreen({ navigation }: Props) {
+  const [events, setEvents] = useState<TimelineEventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = async () => {
+    setErr(null);
+    try {
+      const { data, error } = await supabase
+        .from("timeline_events")
+        .select(
+          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit"
+        )
+        .order("occurred_at", { ascending: false });
+
+      if (error) throw error;
+      setEvents((data ?? []) as TimelineEventRow[]);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load timeline.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const rows: RenderRow[] = useMemo(() => {
+    const out: RenderRow[] = [];
+    let lastMonthKey: string | null = null;
+
+    for (const ev of events) {
+      const monthKey = monthBucketKey(ev.occurred_at, ev.date_precision);
+      if (monthKey !== lastMonthKey) {
+        out.push({
+          kind: "month",
+          key: `m-${monthKey}`,
+          label: monthDividerLabel(ev.occurred_at, ev.date_precision),
+        });
+        lastMonthKey = monthKey;
+      }
+
+      out.push({ kind: "event", key: `e-${ev.id}`, event: ev });
+    }
+
+    return out;
+  }, [events]);
+
+  const onToggleIncluded = async (eventId: string, next: boolean) => {
+    // optimistic UI
+    setEvents((prev) =>
+      prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: next } : e))
+    );
+
+    const { error } = await supabase
+      .from("timeline_events")
+      .update({ included_in_previsit: next })
+      .eq("id", eventId);
+
+    if (error) {
+      // revert if failed
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId ? { ...e, included_in_previsit: !next } : e
+        )
+      );
+    }
+  };
+
   return (
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            load();
+          }}
+        />
+      }
     >
       <SectionHeader title="Health Timeline" />
 
-      <MonthDivider label={"October 2025"} />
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.teal} />
+          <Text style={styles.muted}>Loading timeline...</Text>
+        </View>
+      ) : null}
 
-      <TimelineCard
-        categoryPill={{ label: "Lifestyle", tone: "pink" }}
-        sourcePill={{ label: "AI Guided", tone: "gray" }}
-        leadingIcon={
-          <Text style={{ color: "#BE185D", fontWeight: "900" }}>♥</Text>
-        }
-        title="Physical Activity Increase"
-        dateLabel="October 22, 2025"
-        report="Average daily steps increased from 4,800 to 7,200 over the past month..."
-        included={true}
-        onToggleIncluded={() => {}}
-        onPressEdit={() => {}}
-      />
+      {err ? (
+        <Text style={[styles.muted, { color: colors.danger }]}>{err}</Text>
+      ) : null}
 
-      <MonthDivider label={"November 2025"} />
+      {!loading && !err && rows.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyTitle}>No timeline events yet</Text>
+          <Text style={styles.muted}>
+            Upload a document or add a manual entry to get started.
+          </Text>
+        </View>
+      ) : null}
 
-      <TimelineCard
-        categoryPill={{ label: "Vitals", tone: "green" }}
-        sourcePill={{ label: "Document Upload", tone: "gray" }}
-        leadingIcon={
-          <Text style={{ color: "#15803D", fontWeight: "900" }}>∿</Text>
-        }
-        title="Blood Glucose Summary"
-        dateLabel="November 6, 2025"
-        report="Fasting glucose from recent lab panel measured at 94 mg/dL..."
-        included={false}
-        onToggleIncluded={() => {}}
-        onPressEdit={() => {}}
-      />
+      {!loading && !err
+        ? rows.map((row) => {
+            if (row.kind === "month") {
+              return <MonthDivider key={row.key} label={row.label} />;
+            }
 
-      <TimelineCard
-        categoryPill={{ label: "Vitals", tone: "green" }}
-        sourcePill={{ label: "Manual Entry", tone: "gray" }}
-        leadingIcon={
-          <Text style={{ fontWeight: "900", color: "#B45309" }}>∿</Text>
-        }
-        title="Weight Measurement"
-        dateLabel="November 17, 2025"
-        report="Current weight: 165 lbs (down from 172 in June)..."
-        included={true}
-        onToggleIncluded={() => {}}
-        onPressEdit={() => {}}
-      />
+            const ev = row.event;
+            const pillTone = categoryToTone(ev.category);
+            const sourceLabel = sourceToLabel(ev.source);
+            const icon = categoryToIcon(ev.category);
 
-      <MonthDivider label="December 2025" />
-
-      <TimelineCard
-        categoryPill={{ label: "Medications", tone: "blue" }}
-        sourcePill={{ label: "Manual Entry", tone: "gray" }}
-        leadingIcon={
-          <Text style={{ color: "#0369A1", fontWeight: "900" }}>⚕</Text>
-        }
-        title="Medication Adherence Check"
-        dateLabel="December 3, 2025"
-        report="Continued adherence to prescribed blood pressure medication..."
-        included={true}
-        onToggleIncluded={() => {}}
-        onPressEdit={() => {}}
-      />
+            return (
+              <TimelineCard
+                key={row.key}
+                categoryPill={{ label: ev.category, tone: pillTone }}
+                sourcePill={{ label: sourceLabel, tone: "gray" }}
+                leadingIcon={icon}
+                title={ev.title}
+                dateLabel={formatEventDate(ev.occurred_at, ev.date_precision)}
+                report={ev.summary}
+                included={ev.included_in_previsit}
+                onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
+                // 2. Add the onPress navigation handler
+                onPress={() => navigation.navigate("Details", { id: ev.id })}
+                onPressEdit={() => {
+                   // later: open edit modal
+                }}
+              />
+            );
+          })
+        : null}
 
       <SectionHeader title="Action Needed" />
 
-      {/* Action section grid */}
       <View style={styles.actionGrid}>
         <ActionCard
           title="Add Recent Lab Results"
@@ -90,7 +189,7 @@ export function TimelineScreen({ route }: Props) {
           icon={<Text>⬇️</Text>}
           ctaLabel="Add Labs"
           onPress={() => {}}
-          accentColor="#22c55e"
+          accentColor={colors.teal}
           containerStyle={styles.card}
         />
 
@@ -101,7 +200,7 @@ export function TimelineScreen({ route }: Props) {
           icon={<Text>🌙</Text>}
           ctaLabel="Add Sleep Data"
           onPress={() => {}}
-          accentColor="#3b82f6"
+          accentColor={colors.teal}
           containerStyle={styles.card}
         />
       </View>
@@ -109,10 +208,102 @@ export function TimelineScreen({ route }: Props) {
   );
 }
 
+/* ... helpers (parseYMD, monthBucketKey, etc.) and styles remain the same ... */
+
+function parseYMD(ymd: string) {
+  const [y, m, d] = ymd.split("-").map((x) => Number(x));
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function monthBucketKey(ymd: string, precision: DatePrecision) {
+  const dt = parseYMD(ymd);
+  const y = dt.getFullYear();
+  const m = dt.getMonth() + 1;
+
+  if (precision === "year") return `${y}`;
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+function monthDividerLabel(ymd: string, precision: DatePrecision) {
+  const dt = parseYMD(ymd);
+
+  if (precision === "year") return `${dt.getFullYear()}`;
+
+  // Month Year
+  return dt.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatEventDate(ymd: string, precision: DatePrecision) {
+  const dt = parseYMD(ymd);
+
+  if (precision === "year") return `${dt.getFullYear()}`;
+
+  if (precision === "month") {
+    return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+
+  return dt.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function categoryToTone(category: string): "green" | "gray" | "pink" | "blue" {
+  const c = category.toLowerCase();
+  if (c.includes("vital") || c.includes("lab")) return "green";
+  if (c.includes("med")) return "blue";
+  if (c.includes("life")) return "pink";
+  return "gray";
+}
+
+function sourceToLabel(source: string) {
+  const s = source.toLowerCase();
+  if (s === "document_upload") return "Document Upload";
+  if (s === "manual_entry") return "Manual Entry";
+  if (s === "wearable") return "Wearable";
+  if (s === "ai_guided") return "AI Guided";
+  return "Source";
+}
+
+function categoryToIcon(category: string) {
+  const c = category.toLowerCase();
+
+  if (c.includes("med")) {
+    return <Text style={{ color: "#0369A1", fontWeight: "900" }}>⚕</Text>;
+  }
+  if (c.includes("vital") || c.includes("lab")) {
+    return <Text style={{ color: "#15803D", fontWeight: "900" }}>∿</Text>;
+  }
+  if (c.includes("life")) {
+    return <Text style={{ color: "#BE185D", fontWeight: "900" }}>♥</Text>;
+  }
+
+  return <Text style={{ fontWeight: "900", color: "#B45309" }}>∿</Text>;
+}
+
 const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
+  },
+  center: {
+    paddingVertical: 20,
+    alignItems: "center",
+    gap: 10,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  muted: {
+    fontSize: 12.5,
+    color: colors.muted,
+    textAlign: "center",
   },
   actionGrid: {
     flexDirection: "row",

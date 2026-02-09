@@ -1,3 +1,4 @@
+// src/navigation/AppNavigator.tsx
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "./appTypes";
@@ -5,7 +6,7 @@ import { HomeScreen } from "../screens/App/HomeScreen";
 import { ShareScreen } from "../screens/App/ShareScreen";
 import { TimelineScreen } from "../screens/App/TimelineScreen";
 import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
-// New import for styling tokens
+import { TimelineEventDetailsScreen } from "../screens/App/TimelineEventDetailsScreen";
 import { colors } from "../theme/tokens";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -26,6 +27,13 @@ export function AppNavigator() {
       <Stack.Screen name="ManageDocuments" component={ManageDocumentsScreen} />
       <Stack.Screen name="Share" component={ShareScreen} />
       <Stack.Screen name="Timeline" component={TimelineScreen} />
+
+      {}
+      <Stack.Screen
+        name="Details"
+        component={TimelineEventDetailsScreen}
+        options={{ title: "Timeline" }}
+      />
     </Stack.Navigator>
   );
 }

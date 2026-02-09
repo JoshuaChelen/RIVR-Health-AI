@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { supabase } from "../../lib/supabase";
 
+import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { Card } from "../../components/ui/Primitives/Card";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -86,9 +87,7 @@ export function UpdatePasswordScreen({ navigation }: Props) {
             <View style={styles.inner}>
               {/* Top Brand */}
               <View style={styles.top}>
-                <View style={styles.logoDot}>
-                  <View style={styles.logoInner} />
-                </View>
+                <AuthLogo />
 
                 <AppText variant="h1">Set new password</AppText>
                 <AppText variant="muted" style={{ textAlign: "center" }}>
