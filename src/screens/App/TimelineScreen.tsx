@@ -38,7 +38,8 @@ type RenderRow =
   | { kind: "month"; key: string; label: string }
   | { kind: "event"; key: string; event: TimelineEventRow };
 
-export function TimelineScreen({ route }: Props) {
+// 1. Update function signature to include navigation
+export function TimelineScreen({ navigation }: Props) {
   const [events, setEvents] = useState<TimelineEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -168,8 +169,10 @@ export function TimelineScreen({ route }: Props) {
                 report={ev.summary}
                 included={ev.included_in_previsit}
                 onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
+                // 2. Add the onPress navigation handler
+                onPress={() => navigation.navigate("Details", { id: ev.id })}
                 onPressEdit={() => {
-                  // later: open edit modal or navigate to a detail screen
+                   // later: open edit modal
                 }}
               />
             );
@@ -186,7 +189,6 @@ export function TimelineScreen({ route }: Props) {
           icon={<Text>⬇️</Text>}
           ctaLabel="Add Labs"
           onPress={() => {}}
-          // Keep accents calmer. Use teal for both, or remove accents later if you want.
           accentColor={colors.teal}
           containerStyle={styles.card}
         />
@@ -206,7 +208,7 @@ export function TimelineScreen({ route }: Props) {
   );
 }
 
-/* ---------------- helpers ---------------- */
+/* ... helpers (parseYMD, monthBucketKey, etc.) and styles remain the same ... */
 
 function parseYMD(ymd: string) {
   const [y, m, d] = ymd.split("-").map((x) => Number(x));

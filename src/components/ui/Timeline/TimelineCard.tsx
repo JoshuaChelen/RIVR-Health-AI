@@ -32,6 +32,8 @@ type TimelineCardProps = {
   included: boolean;
   onToggleIncluded: (next: boolean) => void;
   onPressEdit?: () => void;
+  // 1. Add the onPress prop definition
+  onPress?: () => void;
 
   style?: StyleProp<ViewStyle>;
 };
@@ -46,10 +48,20 @@ export function TimelineCard({
   included,
   onToggleIncluded,
   onPressEdit,
+  onPress, // 2. Add onPress to the destructured props
   style,
 }: TimelineCardProps) {
   return (
-    <View style={[styles.card, style]}>
+    // 3. Change outer View to Pressable
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [
+        styles.card, 
+        pressed && onPress ? { opacity: 0.92, transform: [{ scale: 0.99 }] } : null, 
+        style
+      ]}
+    >
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <View style={styles.leadingChip}>
@@ -89,7 +101,7 @@ export function TimelineCard({
           ios_backgroundColor="#D1D5DB"
         />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
