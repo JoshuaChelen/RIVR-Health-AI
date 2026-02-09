@@ -1,3 +1,4 @@
+// src/components/ui/Timeline/TimelineCard.tsx
 import React from "react";
 import {
   View,
@@ -7,7 +8,9 @@ import {
   Switch,
   ViewStyle,
   StyleProp,
+  Platform,
 } from "react-native";
+import { colors } from "../../../theme/tokens";
 
 type PillTone = "green" | "gray" | "pink" | "blue";
 
@@ -18,19 +21,14 @@ type Pill = {
 };
 
 type TimelineCardProps = {
-  // header pills
-  categoryPill: Pill;        // e.g. { label: "Vitals", tone: "green" }
-  sourcePill?: Pill;         // e.g. { label: "Manual Entry", tone: "gray" }
+  categoryPill: Pill;
+  sourcePill?: Pill;
+  leadingIcon?: React.ReactNode;
 
-  // small icon chip (left)
-  leadingIcon?: React.ReactNode; // e.g. <Text>∿</Text> or vector icon
+  title: string;
+  dateLabel: string;
+  report: string;
 
-  // content
-  title: string;             // "Weight Measurement"
-  dateLabel: string;         // "November 17, 2025"
-  report: string;            // paragraph body
-
-  // actions
   included: boolean;
   onToggleIncluded: (next: boolean) => void;
   onPressEdit?: () => void;
@@ -52,7 +50,6 @@ export function TimelineCard({
 }: TimelineCardProps) {
   return (
     <View style={[styles.card, style]}>
-      {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <View style={styles.leadingChip}>
@@ -74,7 +71,6 @@ export function TimelineCard({
         ) : null}
       </View>
 
-      {/* Content */}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.date}>{dateLabel}</Text>
 
@@ -82,12 +78,15 @@ export function TimelineCard({
 
       <View style={styles.divider} />
 
-      {/* Footer */}
       <View style={styles.footerRow}>
         <Text style={styles.footerText}>Include in Pre-Visit Note</Text>
+
         <Switch
           value={included}
           onValueChange={onToggleIncluded}
+          trackColor={{ false: "#D1D5DB", true: colors.tealSoft }}
+          thumbColor={included ? colors.teal : "#9CA3AF"}
+          ios_backgroundColor="#D1D5DB"
         />
       </View>
     </View>
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
   },
   editIcon: {
     fontSize: 14,
-    color: "#16A34A",
+    color: colors.teal,
     fontWeight: "800",
   },
   pill: {
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#16A34A",
+    color: colors.teal,
     marginBottom: 10,
   },
   report: {
@@ -217,6 +216,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12.5,
     fontWeight: "700",
-    color: "#16A34A",
+    color: colors.teal,
   },
 });
