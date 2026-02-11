@@ -1,5 +1,5 @@
 // src/screens/TimelineScreen.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
@@ -30,7 +32,7 @@ type TimelineEventRow = {
   event_type: string;
   category: string;
   source: string;
-  summary: string;
+  summary: string; // IMPORTANT: this is the column you actually have
   included_in_previsit: boolean;
 };
 
@@ -38,14 +40,14 @@ type RenderRow =
   | { kind: "month"; key: string; label: string }
   | { kind: "event"; key: string; event: TimelineEventRow };
 
-// 1. Update function signature to include navigation
 export function TimelineScreen({ navigation }: Props) {
   const [events, setEvents] = useState<TimelineEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const load = async () => {
+  // CHANGED: make load useCallback so we can call it from useFocusEffect safely
+  const load = useCallback(async () => {
     setErr(null);
     try {
       const { data, error } = await supabase
@@ -63,11 +65,14 @@ export function TimelineScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    load();
   }, []);
+
+  // CHANGED: refresh every time this screen becomes active again (coming back from Details)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const rows: RenderRow[] = useMemo(() => {
     const out: RenderRow[] = [];
@@ -166,49 +171,82 @@ export function TimelineScreen({ navigation }: Props) {
                 leadingIcon={icon}
                 title={ev.title}
                 dateLabel={formatEventDate(ev.occurred_at, ev.date_precision)}
-                report={ev.summary}
+                report={ev.summary} // IMPORTANT: summary is your column
                 included={ev.included_in_previsit}
                 onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
-                // 2. Add the onPress navigation handler
                 onPress={() => navigation.navigate("Details", { id: ev.id })}
-                onPressEdit={() => {
-                   // later: open edit modal
-                }}
+                
               />
             );
           })
         : null}
 
-      <SectionHeader title="Action Needed" />
+      {/* --- NEW DOCTOR NOTE SECTION REPLACING ACTION CARDS --- */}
+      {(() => {
+        const includedEvents = events.filter((e) => !!e.included_in_previsit);
+        const preview = includedEvents.slice(0, 3);
 
-      <View style={styles.actionGrid}>
-        <ActionCard
-          title="Add Recent Lab Results"
-          description="You mentioned getting labs done last week..."
-          badgeText="Priority"
-          icon={<Text>⬇️</Text>}
-          ctaLabel="Add Labs"
-          onPress={() => {}}
-          accentColor={colors.teal}
-          containerStyle={styles.card}
-        />
+        return (
+          <>
+            <SectionHeader
+              title="Pre-Visit Note"
+              subtitle={
+                includedEvents.length === 0
+                  ? "Nothing selected yet"
+                  : `${includedEvents.length} item(s) selected`
+              }
+            />
 
-        <ActionCard
-          title="Sleep Quality Improvement"
-          description="Your wearable showed better sleep this week..."
-          badgeText="Priority"
-          icon={<Text>🌙</Text>}
-          ctaLabel="Add Sleep Data"
-          onPress={() => {}}
-          accentColor={colors.teal}
-          containerStyle={styles.card}
-        />
-      </View>
+            <View style={styles.noteCard}>
+              <Text style={styles.noteTitle}>Doctor Note Draft</Text>
+              <Text style={styles.noteMuted}>
+                Toggle “Include in Pre-Visit Note” on timeline events. Everything
+                you include shows up here.
+              </Text>
+
+              {includedEvents.length === 0 ? (
+                <Text style={[styles.noteMuted, { marginTop: 10 }]}>
+                  Select a few timeline items and come back. This will auto fill.
+                </Text>
+              ) : (
+                <View style={{ gap: 6, marginTop: 12 }}>
+                  {preview.map((e) => (
+                    <View key={e.id} style={styles.noteRow}>
+                      <View style={styles.noteDot} />
+                      <Text style={styles.noteItemText} numberOfLines={1}>
+                        {e.title ?? "(untitled)"}
+                      </Text>
+                    </View>
+                  ))}
+
+                  {includedEvents.length > preview.length ? (
+                    <Text style={styles.noteMuted}>
+                      + {includedEvents.length - preview.length} more
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+
+              <View style={{ marginTop: 16 }}>
+                <Pressable
+                  onPress={() => navigation.navigate("PreVisitNote")}
+                  style={({ pressed }) => [
+                    styles.noteButton,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <Text style={styles.noteButtonText}>Open Pre-Visit Note</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        );
+      })()}
     </ScrollView>
   );
 }
 
-/* ... helpers (parseYMD, monthBucketKey, etc.) and styles remain the same ... */
+/* helpers stay the same */
 
 function parseYMD(ymd: string) {
   const [y, m, d] = ymd.split("-").map((x) => Number(x));
@@ -226,21 +264,14 @@ function monthBucketKey(ymd: string, precision: DatePrecision) {
 
 function monthDividerLabel(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);
-
   if (precision === "year") return `${dt.getFullYear()}`;
-
-  // Month Year
-  return dt.toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-  });
+  return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
 function formatEventDate(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);
 
   if (precision === "year") return `${dt.getFullYear()}`;
-
   if (precision === "month") {
     return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   }
@@ -286,31 +317,35 @@ function categoryToIcon(category: string) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { padding: 16, gap: 12, paddingBottom: 40 },
+  center: { paddingVertical: 20, alignItems: "center", gap: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  muted: { fontSize: 12.5, color: colors.muted, textAlign: "center" },
+  
+  // Doctor Note Styles
+  noteCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
     padding: 16,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: "#E6EEF5",
+    shadowColor: "#0B1220",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  center: {
-    paddingVertical: 20,
+  noteTitle: { fontSize: 15, fontWeight: "800", color: colors.text, marginBottom: 4 },
+  noteMuted: { fontSize: 13, color: colors.muted, lineHeight: 18 },
+  noteRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  noteDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.teal },
+  noteItemText: { fontSize: 13, fontWeight: "600", color: colors.text, flex: 1 },
+  noteButton: {
+    backgroundColor: colors.teal,
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  muted: {
-    fontSize: 12.5,
-    color: colors.muted,
-    textAlign: "center",
-  },
-  actionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  card: {
-    width: "48%",
-  },
+  noteButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
 });
