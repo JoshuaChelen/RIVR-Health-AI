@@ -29,7 +29,7 @@ async function insertDocumentRow(params: {
   return data;
 }
 
-export function UploadFile() {
+export function UploadFile({ onUploadComplete }: { onUploadComplete?: () => void }) {
   const [busy, setBusy] = useState<boolean>(false);
   const [status, setStatus] = useState<string>("Idle");
 
@@ -45,15 +45,28 @@ export function UploadFile() {
     try {
       setBusy(true);
       setStatus("Reading file…");
-      const asset = picked_files.assets[0];
-      const { data: { user } } = await supabase.auth.getUser();
 
+      const asset = picked_files.assets[0];
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
       if (!user) throw new Error("User not authenticated");
 
+      if (!asset?.uri) throw new Error("No file selected");
+      if (asset.mimeType && asset.mimeType !== "application/pdf") {
+        throw new Error("Please select a PDF file");
+      }
+
       const response = await fetch(asset.uri);
+      if (!response.ok) throw new Error("Failed to read local file");
       const fileBlob = await response.blob();
 
       setStatus("Uploading file…");
+
+      // Full storage path you actually upload to
       const storageObjectPath = `${user.id}/medical-documents/${asset.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -66,7 +79,9 @@ export function UploadFile() {
       if (uploadError) throw uploadError;
 
       setStatus("Creating document row…");
-      const pdfPath = `medical-documents/${asset.name}`;
+
+      // ✅ FIX: store the same full path you uploaded to
+      const pdfPath = storageObjectPath;
 
       await insertDocumentRow({
         userId: user.id,
@@ -74,11 +89,32 @@ export function UploadFile() {
         pdfPath,
       });
 
-      setStatus("Upload complete!");
+      setStatus("Notifying server…");
+
+      // Call edge function to log that the file exists / can be downloaded
+      const { data: fnData, error: fnError } = await supabase.functions.invoke(
+        "log-pdf-upload",
+        {
+          body: {
+            bucket: "documents",
+            path: storageObjectPath,
+            userId: user.id,
+            title: asset.name,
+          },
+        }
+      );
+
+      if (fnError) throw fnError;
+
+      setStatus(
+        `Upload complete!`
+      );
+      
     } catch (error: any) {
       setStatus(`Error: ${error?.message ?? String(error)}`);
     } finally {
       setBusy(false);
+      onUploadComplete?.();
     }
   };
 

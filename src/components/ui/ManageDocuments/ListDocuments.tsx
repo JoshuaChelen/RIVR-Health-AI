@@ -13,7 +13,7 @@ type DocRow = {
   status: string | null;
 };
 
-export function ListDocuments() {
+export function ListDocuments({ refreshKey }: { refreshKey?: number }) {
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +35,7 @@ export function ListDocuments() {
       if (error) setError(error.message);
       else setDocs((data ?? []) as DocRow[]);
     })();
-  }, []);
+  }, [refreshKey]);
 
   return (
     <View style={{ padding: 16 }}>
