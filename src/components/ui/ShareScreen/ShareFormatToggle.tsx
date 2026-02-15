@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-export type ShareFileType = "card" | "fhir";
+export type ShareFileType = "card" | "pdf" | "fhir";
 
 type Props = {
   value: ShareFileType;
@@ -20,6 +20,11 @@ export function ShareFormatToggle({ value, onChange }: Props) {
         label="FHIR"
         active={value === "fhir"}
         onPress={() => onChange("fhir")}
+      />
+      <TogglePill
+        label="PDF"
+        active={value === "pdf"}
+        onPress={() => onChange("pdf")}
       />
     </View>
   );

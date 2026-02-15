@@ -66,7 +66,7 @@ export function UploadFile() {
       if (uploadError) throw uploadError;
 
       setStatus("Creating document row…");
-      const pdfPath = `medical-documents/${asset.name}`;
+      const pdfPath = `${user.id}/medical-documents/${asset.name}`;
 
       await insertDocumentRow({
         userId: user.id,
