@@ -12,8 +12,19 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [["react-native-health", {
+        "healthSharePermission": "Allow Shin to read your health data",
+        "healthUpdatePermission": "Allow Shin to write health data"
+      }]],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      },
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "We read Apple Health data to show your vitals on the home screen.",
+        "NSHealthUpdateUsageDescription": "We may write to Apple Health only if you choose to export."
+      }
     },
     "android": {
       "adaptiveIcon": {

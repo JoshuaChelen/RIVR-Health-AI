@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-02-15T20:55:02.469Z",
+  "heartRate": {
+    "latestBpm": null,
+    "latestAt": null
+  },
+  "sleep": {
+    "avg7dMinutes": null
+  },
+  "steps": {
+    "todayCount": 42,
+    "avg7dPerDay": 4113,
+    "last7dTotal": 28788,
+    "latestAt": "2026-02-15T19:27:57.000Z"
+  },
+  "debug": {
+    "counts": {
+      "record": 272562,
+      "heartRate": 0,
+      "sleep": 0,
+      "steps": 33916
+    },
+    "notes": "Heart rate and/or sleep not found in export.xml. Steps were found."
+  }
+}

@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Shared Files</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto; background:#f7fafc; margin:0; padding:24px;}
+    .card{max-width:720px; margin:0 auto; background:#fff; border:1px solid #e6eef5; border-radius:14px; padding:16px;}
+    h1{margin:0 0 8px 0; font-size:18px;}
+    p{margin:0 0 12px 0; color:#64748b; font-size:13px; line-height:18px;}
+    .row{display:flex; gap:10px; align-items:center; margin-top:12px;}
+    input{flex:1; padding:10px 12px; border-radius:10px; border:1px solid #e6eef5; font-size:14px;}
+    button{padding:10px 12px; border-radius:10px; border:none; background:#2cb9b0; color:#fff; font-weight:700; cursor:pointer;}
+    .err{color:#dc2626; font-weight:700; margin-top:10px; font-size:13px;}
+    ul{padding-left:18px;}
+    a{color:#2563eb; font-weight:700; word-break:break-all;}
+    .meta{margin-top:10px; font-size:12px; color:#94a3b8;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Shared files</h1>
+    <p>Links are time limited. If one expires, refresh to generate new ones.</p>
+
+    <div id="pinWrap" style="display:none">
+      <p>This share requires a PIN.</p>
+      <div class="row">
+        <input id="pin" placeholder="Enter PIN" />
+        <button id="loadBtn">Open</button>
+      </div>
+    </div>
+
+    <div id="content"></div>
+    <div id="error" class="err" style="display:none"></div>
+  </div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const token = params.get("token");
+
+  // IMPORTANT: this must point to your Supabase function
+  const RESOLVE_URL = "https://vpzywhfrnyyztwylbbzf.functions.supabase.co/share/resolve";
+
+  const content = document.getElementById("content");
+  const errEl = document.getElementById("error");
+  const pinWrap = document.getElementById("pinWrap");
+  const pinInput = document.getElementById("pin");
+  const loadBtn = document.getElementById("loadBtn");
+
+  function showError(msg){
+    errEl.style.display = "block";
+    errEl.textContent = msg;
+  }
+
+  async function resolve(pin){
+    errEl.style.display = "none";
+    content.innerHTML = "Loading...";
+
+    const res = await fetch(RESOLVE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, pin })
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      if (json && json.pinRequired) return json;
+      throw new Error(json.error || "Failed");
+    }
+    return json;
+  }
+
+  function render(items, expiresAt){
+    const ul = document.createElement("ul");
+    items.forEach(it => {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = it.signedUrl;
+      a.textContent = it.title || "(untitled)";
+      a.target = "_blank";
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    content.innerHTML = "";
+    content.appendChild(ul);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = "Expires at: " + expiresAt;
+    content.appendChild(meta);
+  }
+
+  (async () => {
+    if (!token) return showError("Missing token.");
+    try {
+      const quick = await resolve(null);
+      if (quick.pinRequired) {
+        content.innerHTML = "";
+        pinWrap.style.display = "block";
+        loadBtn.onclick = async () => {
+          try {
+            const data = await resolve(pinInput.value || "");
+            render(data.items, data.expiresAt);
+          } catch(e){
+            showError(e.message || "Failed to load share.");
+            content.innerHTML = "";
+          }
+        };
+        return;
+      }
+      render(quick.items, quick.expiresAt);
+    } catch(e){
+      showError(e.message || "Failed to load share.");
+      content.innerHTML = "";
+    }
+  })();
+</script>
+</body>
+</html>
