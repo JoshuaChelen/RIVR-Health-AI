@@ -11,6 +11,8 @@ async function insertDocumentRow(params: {
   userId: string;
   title: string;
   pdfPath: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
 }) {
   const { data, error } = await supabase
     .from("documents")
@@ -19,64 +21,97 @@ async function insertDocumentRow(params: {
         user_id: params.userId,
         title: params.title,
         pdf_path: params.pdfPath,
-        status: "uploaded",
+        status: "processing", // align with your schema + worker expectations
+        mime_type: params.mimeType ?? "application/pdf",
+        size_bytes: typeof params.sizeBytes === "number" ? params.sizeBytes : null,
+        processing_error: null,
+        processed_at: null,
       },
     ])
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+  return data as { id: string };
+}
+
+function safeFilename(name: string) {
+  // keep it simple, avoid weird characters in storage keys
+  return name.replace(/[^\w.\-() ]+/g, "_");
 }
 
 export function UploadFile() {
-  const [busy, setBusy] = useState<boolean>(false);
-  const [status, setStatus] = useState<string>("Idle");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("Idle");
 
   const pickAndUpload = async () => {
-    const picked_files = await DocumentPicker.getDocumentAsync({
+    const picked = await DocumentPicker.getDocumentAsync({
       type: "application/pdf",
       multiple: false,
       copyToCacheDirectory: true,
     });
 
-    if (picked_files.canceled) return;
+    if (picked.canceled) return;
+    const asset = picked.assets?.[0];
+    if (!asset?.uri) return;
 
     try {
       setBusy(true);
-      setStatus("Reading file…");
-      const asset = picked_files.assets[0];
-      const { data: { user } } = await supabase.auth.getUser();
 
+      setStatus("Checking auth…");
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
       if (!user) throw new Error("User not authenticated");
 
+      setStatus("Reading file…");
       const response = await fetch(asset.uri);
       const fileBlob = await response.blob();
 
-      setStatus("Uploading file…");
-      const storageObjectPath = `${user.id}/medical-documents/${asset.name}`;
+      // Make storage path unique so uploads never collide
+      // Example: <uid>/medical-documents/1708271000000_report.pdf
+      const uniquePrefix = Date.now();
+      const cleanName = safeFilename(asset.name ?? "document.pdf");
+      const storageObjectPath = `${user.id}/medical-documents/${uniquePrefix}_${cleanName}`;
 
+      setStatus("Uploading file…");
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(storageObjectPath, fileBlob, {
           contentType: asset.mimeType ?? "application/pdf",
           upsert: false,
         });
-
       if (uploadError) throw uploadError;
 
       setStatus("Creating document row…");
-      const pdfPath = `${user.id}/medical-documents/${asset.name}`;
-
-      await insertDocumentRow({
+      const docRow = await insertDocumentRow({
         userId: user.id,
-        title: asset.name,
-        pdfPath,
+        title: cleanName,
+        pdfPath: storageObjectPath,
+        mimeType: asset.mimeType ?? "application/pdf",
+        sizeBytes: typeof asset.size === "number" ? asset.size : null,
       });
 
-      setStatus("Upload complete!");
-    } catch (error: any) {
-      setStatus(`Error: ${error?.message ?? String(error)}`);
+      setStatus("Enqueuing AI processing…");
+      // You can usually omit manual Authorization, but keeping it is fine and explicit
+      const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr) throw sessErr;
+
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Not signed in");
+
+      const { error: jobErr } = await supabase.functions.invoke("enqueue-document-processing", {
+        headers: { Authorization: `Bearer ${token}` },
+        body: { documentIds: [docRow.id] },
+      });
+
+      if (jobErr) throw jobErr;
+
+      setStatus("Upload complete. AI processing queued.");
+    } catch (e: any) {
+      setStatus(`Error: ${e?.message ?? String(e)}`);
     } finally {
       setBusy(false);
     }

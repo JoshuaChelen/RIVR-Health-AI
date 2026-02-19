@@ -2,10 +2,9 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { ok, bad } from "../_shared/responses.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+
 
 function base64url(bytes: Uint8Array) {
   let str = btoa(String.fromCharCode(...bytes));

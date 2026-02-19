@@ -6,4 +6,5 @@ export type AppStackParamList = {
   Share: undefined;
   Timeline: undefined;
   PreVisitNote: undefined; 
+  HealthSummary: undefined;
 };

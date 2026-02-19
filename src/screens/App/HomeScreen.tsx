@@ -22,15 +22,6 @@ import exportSummary from "../../lib/health/export.summary.json";
 export function HomeScreen({ navigation }: Props) {
   const health = useAppleHealthHome();
 
-    {health.status === "unlinked" && (
-    <Card style={{ padding: 16 }}>
-      <AppText variant="title">Link Apple Health</AppText>
-      <AppText variant="caption">Connect to pull your heart rate and sleep automatically.</AppText>
-      <View style={{ height: 12 }} />
-      <PrimaryButton label="Link Apple Health" onPress={health.link} />
-    </Card>
-  )}
-
   const sleepSubtitle =
     health.status === "linked"
       ? `${health.sleepAvgText} avg`
@@ -49,22 +40,23 @@ export function HomeScreen({ navigation }: Props) {
       ? "Not available"
       : "Link Apple Health";
 
-    const hrText =
-      exportSummary.heartRate.latestBpm != null
-        ? `${exportSummary.heartRate.latestBpm} bpm`
-        : "No heart rate in export";
+  const hrText =
+    exportSummary.heartRate.latestBpm != null
+      ? `${exportSummary.heartRate.latestBpm} bpm`
+      : "No heart rate in export";
 
-    const sleepText =
-      exportSummary.sleep.avg7dMinutes != null
-        ? `${Math.floor(exportSummary.sleep.avg7dMinutes / 60)} hr ${String(
-            exportSummary.sleep.avg7dMinutes % 60
-          ).padStart(2, "0")} min avg`
-        : "No sleep in export";
+  const sleepText =
+    exportSummary.sleep.avg7dMinutes != null
+      ? `${Math.floor(exportSummary.sleep.avg7dMinutes / 60)} hr ${String(
+          exportSummary.sleep.avg7dMinutes % 60
+        ).padStart(2, "0")} min avg`
+      : "No sleep in export";
 
-    const stepsText =
-      exportSummary.steps.avg7dPerDay != null
-        ? `${exportSummary.steps.avg7dPerDay.toLocaleString()} / day avg`
-        : "--";
+  const stepsText =
+    exportSummary.steps.avg7dPerDay != null
+      ? `${exportSummary.steps.avg7dPerDay.toLocaleString()} / day avg`
+      : "--";
+
   return (
     <Screen style={styles.container}>
       <View style={styles.headerRow}>
@@ -83,8 +75,17 @@ export function HomeScreen({ navigation }: Props) {
       <View style={{ alignItems: "center", marginVertical: 10 }}>
         <ScoreRing value={82} />
       </View>
-{/* 
-      DON'T DELETE THIS WILL BE FOR WHEN WE HAVE X CODE AND WE ARE DEVELOPING IN IOS
+
+      {/* DON'T DELETE THIS WILL BE FOR WHEN WE HAVE X CODE AND WE ARE DEVELOPING IN IOS
+      {health.status === "unlinked" && (
+        <Card style={{ padding: 16 }}>
+          <AppText variant="title">Link Apple Health</AppText>
+          <AppText variant="caption">Connect to pull your heart rate and sleep automatically.</AppText>
+          <View style={{ height: 12 }} />
+          <PrimaryButton label="Link Apple Health" onPress={health.link} />
+        </Card>
+      )}
+
       {health.status === "unlinked" ? (
         <Card style={styles.linkCard}>
           <AppText variant="title">Link Apple Health</AppText>
@@ -115,7 +116,6 @@ export function HomeScreen({ navigation }: Props) {
         <MetricCard title="Preventive Care" subtitle="Up to date" tone="green" />
         <MetricCard title="Heart Rate" subtitle={hrSubtitle} tone="orange" />
       </View> */}
-      
 
       <View style={styles.grid}>
         <MetricCard title="AI Insights" subtitle="2 new" tone="teal" />
@@ -123,7 +123,6 @@ export function HomeScreen({ navigation }: Props) {
         <MetricCard title="Steps" subtitle={stepsText} tone="green" />
         <MetricCard title="Heart Rate" subtitle={hrText} tone="orange" />
       </View>
-
 
       <View style={styles.actionSection}>
         <PrimaryButton
@@ -137,6 +136,12 @@ export function HomeScreen({ navigation }: Props) {
             label="Timeline"
             style={styles.shadowBtn}
             onPress={() => navigation.navigate("Timeline")}
+          />
+          {/* Added Health Summary Button Here */}
+          <SecondaryButton
+            label="Health Summary"
+            style={styles.shadowBtn}
+            onPress={() => navigation.navigate("HealthSummary")}
           />
           <SecondaryButton
             label="Share"

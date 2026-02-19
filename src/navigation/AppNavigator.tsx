@@ -10,6 +10,7 @@ import { TimelineEventDetailsScreen } from "../screens/App/TimelineEventDetailsS
 import { PreVisitNoteScreen } from "../screens/App/PreVisitNoteScreen";
 
 import { colors } from "../theme/tokens";
+import HealthSummaryScreen from "../screens/App/HealthSummaryScreen";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -29,6 +30,7 @@ export function AppNavigator() {
       <Stack.Screen name="ManageDocuments" component={ManageDocumentsScreen} />
       <Stack.Screen name="Share" component={ShareScreen} />
       <Stack.Screen name="Timeline" component={TimelineScreen} options={{ title: "Timeline" }} />
+      <Stack.Screen name="HealthSummary" component={HealthSummaryScreen} />
 
       <Stack.Screen
         name="PreVisitNote"
