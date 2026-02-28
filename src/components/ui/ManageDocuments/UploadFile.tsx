@@ -21,7 +21,10 @@ async function insertDocumentRow(params: {
         user_id: params.userId,
         title: params.title,
         pdf_path: params.pdfPath,
-        status: "processing", // align with your schema + worker expectations
+
+        // IMPORTANT: do NOT enqueue AI yet
+        status: "uploaded",
+
         mime_type: params.mimeType ?? "application/pdf",
         size_bytes: typeof params.sizeBytes === "number" ? params.sizeBytes : null,
         processing_error: null,
@@ -40,20 +43,25 @@ function safeFilename(name: string) {
   return name.replace(/[^\w.\-() ]+/g, "_");
 }
 
-export function UploadFile() {
+type Props = {
+  onUploaded?: () => void;
+};
+
+export function UploadFile({ onUploaded }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Idle");
 
   const pickAndUpload = async () => {
     const picked = await DocumentPicker.getDocumentAsync({
       type: "application/pdf",
-      multiple: false,
+      multiple: true,
       copyToCacheDirectory: true,
     });
 
     if (picked.canceled) return;
-    const asset = picked.assets?.[0];
-    if (!asset?.uri) return;
+
+    const assets = picked.assets ?? [];
+    if (!assets.length) return;
 
     try {
       setBusy(true);
@@ -63,53 +71,44 @@ export function UploadFile() {
         data: { user },
         error: userErr,
       } = await supabase.auth.getUser();
+
       if (userErr) throw userErr;
       if (!user) throw new Error("User not authenticated");
 
-      setStatus("Reading file…");
-      const response = await fetch(asset.uri);
-      const fileBlob = await response.blob();
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        if (!asset?.uri) continue;
 
-      // Make storage path unique so uploads never collide
-      // Example: <uid>/medical-documents/1708271000000_report.pdf
-      const uniquePrefix = Date.now();
-      const cleanName = safeFilename(asset.name ?? "document.pdf");
-      const storageObjectPath = `${user.id}/medical-documents/${uniquePrefix}_${cleanName}`;
+        const cleanName = safeFilename(asset.name ?? `document_${i + 1}.pdf`);
+        const uniquePrefix = Date.now();
+        const storageObjectPath = `${user.id}/medical-documents/${uniquePrefix}_${cleanName}`;
 
-      setStatus("Uploading file…");
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(storageObjectPath, fileBlob, {
-          contentType: asset.mimeType ?? "application/pdf",
-          upsert: false,
+        setStatus(`Uploading ${i + 1}/${assets.length}…`);
+
+        const response = await fetch(asset.uri);
+        const fileBlob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(storageObjectPath, fileBlob, {
+            contentType: asset.mimeType ?? "application/pdf",
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        setStatus(`Saving ${i + 1}/${assets.length}…`);
+        await insertDocumentRow({
+          userId: user.id,
+          title: cleanName,
+          pdfPath: storageObjectPath,
+          mimeType: asset.mimeType ?? "application/pdf",
+          sizeBytes: typeof asset.size === "number" ? asset.size : null,
         });
-      if (uploadError) throw uploadError;
+      }
 
-      setStatus("Creating document row…");
-      const docRow = await insertDocumentRow({
-        userId: user.id,
-        title: cleanName,
-        pdfPath: storageObjectPath,
-        mimeType: asset.mimeType ?? "application/pdf",
-        sizeBytes: typeof asset.size === "number" ? asset.size : null,
-      });
-
-      setStatus("Enqueuing AI processing…");
-      // You can usually omit manual Authorization, but keeping it is fine and explicit
-      const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
-      if (sessErr) throw sessErr;
-
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Not signed in");
-
-      const { error: jobErr } = await supabase.functions.invoke("enqueue-document-processing", {
-        headers: { Authorization: `Bearer ${token}` },
-        body: { documentIds: [docRow.id] },
-      });
-
-      if (jobErr) throw jobErr;
-
-      setStatus("Upload complete. AI processing queued.");
+      setStatus("Upload complete. Ready to process.");
+      onUploaded?.();
     } catch (e: any) {
       setStatus(`Error: ${e?.message ?? String(e)}`);
     } finally {
@@ -119,11 +118,11 @@ export function UploadFile() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <AppText variant="title">Upload PDF</AppText>
+      <AppText variant="title">Upload PDFs</AppText>
       <AppText variant="caption">Status: {status}</AppText>
 
       <PrimaryButton
-        label={busy ? "Uploading..." : "Upload Document"}
+        label={busy ? "Uploading..." : "Upload Documents"}
         onPress={pickAndUpload}
         disabled={busy}
       />
