@@ -3,6 +3,47 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { DocumentFactsSchema, HealthEvaluationSchema, type DocumentFacts, type HealthEvaluation } from "./schemas";
 
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { promises as fsp } from "fs";
+import { randomUUID } from "crypto";
+
+
+function mimeToExt(mime: string | null) {
+  const m = (mime ?? "").toLowerCase();
+  if (m.includes("mp3") || m.includes("mpeg")) return "mp3";
+  if (m.includes("wav")) return "wav";
+  if (m.includes("webm")) return "webm";
+  if (m.includes("ogg")) return "ogg";
+  // audio/mp4 is usually .m4a
+  return "m4a";
+}
+
+export async function transcribeAudioBuffer(buf: Buffer, mimeType: string | null) {
+  // OpenAI speech-to-text file uploads are limited to 25MB :contentReference[oaicite:4]{index=4}
+  if (buf.length > 25 * 1024 * 1024) {
+    throw new Error("Audio too large to transcribe (25MB limit).");
+  }
+
+  const ext = mimeToExt(mimeType);
+  const tmpPath = path.join(os.tmpdir(), `rivr_${randomUUID()}.${ext}`);
+
+  await fsp.writeFile(tmpPath, buf);
+
+  try {
+    const model = process.env.AI_MODEL_TRANSCRIBE || "gpt-4o-mini-transcribe";
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tmpPath),
+      model,
+    });
+    return (transcription as any).text ? String((transcription as any).text) : "";
+  } finally {
+    await fsp.unlink(tmpPath).catch(() => {});
+  }
+}
+
+
 function mustEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
