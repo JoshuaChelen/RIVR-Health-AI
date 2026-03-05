@@ -108,12 +108,16 @@ export function ManageDocumentsScreen() {
       </View>
 
       <View style={styles.content}>
-        <RecordVoiceNote onUploaded={() => setRefreshKey((k) => k + 1)} />
-        <UploadFile onUploaded={() => setRefreshKey((k) => k + 1)} />
-
-        <View style={{ flex: 1, minHeight: 140 }}>
-          <ListDocuments refreshKey={refreshKey} />
-        </View>
+        <ListDocuments
+          refreshKey={refreshKey}
+          onPendingCountChange={setPendingCount}
+          header={
+            <>
+              <RecordVoiceNote onUploaded={() => setRefreshKey((k) => k + 1)} />
+              <UploadFile onUploaded={() => setRefreshKey((k) => k + 1)} />
+            </>
+          }
+        />
       </View>
 
       <View style={styles.footer}>
@@ -172,7 +176,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
 
-  content: { flex: 1, paddingHorizontal: 16, gap: 12 },
+  content: { flex: 1 },
 
   footer: {
     paddingHorizontal: 16,

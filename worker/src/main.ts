@@ -6,6 +6,8 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { extractPdfText, capText } from "./pdfText";
 import { extractDocumentFacts, evaluateUserHealth, transcribeAudioBuffer } from "./ai";
 import { getAppleHealthSnapshot } from "./appleHealth";
+import { renderPdfToPngPages } from "./pdfOcr";
+import { ocrPngPagesToText } from "./ai";
 
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "documents";
 const POLL_MS = Number(process.env.WORKER_POLL_MS || 1500);
@@ -274,7 +276,31 @@ const docFacts = await Promise.all(
           });
 
           rawText = await extractPdfText(buf);
-          rawText = rawText || "[No extractable text found. This may be a scanned PDF.]";
+          rawText = (rawText || "").trim();
+
+          // OCR fallback if the extracted text is basically empty
+          const OCR_MIN_CHARS = Number(process.env.OCR_MIN_CHARS || 200);
+          const OCR_MAX_PAGES = Number(process.env.OCR_MAX_PAGES || 10);
+
+          if (rawText.length < OCR_MIN_CHARS) {
+            await setStage(jobId, "ocr_pdf", { total: docs.length, done: idx, currentDocId: docId });
+            await logEvent(jobId, "info", "PDF text looks empty, running OCR fallback", {
+              docId,
+              extractedChars: rawText.length,
+              maxPages: OCR_MAX_PAGES,
+            });
+
+            const pages = await renderPdfToPngPages(buf, OCR_MAX_PAGES);
+            const ocrText = (await ocrPngPagesToText(pages)).trim();
+
+            if (ocrText) {
+              rawText = rawText ? `${rawText}\n\n[OCR TEXT]\n${ocrText}` : ocrText;
+            }
+          }
+
+          if (!rawText) {
+            rawText = "[No extractable text found. This may be a scanned PDF.]";
+          }
         }
 
         const capped = capText(rawText, 180_000);
@@ -330,12 +356,40 @@ const docFacts = await Promise.all(
 );
 const appleHealth = await getAppleHealthSnapshot(userId);
 
+// Fetch all previously processed document summaries for this user so the
+// evaluation reflects the full health history, not just the current job.
+const { data: allProcessedDocs } = await supabaseAdmin
+  .from("documents")
+  .select("id, summary_path")
+  .eq("user_id", userId)
+  .eq("status", "processed")
+  .not("summary_path", "is", null)
+  .not("id", "in", `(${limitedDocIds.join(",")})`);
+
+const historicalFacts: any[] = [];
+
+if (allProcessedDocs && allProcessedDocs.length > 0) {
+  await Promise.all(
+    allProcessedDocs.map(async (row) => {
+      try {
+        const buf = await downloadFile(String(row.summary_path));
+        const parsed = JSON.parse(buf.toString("utf8"));
+        if (parsed) historicalFacts.push(parsed);
+      } catch {
+        // skip unreadable summaries rather than failing the whole job
+      }
+    })
+  );
+}
+
+const allDocFacts = [...historicalFacts, ...docFacts];
+
 await setStage(jobId, "openai_eval", { total: docs.length, done: docs.length });
-await logEvent(jobId, "info", "Calling OpenAI evaluation", { userId });
+await logEvent(jobId, "info", "Calling OpenAI evaluation", { userId, totalFacts: allDocFacts.length });
 
 const evaluation = await evaluateUserHealth({
   user_id: userId,
-  docFacts,
+  docFacts: allDocFacts,
   appleHealth,
 });
 
@@ -371,7 +425,7 @@ const profileRow = {
   },
   card_json: evaluation.three_by_five_card,
   sources: {
-    document_ids: limitedDocIds,
+    document_ids: [...(allProcessedDocs ?? []).map((r) => r.id), ...limitedDocIds],
     apple_health: appleHealth,
     evaluation_storage_path: evalPath,
     evaluation_id: evalRow?.id ?? null,
