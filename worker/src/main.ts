@@ -4,8 +4,10 @@ import os from "os";
 import pLimit from "p-limit";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { extractPdfText, capText } from "./pdfText";
-import { extractDocumentFacts, evaluateUserHealth } from "./ai";
+import { extractDocumentFacts, evaluateUserHealth, transcribeAudioBuffer } from "./ai";
 import { getAppleHealthSnapshot } from "./appleHealth";
+import { renderPdfToPngPages } from "./pdfOcr";
+import { ocrPngPagesToText } from "./ai";
 
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "documents";
 const POLL_MS = Number(process.env.WORKER_POLL_MS || 1500);
@@ -181,7 +183,7 @@ async function processJob(job: any) {
 
   const { data: docs, error: docsErr } = await supabaseAdmin
     .from("documents")
-    .select("id,user_id,title,pdf_path,status,created_at")
+    .select("id,user_id,title,pdf_path,mime_type,status,created_at")
     .eq("user_id", userId)
     .in("id", limitedDocIds);
 
@@ -197,18 +199,21 @@ async function processJob(job: any) {
 // ... inside processJob function ...
 
 const docFacts = await Promise.all(
-  docs.map((d) =>
+  docs.map((d, idx) =>
     limit(async () => {
-      const pdfPath = String(d.pdf_path || "");
-      const docId = d.id as string;
-      
-      // FIX: Define fallbackDate here at the top of the block
+      const storagePath = String(d.pdf_path || "");
+      const docId = String(d.id);
+
       const fallbackDate = new Date(d.created_at ?? Date.now()).toISOString().slice(0, 10);
 
-      await setStage(jobId, "downloading_pdf", { total: docs.length, done: -1, currentDocId: docId });
-      await logEvent(jobId, "info", "Downloading PDF", { docId });
+      await setStage(jobId, "downloading_file", {
+        total: docs.length,
+        done: idx,
+        currentDocId: docId,
+      });
+      await logEvent(jobId, "info", "Downloading file", { docId });
 
-      if (!pdfPath) {
+      if (!storagePath) {
         const fallback = {
           document_id: docId,
           title: d.title ?? null,
@@ -228,31 +233,94 @@ const docFacts = await Promise.all(
 
         const summaryPath = `${userId}/processed/${docId}/summary.json`;
         await uploadJson(summaryPath, fallback);
-        await updateDocument(docId, userId, { status: "processed", summary_path: summaryPath });
+        await updateDocument(docId, userId, {
+          status: "processed",
+          summary_path: summaryPath,
+          processed_at: nowIso(),
+          processing_error: null,
+          updated_at: nowIso(),
+        });
+
+        await setStage(jobId, "document_done", {
+          total: docs.length,
+          done: idx + 1,
+          currentDocId: docId,
+        });
+
         return fallback;
       }
 
       try {
-        const buf = await downloadFile(pdfPath);
-        await setStage(jobId, "extracting_text", { total: docs.length, done: -2, currentDocId: docId });
+        const buf = await downloadFile(storagePath);
 
-        const rawText = await extractPdfText(buf);
-        const safeText = rawText || "[No extractable text found. This may be a scanned PDF.]";
-        const capped = capText(safeText, 180_000);
+        const mime = d.mime_type ? String(d.mime_type) : null;
+        const isAudio = !!mime && mime.toLowerCase().startsWith("audio/");
 
-        await setStage(jobId, "openai_extract", { total: docs.length, done: -3, currentDocId: docId });
-        await logEvent(jobId, "info", "Calling OpenAI extract", { docId });
+        let rawText = "";
+
+        if (isAudio) {
+          await setStage(jobId, "transcribing_audio", {
+            total: docs.length,
+            done: idx,
+            currentDocId: docId,
+          });
+          await logEvent(jobId, "info", "Transcribing audio", { docId, mime });
+
+          rawText = await transcribeAudioBuffer(buf, mime);
+          rawText = rawText || "[No transcript text found. The audio may be empty or unclear.]";
+        } else {
+          await setStage(jobId, "extracting_text", {
+            total: docs.length,
+            done: idx,
+            currentDocId: docId,
+          });
+
+          rawText = await extractPdfText(buf);
+          rawText = (rawText || "").trim();
+
+          // OCR fallback if the extracted text is basically empty
+          const OCR_MIN_CHARS = Number(process.env.OCR_MIN_CHARS || 200);
+          const OCR_MAX_PAGES = Number(process.env.OCR_MAX_PAGES || 10);
+
+          if (rawText.length < OCR_MIN_CHARS) {
+            await setStage(jobId, "ocr_pdf", { total: docs.length, done: idx, currentDocId: docId });
+            await logEvent(jobId, "info", "PDF text looks empty, running OCR fallback", {
+              docId,
+              extractedChars: rawText.length,
+              maxPages: OCR_MAX_PAGES,
+            });
+
+            const pages = await renderPdfToPngPages(buf, OCR_MAX_PAGES);
+            const ocrText = (await ocrPngPagesToText(pages)).trim();
+
+            if (ocrText) {
+              rawText = rawText ? `${rawText}\n\n[OCR TEXT]\n${ocrText}` : ocrText;
+            }
+          }
+
+          if (!rawText) {
+            rawText = "[No extractable text found. This may be a scanned PDF.]";
+          }
+        }
+
+        const capped = capText(rawText, 180_000);
+
+        await setStage(jobId, "openai_extract", {
+          total: docs.length,
+          done: idx,
+          currentDocId: docId,
+        });
+        await logEvent(jobId, "info", "Calling OpenAI extract", { docId, isAudio });
 
         const facts = await extractDocumentFacts({
           document_id: docId,
           title: d.title ?? null,
-          text: capped,
+          text: isAudio ? `VOICE NOTE TRANSCRIPT:\n${capped}` : capped,
         });
 
         const summaryPath = `${userId}/processed/${docId}/summary.json`;
         await uploadJson(summaryPath, facts);
 
-        // CLEANED UP: Use the fallbackDate defined at the top
         await replaceDocTimelineEvents(
           userId,
           docId,
@@ -268,9 +336,12 @@ const docFacts = await Promise.all(
           updated_at: nowIso(),
         });
 
-        await setStage(jobId, "saving_results", { total: docs.length, done: -4, currentDocId: docId });
-        await setStage(jobId, "document_done", { total: docs.length, done: -5, currentDocId: docId });
-        
+        await setStage(jobId, "document_done", {
+          total: docs.length,
+          done: idx + 1,
+          currentDocId: docId,
+        });
+
         return facts;
       } catch (e: any) {
         await updateDocument(docId, userId, {
@@ -283,16 +354,46 @@ const docFacts = await Promise.all(
     })
   )
 );
+const appleHealth = await getAppleHealthSnapshot(userId);
 
-  const appleHealth = await getAppleHealthSnapshot(userId);
+// Fetch all previously processed document summaries for this user so the
+// evaluation reflects the full health history, not just the current job.
+const { data: allProcessedDocs } = await supabaseAdmin
+  .from("documents")
+  .select("id, summary_path")
+  .eq("user_id", userId)
+  .eq("status", "processed")
+  .not("summary_path", "is", null)
+  .not("id", "in", `(${limitedDocIds.join(",")})`);
 
-  const evaluation = await evaluateUserHealth({
-    user_id: userId,
-    docFacts,
-    appleHealth,
-  });
+const historicalFacts: any[] = [];
 
-  const { data: evalRow, error: insErr } = await supabaseAdmin
+if (allProcessedDocs && allProcessedDocs.length > 0) {
+  await Promise.all(
+    allProcessedDocs.map(async (row) => {
+      try {
+        const buf = await downloadFile(String(row.summary_path));
+        const parsed = JSON.parse(buf.toString("utf8"));
+        if (parsed) historicalFacts.push(parsed);
+      } catch {
+        // skip unreadable summaries rather than failing the whole job
+      }
+    })
+  );
+}
+
+const allDocFacts = [...historicalFacts, ...docFacts];
+
+await setStage(jobId, "openai_eval", { total: docs.length, done: docs.length });
+await logEvent(jobId, "info", "Calling OpenAI evaluation", { userId, totalFacts: allDocFacts.length });
+
+const evaluation = await evaluateUserHealth({
+  user_id: userId,
+  docFacts: allDocFacts,
+  appleHealth,
+});
+
+const { data: evalRow, error: insErr } = await supabaseAdmin
   .from("health_evaluations")
   .insert({
     user_id: userId,
@@ -301,6 +402,13 @@ const docFacts = await Promise.all(
   })
   .select("id")
   .single();
+
+if (insErr) throw insErr;
+
+const evalPath = `${userId}/ai/evaluation/latest.json`;
+await uploadJson(evalPath, evaluation);
+
+await setStage(jobId, "saving_profile", { total: docs.length, done: docs.length });
 
 const profileRow = {
   user_id: userId,
@@ -317,17 +425,14 @@ const profileRow = {
   },
   card_json: evaluation.three_by_five_card,
   sources: {
-    document_ids: limitedDocIds,
+    document_ids: [...(allProcessedDocs ?? []).map((r) => r.id), ...limitedDocIds],
     apple_health: appleHealth,
-    evaluation_storage_path: `${userId}/ai/evaluation/latest.json`,
+    evaluation_storage_path: evalPath,
     evaluation_id: evalRow?.id ?? null,
   },
   version: "profile_v1",
   updated_at: nowIso(),
 };
-
-const evalPath = `${userId}/ai/evaluation/latest.json`;
-await uploadJson(evalPath, evaluation);
 
 const { error: profErr } = await supabaseAdmin
   .from("health_profiles")
@@ -335,19 +440,16 @@ const { error: profErr } = await supabaseAdmin
 
 if (profErr) throw profErr;
 
-
-await setStage(jobId, "openai_eval", { total: docs.length, done: docs.length });
-await logEvent(jobId, "info", "Calling OpenAI evaluation");
-
-// 3) Optional: update job.result with pointers
 await markJob(jobId, {
   status: "succeeded",
   error: null,
   result: { health_profile_updated: true, evaluation_id: evalRow?.id ?? null },
   updated_at: nowIso(),
+  locked_at: null,
+  locked_by: null,
 });
-}
 
+}
 async function main() {
   console.log("[worker] started");
 

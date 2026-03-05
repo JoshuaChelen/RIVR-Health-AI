@@ -3,6 +3,93 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { DocumentFactsSchema, HealthEvaluationSchema, type DocumentFacts, type HealthEvaluation } from "./schemas";
 
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { promises as fsp } from "fs";
+import { randomUUID } from "crypto";
+
+
+function mimeToExt(mime: string | null) {
+  const m = (mime ?? "").toLowerCase();
+  if (m.includes("mp3") || m.includes("mpeg")) return "mp3";
+  if (m.includes("wav")) return "wav";
+  if (m.includes("webm")) return "webm";
+  if (m.includes("ogg")) return "ogg";
+  // audio/mp4 is usually .m4a
+  return "m4a";
+}
+
+
+function pickOutputText(resp: any): string {
+  if (typeof resp?.output_text === "string") return resp.output_text;
+
+  // fallback for older response shapes
+  const chunks: string[] = [];
+  const output = resp?.output ?? [];
+  for (const item of output) {
+    const content = item?.content ?? [];
+    for (const c of content) {
+      if (typeof c?.text === "string") chunks.push(c.text);
+    }
+  }
+  return chunks.join("\n").trim();
+}
+
+export async function ocrPngPagesToText(pages: Array<{ page: number; png: Buffer }>): Promise<string> {
+  const model = process.env.AI_MODEL_OCR || "gpt-4o-mini";
+
+  const system =
+    "You are an OCR engine. Extract ALL visible text exactly as it appears. " +
+    "Preserve line breaks. Do not add commentary. Output plain text only.";
+
+  const userContent: any[] = [];
+
+  for (const p of pages) {
+    userContent.push({ type: "input_text", text: `PAGE ${p.page}` });
+    userContent.push({
+      type: "input_image",
+      image_url: `data:image/png;base64,${p.png.toString("base64")}`,
+    });
+  }
+
+  const resp = await openai.responses.create({
+    model,
+    input: [
+      { role: "system", content: [{ type: "input_text", text: system }] },
+      { role: "user", content: userContent },
+    ],
+  });
+
+  return pickOutputText(resp);
+}
+
+export async function transcribeAudioBuffer(buf: Buffer, mimeType: string | null) {
+  if (buf.length === 0) {
+    throw new Error("Audio buffer is empty — nothing to transcribe.");
+  }
+  if (buf.length > 25 * 1024 * 1024) {
+    throw new Error("Audio too large to transcribe (25MB limit).");
+  }
+
+  const ext = mimeToExt(mimeType);
+  const tmpPath = path.join(os.tmpdir(), `rivr_${randomUUID()}.${ext}`);
+
+  await fsp.writeFile(tmpPath, buf);
+
+  try {
+    const model = process.env.AI_MODEL_TRANSCRIBE || "whisper-1";
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tmpPath),
+      model,
+    });
+    return (transcription as any).text ? String((transcription as any).text) : "";
+  } finally {
+    await fsp.unlink(tmpPath).catch(() => {});
+  }
+}
+
+
 function mustEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
