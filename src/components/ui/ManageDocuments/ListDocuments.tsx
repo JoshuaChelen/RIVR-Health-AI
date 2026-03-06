@@ -410,7 +410,7 @@ function handleCancel(doc: DocRow) {
                 onPress={() => setConfirm(null)}
                 style={({ pressed }) => [styles.modalBtn, pressed && { opacity: 0.8 }]}
               >
-                <AppText variant="body" style={{ fontWeight: "800" }}>Close</AppText>
+                <AppText variant="body" style={{ fontWeight: "700" }}>Close</AppText>
               </Pressable>
 
               <Pressable
@@ -427,7 +427,7 @@ function handleCancel(doc: DocRow) {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <AppText variant="body" style={{ color: "#fff", fontWeight: "800" }}>
+                <AppText variant="body" style={{ color: "#fff", fontWeight: "700" }}>
                   {confirm?.mode === "delete" ? "Delete" : "Cancel processing"}
                 </AppText>
               </Pressable>
@@ -494,7 +494,7 @@ function handleCancel(doc: DocRow) {
                 <View style={styles.metaRow}>
                   <View style={[styles.pill, { borderColor: statusColor }]}>
                     <View style={[styles.dot, { backgroundColor: statusColor }]} />
-                    <AppText variant="caption" style={{ color: statusColor, fontWeight: "800" }}>
+                    <AppText variant="caption" style={{ color: statusColor, fontWeight: "700" }}>
                       {st}
                     </AppText>
                   </View>
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
   actionBtn: {
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
 confirmCard: {
   width: "100%",
   maxWidth: 420,
-  backgroundColor: "#fff",
+  backgroundColor: colors.surface,
   borderRadius: 16,
   borderWidth: 1,
   borderColor: colors.border,
@@ -595,7 +595,7 @@ modalBtn: {
   justifyContent: "center",
   borderWidth: 1,
   borderColor: colors.border,
-  backgroundColor: "#fff",
+  backgroundColor: colors.surface,
 },
 modalBtnDanger: {
   borderColor: colors.danger,

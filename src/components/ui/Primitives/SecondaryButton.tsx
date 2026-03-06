@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, radius, typescale } from "../../../theme/tokens";
 
 type Props = {
   label: string;
@@ -17,8 +17,8 @@ export function SecondaryButton({ label, onPress, disabled, style }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.btn,
-        disabled && { opacity: 0.5 },
-        pressed && !disabled && { opacity: 0.75 },
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
         style,
       ]}
     >
@@ -31,7 +31,7 @@ export function SecondaryButton({ label, onPress, disabled, style }: Props) {
 
 const styles = StyleSheet.create({
   btn: {
-    height: 46,
+    height: 48,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -42,7 +42,14 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.text,
-    fontWeight: "800",
-    fontSize: 14,
+    fontWeight: typescale.weight.semibold,
+    fontSize: typescale.size.base,
+  },
+  disabled: {
+    opacity: 0.45,
+  },
+  pressed: {
+    opacity: 0.75,
+    backgroundColor: colors.bgSecondary,
   },
 });

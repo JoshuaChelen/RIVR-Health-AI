@@ -1,5 +1,7 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { AppText } from "../Primitives/AppText";
+import { colors, radius, typescale } from "../../../theme/tokens";
 
 export type ShareFileType = "card" | "pdf" | "fhir";
 
@@ -10,22 +12,10 @@ type Props = {
 
 export function ShareFormatToggle({ value, onChange }: Props) {
   return (
-    <View style={styles.row}>
-      <TogglePill
-        label="Card"
-        active={value === "card"}
-        onPress={() => onChange("card")}
-      />
-      <TogglePill
-        label="FHIR"
-        active={value === "fhir"}
-        onPress={() => onChange("fhir")}
-      />
-      <TogglePill
-        label="PDF"
-        active={value === "pdf"}
-        onPress={() => onChange("pdf")}
-      />
+    <View style={styles.track}>
+      <TogglePill label="Card" active={value === "card"} onPress={() => onChange("card")} />
+      <TogglePill label="FHIR" active={value === "fhir"} onPress={() => onChange("fhir")} />
+      <TogglePill label="PDF"  active={value === "pdf"}  onPress={() => onChange("pdf")} />
     </View>
   );
 }
@@ -42,26 +32,55 @@ function TogglePill({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}
+      style={({ pressed }) => [
+        styles.pill,
+        active ? styles.pillActive : styles.pillInactive,
+        pressed && { opacity: 0.85 },
+      ]}
     >
-      <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextInactive]}>
+      <AppText
+        variant="label"
+        style={[
+          styles.pillText,
+          active ? styles.pillTextActive : styles.pillTextInactive,
+        ]}
+      >
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 10 },
-  pill: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderRadius: 999,
+  track: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: colors.bgSecondary,
+    padding: 4,
+    borderRadius: radius.pill,
+    alignSelf: "flex-start",
   },
-  pillActive: { backgroundColor: "#000", borderColor: "#000" },
-  pillInactive: { backgroundColor: "transparent", borderColor: "#000" },
-  pillText: { fontSize: 14, fontWeight: "600" },
-  pillTextActive: { color: "#fff" },
-  pillTextInactive: { color: "#000" },
+  pill: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+  },
+  pillActive: {
+    backgroundColor: colors.teal,
+  },
+  pillInactive: {
+    backgroundColor: "transparent",
+  },
+  pillText: {
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  pillTextActive: {
+    color: "#fff",
+    fontWeight: typescale.weight.bold,
+  },
+  pillTextInactive: {
+    color: colors.muted,
+    fontWeight: typescale.weight.semibold,
+  },
 });

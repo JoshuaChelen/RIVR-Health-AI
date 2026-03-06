@@ -1,9 +1,10 @@
-// components/MonthDivider.tsx
 import React from "react";
-import { View, Text, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { AppText } from "../Primitives/AppText";
+import { colors, radius } from "../../../theme/tokens";
 
 type Props = {
-  label: string;                 // "November 2025"
+  label: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -12,7 +13,7 @@ export function MonthDivider({ label, style }: Props) {
     <View style={[styles.row, style]}>
       <View style={styles.line} />
       <View style={styles.pill}>
-        <Text style={styles.text}>{label}</Text>
+        <AppText variant="label" style={styles.text}>{label}</AppText>
       </View>
       <View style={styles.line} />
     </View>
@@ -30,19 +31,19 @@ const styles = StyleSheet.create({
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: "#DDF2E6",
+    backgroundColor: colors.border,
   },
   pill: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#EAFBF1",
+    borderRadius: radius.pill,
+    backgroundColor: colors.tealSoft,
     borderWidth: 1,
-    borderColor: "#BFEACF",
+    borderColor: colors.tealBorder,
   },
   text: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#0F7A4A",
+    color: colors.teal,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
 });

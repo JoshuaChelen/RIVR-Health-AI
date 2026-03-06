@@ -1,11 +1,10 @@
 import React, { useState } from "react";
+import { View, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { supabase } from "../../../lib/supabase";
 import * as DocumentPicker from "expo-document-picker";
 
-// Import Primitives
-import { Card } from "../Primitives/Card";
 import { AppText } from "../Primitives/AppText";
-import { PrimaryButton } from "../Primitives/PrimaryButton";
+import { colors, spacing, radius, typescale } from "../../../theme/tokens";
 
 async function insertDocumentRow(params: {
   userId: string;
@@ -16,21 +15,16 @@ async function insertDocumentRow(params: {
 }) {
   const { data, error } = await supabase
     .from("documents")
-    .insert([
-      {
-        user_id: params.userId,
-        title: params.title,
-        pdf_path: params.pdfPath,
-
-        // IMPORTANT: do NOT enqueue AI yet
-        status: "uploaded",
-
-        mime_type: params.mimeType ?? "application/pdf",
-        size_bytes: typeof params.sizeBytes === "number" ? params.sizeBytes : null,
-        processing_error: null,
-        processed_at: null,
-      },
-    ])
+    .insert([{
+      user_id:          params.userId,
+      title:            params.title,
+      pdf_path:         params.pdfPath,
+      status:           "uploaded",
+      mime_type:        params.mimeType ?? "application/pdf",
+      size_bytes:       typeof params.sizeBytes === "number" ? params.sizeBytes : null,
+      processing_error: null,
+      processed_at:     null,
+    }])
     .select()
     .single();
 
@@ -39,7 +33,6 @@ async function insertDocumentRow(params: {
 }
 
 function safeFilename(name: string) {
-  // keep it simple, avoid weird characters in storage keys
   return name.replace(/[^\w.\-() ]+/g, "_");
 }
 
@@ -48,8 +41,9 @@ type Props = {
 };
 
 export function UploadFile({ onUploaded }: Props) {
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("Idle");
+  const [busy, setBusy]     = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
 
   const pickAndUpload = async () => {
     const picked = await DocumentPicker.getDocumentAsync({
@@ -63,15 +57,13 @@ export function UploadFile({ onUploaded }: Props) {
     const assets = picked.assets ?? [];
     if (!assets.length) return;
 
+    setIsError(false);
+
     try {
       setBusy(true);
-
       setStatus("Checking auth…");
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
 
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
       if (userErr) throw userErr;
       if (!user) throw new Error("User not authenticated");
 
@@ -83,7 +75,7 @@ export function UploadFile({ onUploaded }: Props) {
         const uniquePrefix = Date.now();
         const storageObjectPath = `${user.id}/medical-documents/${uniquePrefix}_${cleanName}`;
 
-        setStatus(`Uploading ${i + 1}/${assets.length}…`);
+        setStatus(`Uploading ${i + 1} of ${assets.length}…`);
 
         const response = await fetch(asset.uri);
         const fileBlob = await response.blob();
@@ -97,35 +89,106 @@ export function UploadFile({ onUploaded }: Props) {
 
         if (uploadError) throw uploadError;
 
-        setStatus(`Saving ${i + 1}/${assets.length}…`);
+        setStatus(`Saving ${i + 1} of ${assets.length}…`);
         await insertDocumentRow({
-          userId: user.id,
-          title: cleanName,
-          pdfPath: storageObjectPath,
-          mimeType: asset.mimeType ?? "application/pdf",
+          userId:    user.id,
+          title:     cleanName,
+          pdfPath:   storageObjectPath,
+          mimeType:  asset.mimeType ?? "application/pdf",
           sizeBytes: typeof asset.size === "number" ? asset.size : null,
         });
       }
 
-      setStatus("Upload complete. Ready to process.");
+      setStatus(`${assets.length} file${assets.length === 1 ? "" : "s"} ready to process.`);
       onUploaded?.();
     } catch (e: any) {
-      setStatus(`Error: ${e?.message ?? String(e)}`);
+      setStatus(e?.message ?? String(e));
+      setIsError(true);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Card style={{ gap: 10 }}>
-      <AppText variant="title">Upload PDFs</AppText>
-      <AppText variant="caption">Status: {status}</AppText>
+    <Pressable
+      onPress={pickAndUpload}
+      disabled={busy}
+      style={({ pressed }) => [
+        styles.zone,
+        pressed && !busy && styles.zonePressed,
+        busy && styles.zoneBusy,
+      ]}
+    >
+      {busy ? (
+        <ActivityIndicator color={colors.teal} />
+      ) : (
+        <View style={styles.icon}>
+          <AppText style={styles.iconText}>↑</AppText>
+        </View>
+      )}
 
-      <PrimaryButton
-        label={busy ? "Uploading..." : "Upload Documents"}
-        onPress={pickAndUpload}
-        disabled={busy}
-      />
-    </Card>
+      <AppText variant="title" style={styles.zoneTitle}>
+        {busy ? "Uploading…" : "Upload PDFs"}
+      </AppText>
+
+      {status ? (
+        <AppText
+          variant="caption"
+          style={[styles.statusText, isError && { color: colors.danger }]}
+        >
+          {status}
+        </AppText>
+      ) : (
+        <AppText variant="caption" style={styles.hint}>
+          Tap to select one or more PDF files
+        </AppText>
+      )}
+    </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  zone: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.tealBorder,
+    borderRadius: radius.lg,
+    backgroundColor: colors.tealSoft,
+    padding: spacing.xl,
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  zonePressed: {
+    backgroundColor: "#D6F4F2",
+    borderColor: colors.teal,
+  },
+  zoneBusy: {
+    opacity: 0.7,
+  },
+  icon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: colors.teal,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
+  iconText: {
+    color: "#fff",
+    fontSize: typescale.size.xl,
+    fontWeight: typescale.weight.black,
+    lineHeight: typescale.size.xl * 1.2,
+  },
+  zoneTitle: {
+    color: colors.teal,
+  },
+  hint: {
+    color: colors.teal,
+    opacity: 0.7,
+  },
+  statusText: {
+    color: colors.teal,
+    textAlign: "center",
+  },
+});

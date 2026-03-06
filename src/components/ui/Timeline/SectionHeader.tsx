@@ -1,11 +1,12 @@
-// components/SectionHeader.tsx
 import React from "react";
-import { View, Text, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { AppText } from "../Primitives/AppText";
+import { colors } from "../../../theme/tokens";
 
 type Props = {
-  title: string;                 // e.g. "Health Timeline" / "Action Needed"
-  subtitle?: string;             // optional small line under title
-  right?: React.ReactNode;       // optional right-side content (tabs, button, etc.)
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -14,8 +15,10 @@ export function SectionHeader({ title, subtitle, right, style }: Props) {
     <View style={[styles.wrap, style]}>
       <View style={styles.row}>
         <View style={styles.left}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <AppText variant="h2" style={styles.title}>{title}</AppText>
+          {subtitle ? (
+            <AppText variant="caption" style={styles.subtitle}>{subtitle}</AppText>
+          ) : null}
         </View>
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>
@@ -31,25 +34,21 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 14,
+    paddingBottom: 10,
     gap: 12,
   },
-  left: { flex: 1 },
+  left:  { flex: 1 },
   right: { alignItems: "flex-end" },
   title: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0F172A",
+    color: colors.text,
   },
   subtitle: {
-    marginTop: 3,
-    fontSize: 12,
-    color: "#64748B",
-    fontWeight: "600",
+    marginTop: 2,
+    color: colors.muted,
   },
   divider: {
     height: 1,
-    backgroundColor: "#E6EEF5",
+    backgroundColor: colors.border,
   },
 });

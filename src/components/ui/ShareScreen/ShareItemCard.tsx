@@ -1,7 +1,10 @@
 import React from "react";
-import { Button, StyleSheet, Text, View } from "react-native";
+import { View, StyleSheet, Pressable } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
+import { AppText } from "../Primitives/AppText";
+import { Card } from "../Primitives/Card";
+import { colors, radius, typescale } from "../../../theme/tokens";
 
 type Props = {
   title: string;
@@ -10,35 +13,60 @@ type Props = {
 
 export function ShareItemCard({ title, url }: Props) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
+    <Card style={styles.card}>
+      <AppText variant="title" style={styles.title}>{title}</AppText>
 
-      <Text selectable style={styles.url}>
-        {url}
-      </Text>
+      <View style={styles.urlBox}>
+        <AppText variant="caption" style={styles.urlText} numberOfLines={1} ellipsizeMode="middle">
+          {url}
+        </AppText>
+      </View>
 
-      <Button title="Copy link" onPress={() => Clipboard.setStringAsync(url)} />
+      <Pressable
+        onPress={() => Clipboard.setStringAsync(url)}
+        style={({ pressed }) => [styles.copyBtn, pressed && { opacity: 0.8 }]}
+      >
+        <AppText style={styles.copyText}>Copy link</AppText>
+      </Pressable>
 
       <View style={styles.qrWrap}>
         <QRCode value={url} size={180} />
       </View>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-    marginBottom: 12,
+  card: { gap: 12 },
+  title: {
+    color: colors.text,
+    marginBottom: 2,
   },
-  title: { fontSize: 16, fontWeight: "700" },
-  url: {
-    padding: 10,
+  urlBox: {
+    backgroundColor: colors.bgSecondary,
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderRadius: 12,
+    borderColor: colors.border,
   },
-  qrWrap: { alignItems: "center", marginTop: 6 },
+  urlText: {
+    color: colors.textSub,
+  },
+  copyBtn: {
+    backgroundColor: colors.teal,
+    borderRadius: radius.md,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  copyText: {
+    color: "#fff",
+    fontWeight: typescale.weight.bold,
+    fontSize: typescale.size.base,
+  },
+  qrWrap: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
 });

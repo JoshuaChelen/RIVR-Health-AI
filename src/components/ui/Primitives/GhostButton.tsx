@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, typescale } from "../../../theme/tokens";
 
 type Props = {
   label: string;
@@ -17,8 +17,8 @@ export function GhostButton({ label, onPress, disabled, style }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.btn,
-        disabled && { opacity: 0.5 },
-        pressed && !disabled && { opacity: 0.7 },
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
         style,
       ]}
     >
@@ -38,8 +38,13 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.teal,
-    fontWeight: "600", // Reduced from 900
-    fontSize: 14,
-    opacity: 0.8, // Softens the "Logout" presence
+    fontWeight: typescale.weight.semibold,
+    fontSize: typescale.size.base,
+  },
+  disabled: {
+    opacity: 0.4,
+  },
+  pressed: {
+    opacity: 0.65,
   },
 });
