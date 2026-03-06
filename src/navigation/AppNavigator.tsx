@@ -38,7 +38,7 @@ export function AppNavigator() {
       <Stack.Screen
         name="ManageDocuments"
         component={ManageDocumentsScreen}
-        options={{ title: "Documents", headerShown: false }}
+        options={{ title: "Documents" }}
       />
       <Stack.Screen
         name="Share"

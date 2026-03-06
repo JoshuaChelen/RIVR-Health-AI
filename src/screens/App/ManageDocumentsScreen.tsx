@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -12,11 +14,34 @@ import { ListDocuments } from "../../components/ui/ManageDocuments/ListDocuments
 import { RecordVoiceNote } from "../../components/ui/ManageDocuments/RecordVoiceNote";
 import { colors, spacing, radius, typescale } from "../../theme/tokens";
 
-export function ManageDocumentsScreen() {
+type Props = NativeStackScreenProps<AppStackParamList, "ManageDocuments">;
+
+export function ManageDocumentsScreen({ navigation }: Props) {
   const [refreshKey, setRefreshKey]     = useState(0);
   const [starting, setStarting]         = useState(false);
   const [msg, setMsg]                   = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
+
+  // Sync pending badge into the native navigation header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View
+          style={[
+            styles.badge,
+            pendingCount > 0 ? styles.badgeActive : styles.badgeIdle,
+          ]}
+        >
+          <AppText
+            variant="label"
+            style={{ color: pendingCount > 0 ? colors.teal : colors.subtle }}
+          >
+            {pendingCount} pending
+          </AppText>
+        </View>
+      ),
+    });
+  }, [navigation, pendingCount]);
 
   async function loadPendingCount() {
     const { data: userRes } = await supabase.auth.getUser();
@@ -84,30 +109,6 @@ export function ManageDocumentsScreen() {
 
   return (
     <Screen style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <AppText variant="h1">Documents</AppText>
-          <AppText variant="muted" style={styles.headerSub}>
-            Upload PDFs or voice notes, then process when ready.
-          </AppText>
-        </View>
-
-        <View
-          style={[
-            styles.badge,
-            pendingCount > 0 ? styles.badgeActive : styles.badgeIdle,
-          ]}
-        >
-          <AppText
-            variant="label"
-            style={{ color: pendingCount > 0 ? colors.teal : colors.subtle }}
-          >
-            {pendingCount} pending
-          </AppText>
-        </View>
-      </View>
-
       {/* List */}
       <View style={styles.list}>
         <ListDocuments
@@ -157,21 +158,9 @@ export function ManageDocumentsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
 
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  headerSub: {
-    marginTop: 3,
-  },
-
   badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     borderWidth: 1,
   },
@@ -180,7 +169,7 @@ const styles = StyleSheet.create({
     borderColor: colors.tealBorder,
   },
   badgeIdle: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.bgSecondary,
     borderColor: colors.border,
   },
 
