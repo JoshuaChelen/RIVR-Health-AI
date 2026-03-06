@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { requestCancelJob } from "./aiJobs";
 
 const STORAGE_BUCKET = "documents";
 
@@ -34,13 +35,20 @@ export async function deleteDocument(docId: string, userId: string, storagePath:
   }
 }
 
-export async function cancelProcessing(docId: string, userId: string) {
-  const { error } = await supabase
-    .from("documents")
-    .update({ status: "uploaded", processing_error: null })
-    .eq("id", docId)
-    .eq("user_id", userId);
-  if (error) throw error;
+export async function cancelProcessing(docId: string, userId: string): Promise<void> {
+  // Find the active job for this document and signal the worker to stop.
+  // The worker is responsible for reverting the document status back to 'uploaded'.
+  const { data: jobs } = await supabase
+    .from("ai_jobs")
+    .select("id")
+    .eq("user_id", userId)
+    .in("status", ["queued", "running"])
+    .contains("document_ids", [docId])
+    .limit(1);
+
+  if (jobs && jobs.length > 0) {
+    await requestCancelJob(jobs[0].id);
+  }
 }
 
 export function safeFilename(name: string) {

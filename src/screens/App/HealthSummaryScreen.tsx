@@ -1,25 +1,28 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ActivityIndicator, ScrollView, View, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Share as RNShare,
+  StyleSheet,
+  View,
+} from "react-native";
 import * as Clipboard from "expo-clipboard";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
-import { Card } from "../../components/ui/Primitives/Card";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { GhostButton } from "../../components/ui/Primitives/GhostButton";
 
 import { supabase } from "../../lib/supabase";
 import {
-  getAllDocumentIds,
   getHealthProfile,
-  getLatestJob,
   getLatestEvaluation,
-  startAiJob,
 } from "../../lib/aiJobs";
 
-import { colors, spacing, radius, typescale } from "../../theme/tokens";
-
-import { Share as RNShare } from "react-native";
+import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
 
 function safeJoin(arr: any[]) {
   return Array.isArray(arr) && arr.length ? arr.join(", ") : "";
@@ -60,35 +63,29 @@ function formatFullSummaryText(input: {
   return lines.join("\n");
 }
 
-export default function HealthSummaryScreen() {
-  const [loading, setLoading]   = useState(true);
-  const [running, setRunning]   = useState(false);
-  const [job, setJob]           = useState<any>(null);
-  const [profile, setProfile]   = useState<any>(null);
-  const [evaluation, setEval]   = useState<any>(null);
-  const [error, setError]       = useState<string | null>(null);
-  const pollRef                 = useRef<any>(null);
+type Props = NativeStackScreenProps<AppStackParamList, "HealthSummary">;
+
+export default function HealthSummaryScreen({ navigation }: Props) {
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [evaluation, setEval] = useState<any>(null);
+  const [error, setError]     = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
-
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userRes?.user) {
       setError("Not signed in.");
       setLoading(false);
       return;
     }
-
     try {
-      const [j, p, ev] = await Promise.all([
-        getLatestJob(userRes.user.id),
+      const [p, ev] = await Promise.all([
         getHealthProfile(userRes.user.id),
         getLatestEvaluation(userRes.user.id),
       ]);
-      setJob(j);
       setProfile(p);
       setEval(ev?.result ?? null);
-      setRunning(!!(j && (j.status === "queued" || j.status === "running")));
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -96,51 +93,18 @@ export default function HealthSummaryScreen() {
     }
   }, []);
 
-  async function start() {
-    setError(null);
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes?.user;
-    if (!user) { setError("Not signed in."); return; }
+  useEffect(() => { load(); }, [load]);
 
-    try {
-      setRunning(true);
-      const docIds = await getAllDocumentIds(user.id);
-      if (docIds.length === 0) {
-        setError("Upload at least one document first.");
-        setRunning(false);
-        return;
-      }
-      await startAiJob(docIds);
-      await load();
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(load, 2000);
-    } catch (e: any) {
-      setError(String(e?.message || e));
-      setRunning(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [load]);
-
-  useEffect(() => {
-    const isRunning = job && (job.status === "queued" || job.status === "running");
-    if (!isRunning && pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-      setRunning(false);
-    }
-  }, [job?.status]);
-
-  const score    = profile?.score ?? evaluation?.score_0_to_100;
-  const label    = profile?.score_label ?? evaluation?.score_label;
-  const overview = profile?.summary_json?.overview ?? evaluation?.overview ?? null;
-  const disclaimer = profile?.summary_json?.disclaimer ?? evaluation?.disclaimer ?? null;
+  const score       = profile?.score ?? evaluation?.score_0_to_100;
+  const label       = profile?.score_label ?? evaluation?.score_label;
+  const overview    = profile?.summary_json?.overview ?? evaluation?.overview ?? null;
+  const disclaimer  = profile?.summary_json?.disclaimer ?? evaluation?.disclaimer ?? null;
   const fullSummary = profile?.summary_json?.full_summary_markdown ?? evaluation?.full_summary_markdown ?? null;
-  const card     = profile?.card_json ?? evaluation?.three_by_five_card ?? null;
+  const card        = profile?.card_json ?? evaluation?.three_by_five_card ?? null;
 
+  const hasContent  = !!(fullSummary || card);
+
+  // ── Share / copy ──────────────────────────────────────────────────────────
   const onShareCard = async () => {
     if (!card) return;
     await RNShare.share({ message: format3x5Text({ score, label, card }) });
@@ -159,124 +123,102 @@ export default function HealthSummaryScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <AppText variant="h1" style={styles.pageTitle}>Health Summary</AppText>
 
+        {/* ── Error banner ─────────────────────────────────── */}
+        {error ? (
+          <View style={styles.errorBanner}>
+            <AppText style={styles.errorText}>{error}</AppText>
+          </View>
+        ) : null}
+
+        {/* ── Loading ──────────────────────────────────────── */}
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.teal} />
+            <AppText style={styles.loadingText}>Loading your health summary…</AppText>
           </View>
         ) : null}
 
-        {error ? (
-          <Card>
-            <AppText variant="caption" style={{ color: colors.danger }}>{error}</AppText>
-          </Card>
-        ) : null}
-
-        {/* Status card */}
-        <Card style={styles.statusCard}>
-          <AppText variant="label" style={styles.sectionLabel}>AI Job Status</AppText>
-          <AppText variant="title" style={styles.statusValue}>
-            {job?.status ? String(job.status) : "No job yet"}
-          </AppText>
-
-          {job?.error ? (
-            <AppText variant="caption" style={{ color: colors.danger, marginTop: 6 }}>
-              {String(job.error)}
+        {/* ── Empty state ──────────────────────────────────── */}
+        {!loading && !hasContent ? (
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyIcon}>
+              <AppText style={styles.emptyIconText}>🧠</AppText>
+            </View>
+            <AppText style={styles.emptyTitle}>No summary yet</AppText>
+            <AppText style={styles.emptyBody}>
+              Generate your SHIN Score first. Your full AI health summary and 3×5 essentials will appear here.
             </AppText>
-          ) : null}
-
-          <View style={styles.statusActions}>
-            <PrimaryButton
-              label={running ? "Running…" : "Generate / Refresh"}
-              onPress={start}
-              disabled={running}
-              style={{ flex: 1 }}
-            />
-            <GhostButton label="Reload" onPress={load} />
+            <Pressable
+              style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.8 }]}
+              onPress={() => navigation.navigate("ShinScore")}
+            >
+              <AppText style={styles.emptyBtnText}>Go to SHIN Score</AppText>
+            </Pressable>
           </View>
-        </Card>
-
-        {(profile || evaluation) ? (
-          <>
-            {/* Score card */}
-            <Card style={styles.scoreCard}>
-              <AppText variant="label" style={styles.sectionLabel}>Shin Score</AppText>
-              <View style={styles.scoreRow}>
-                <AppText style={styles.scoreValue}>
-                  {typeof score === "number" ? score : "—"}
-                </AppText>
-                <AppText variant="muted" style={styles.scoreMax}>/100</AppText>
-                {label ? (
-                  <View style={styles.scoreBadge}>
-                    <AppText variant="label" style={{ color: colors.teal }}>{label}</AppText>
-                  </View>
-                ) : null}
-              </View>
-              {overview ? (
-                <AppText variant="body" style={styles.overview}>{String(overview)}</AppText>
-              ) : null}
-            </Card>
-
-            {/* 3x5 card */}
-            <Card>
-              <AppText variant="h2" style={styles.cardTitle}>3×5 Essentials</AppText>
-
-              {card ? (
-                <>
-                  <View style={styles.essentialsList}>
-                    <EssentialRow label="Blood type" value={card?.blood_type ?? "Unknown"} />
-                    <EssentialRow label="Allergies"  value={safeJoin(card?.allergies) || "None listed"} />
-                    <EssentialRow label="Medications" value={safeJoin(card?.current_meds) || "None listed"} />
-                    <EssentialRow label="Conditions" value={safeJoin(card?.major_conditions) || "None listed"} />
-                  </View>
-
-                  <View style={styles.cardActions}>
-                    <PrimaryButton label="Share 3×5 card" onPress={onShareCard} style={{ flex: 1 }} />
-                    <GhostButton  label="Copy text"        onPress={onCopyCard} />
-                  </View>
-                </>
-              ) : (
-                <AppText variant="muted" style={{ marginTop: 8 }}>
-                  No card yet — generate the summary first.
-                </AppText>
-              )}
-
-              {disclaimer ? (
-                <AppText variant="caption" style={styles.disclaimer}>{String(disclaimer)}</AppText>
-              ) : null}
-            </Card>
-
-            {/* Full summary */}
-            <Card>
-              <AppText variant="h2" style={styles.cardTitle}>Full Summary</AppText>
-
-              {fullSummary ? (
-                <>
-                  <AppText variant="mono" style={styles.fullText}>{String(fullSummary)}</AppText>
-                  <View style={styles.cardActions}>
-                    <PrimaryButton label="Share summary" onPress={onShareFull} style={{ flex: 1 }} />
-                    <GhostButton  label="Copy text"       onPress={onCopyFull} />
-                  </View>
-                </>
-              ) : (
-                <AppText variant="muted" style={{ marginTop: 8 }}>
-                  No summary yet — generate one first.
-                </AppText>
-              )}
-            </Card>
-          </>
         ) : null}
+
+        {/* ── Full Summary ─────────────────────────────────── */}
+        {fullSummary ? (
+          <View style={styles.contentCard}>
+            <View style={styles.contentCardHeader}>
+              <AppText style={styles.contentCardTitle}>Full Summary</AppText>
+              <View style={styles.contentCardActions}>
+                <GhostButton label="Copy" onPress={onCopyFull} />
+                <PrimaryButton label="Share" onPress={onShareFull} />
+              </View>
+            </View>
+            <AppText style={styles.fullText}>{String(fullSummary)}</AppText>
+            {disclaimer ? (
+              <AppText style={styles.disclaimer}>{String(disclaimer)}</AppText>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* ── 3×5 Essentials ──────────────────────────────── */}
+        {card ? (
+          <View style={styles.contentCard}>
+            <View style={styles.contentCardHeader}>
+              <AppText style={styles.contentCardTitle}>3×5 Essentials</AppText>
+              <View style={styles.contentCardActions}>
+                <GhostButton label="Copy" onPress={onCopyCard} />
+                <PrimaryButton label="Share" onPress={onShareCard} />
+              </View>
+            </View>
+            <View style={styles.essentialsList}>
+              <EssentialRow label="Blood type"   value={card?.blood_type ?? "Unknown"} />
+              <EssentialRow label="Conditions"   value={safeJoin(card?.major_conditions) || "None listed"} />
+              <EssentialRow label="Surgeries"    value={safeJoin(card?.major_surgeries) || "None listed"} />
+              <EssentialRow label="Medications"  value={safeJoin(card?.current_meds) || "None listed"} />
+              <EssentialRow label="Allergies"    value={safeJoin(card?.allergies) || "None listed"} />
+              <EssentialRow label="Implants"     value={safeJoin(card?.implants_devices) || "None listed"} />
+              <EssentialRow label="Anticoag."    value={safeJoin(card?.anticoagulants) || "None listed"} />
+              <EssentialRow label="Anesthesia"   value={safeJoin(card?.anesthesia_notes) || "None listed"} />
+              {(card?.emergency_contact?.name || card?.emergency_contact?.phone) ? (
+                <EssentialRow
+                  label="Emergency"
+                  value={`${card.emergency_contact?.name ?? ""} ${card.emergency_contact?.phone ?? ""}`.trim()}
+                />
+              ) : null}
+            </View>
+            {card?.one_line_summary ? (
+              <AppText style={styles.oneLiner}>{String(card.one_line_summary)}</AppText>
+            ) : null}
+          </View>
+        ) : null}
+
       </ScrollView>
     </Screen>
   );
 }
 
+// ─── EssentialRow ─────────────────────────────────────────────────────────────
+
 function EssentialRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={essStyles.row}>
-      <AppText variant="label" style={essStyles.label}>{label}</AppText>
-      <AppText variant="body"  style={essStyles.value}>{value}</AppText>
+      <AppText style={essStyles.label}>{label}</AppText>
+      <AppText style={essStyles.value}>{value}</AppText>
     </View>
   );
 }
@@ -286,94 +228,151 @@ const essStyles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
-    gap: 2,
+    gap: 3,
   },
-  label: { color: colors.muted, marginBottom: 1 },
-  value: { color: colors.text },
+  label: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  value: {
+    fontSize: typescale.size.sm,
+    color: colors.text,
+    lineHeight: typescale.size.sm * typescale.lineHeight.normal,
+  },
 });
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   scroll: {
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingBottom: spacing.xxl,
   },
-  pageTitle: {
+
+  // Error
+  errorBanner: {
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorText: {
+    fontSize: typescale.size.sm,
+    color: colors.danger,
+    fontWeight: typescale.weight.medium,
+  },
+
+  // Loading
+  center: {
+    paddingVertical: spacing.xxl,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  loadingText: {
+    fontSize: typescale.size.sm,
+    color: colors.muted,
+  },
+
+  // Empty state
+  emptyWrap: {
+    paddingVertical: spacing.xxl,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.tealSoft,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: spacing.xs,
   },
-  center: {
-    paddingVertical: spacing.xl,
-    alignItems: "center",
+  emptyIconText: {
+    fontSize: 26,
+    lineHeight: 32,
   },
-
-  statusCard: {
-    gap: spacing.sm,
-  },
-  sectionLabel: {
-    marginBottom: 2,
-  },
-  statusValue: {
+  emptyTitle: {
+    fontSize: typescale.size.lg,
+    fontWeight: typescale.weight.bold,
     color: colors.text,
   },
-  statusActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: 4,
+  emptyBody: {
+    fontSize: typescale.size.sm,
+    color: colors.muted,
+    textAlign: "center",
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyBtn: {
+    marginTop: spacing.xs,
+    backgroundColor: colors.teal,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    ...shadows.xs,
+  },
+  emptyBtnText: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.semibold,
+    color: "#fff",
   },
 
-  scoreCard: {
+  // Content cards (Full Summary, 3×5)
+  contentCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  contentCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.xs,
+  },
+  contentCardTitle: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.bold,
+    color: colors.text,
+  },
+  contentCardActions: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
-  scoreRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 6,
-    marginTop: 4,
-  },
-  scoreValue: {
-    fontSize: typescale.size.hero + 4,
-    fontWeight: typescale.weight.black,
-    color: colors.text,
-    lineHeight: (typescale.size.hero + 4) * 1.1,
-  },
-  scoreMax: {
-    fontSize: typescale.size.lg,
-    color: colors.subtle,
-  },
-  scoreBadge: {
-    backgroundColor: colors.tealSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginLeft: 4,
-  },
-  overview: {
-    marginTop: spacing.sm,
+  fullText: {
+    fontSize: typescale.size.sm,
     color: colors.textSub,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
-
-  cardTitle: {
-    marginBottom: spacing.sm,
+  disclaimer: {
+    fontSize: typescale.size.xs,
+    color: colors.subtle,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    marginTop: spacing.xxs,
   },
   essentialsList: {
     gap: 0,
-    marginBottom: spacing.md,
   },
-  cardActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  fullText: {
+  oneLiner: {
+    fontSize: typescale.size.sm,
     color: colors.textSub,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  disclaimer: {
-    marginTop: spacing.md,
-    color: colors.subtle,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    fontStyle: "italic",
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    marginTop: spacing.xxs,
   },
 });

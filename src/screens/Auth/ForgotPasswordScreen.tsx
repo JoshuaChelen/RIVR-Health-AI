@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   View,
   StyleSheet,
   KeyboardAvoidingView,
@@ -19,7 +21,7 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/Primitives/SecondaryButton";
 import { EmailInput } from "../../components/ui/Account/EmailInput";
-import { colors, spacing, typescale } from "../../theme/tokens";
+import { colors, spacing, radius, typescale } from "../../theme/tokens";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "ForgotPassword">;
 
@@ -28,6 +30,27 @@ export function ForgotPasswordScreen({ navigation }: Props) {
   const [busy, setBusy]   = useState(false);
   const [msg, setMsg]     = useState<string | null>(null);
   const [err, setErr]     = useState<string | null>(null);
+
+  // Entrance animation
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerSlide   = useRef(new Animated.Value(16)).current;
+  const formOpacity   = useRef(new Animated.Value(0)).current;
+  const formSlide     = useRef(new Animated.Value(24)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(headerOpacity, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(headerSlide,   { toValue: 0, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(formOpacity, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(formSlide,   { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
+      Animated.timing(footerOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   const sendReset = async () => {
     setErr(null);
@@ -40,11 +63,9 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-
       const redirectTo = process.env.EXPO_PUBLIC_RESET_REDIRECT_TO ?? "http://localhost:8081";
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       if (error) throw error;
-
       setMsg("If that email exists, you will receive a reset link shortly.");
     } catch (e: any) {
       setErr(e?.message ?? "Failed to send reset link.");
@@ -67,44 +88,56 @@ export function ForgotPasswordScreen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.inner}>
-            <View style={styles.brand}>
-              <AuthLogo size={68} />
-              <AppText variant="h1">Reset password</AppText>
-              <AppText variant="muted" style={{ textAlign: "center" }}>
+
+            {/* ── Brand ─────────────────────────────────────── */}
+            <Animated.View style={[styles.brand, { opacity: headerOpacity, transform: [{ translateY: headerSlide }] }]}>
+              <AuthLogo size={72} />
+              <AppText style={styles.appName}>Reset password</AppText>
+              <AppText style={styles.tagline}>
                 Enter your email and we'll send you a link to reset your password.
               </AppText>
-            </View>
+            </Animated.View>
 
-            <Card style={styles.formCard}>
-              <EmailInput value={email} onChangeText={setEmail} label="Email" />
+            {/* ── Form card ─────────────────────────────────── */}
+            <Animated.View style={{ opacity: formOpacity, transform: [{ translateY: formSlide }] }}>
+              <Card style={styles.formCard}>
 
-              {err ? (
-                <AppText variant="caption" style={{ color: colors.danger }}>{err}</AppText>
-              ) : null}
+                <EmailInput value={email} onChangeText={setEmail} label="Email" />
 
-              {msg ? (
-                <AppText variant="caption" style={{ color: colors.success, fontWeight: typescale.weight.semibold }}>
-                  {msg}
-                </AppText>
-              ) : null}
+                {err ? (
+                  <View style={styles.errorBanner}>
+                    <AppText style={styles.errorText}>{err}</AppText>
+                  </View>
+                ) : null}
 
-              <PrimaryButton
-                label={busy ? "Sending…" : "Send reset link"}
-                onPress={sendReset}
-                disabled={busy}
-                tone="teal"
-              />
+                {msg ? (
+                  <View style={styles.successBanner}>
+                    <AppText style={styles.successText}>{msg}</AppText>
+                  </View>
+                ) : null}
 
-              <SecondaryButton
-                label="Back to sign in"
-                onPress={() => navigation.navigate("Login")}
-                disabled={busy}
-              />
-            </Card>
+                <PrimaryButton
+                  label={busy ? "Sending…" : "Send reset link"}
+                  onPress={sendReset}
+                  disabled={busy}
+                  tone="teal"
+                />
 
-            <AppText variant="caption" style={styles.footer}>
-              Your data stays private. Links you generate expire automatically.
-            </AppText>
+                <SecondaryButton
+                  label="Back to sign in"
+                  onPress={() => navigation.navigate("Login")}
+                  disabled={busy}
+                />
+              </Card>
+            </Animated.View>
+
+            {/* ── Footer ────────────────────────────────────── */}
+            <Animated.View style={{ opacity: footerOpacity }}>
+              <AppText style={styles.footer}>
+                Your data stays private. Links you generate expire automatically.
+              </AppText>
+            </Animated.View>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -125,18 +158,65 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     gap: spacing.xl,
   },
+
   brand: {
     alignItems: "center",
     gap: spacing.sm,
+    paddingBottom: spacing.xs,
   },
+  appName: {
+    fontSize: typescale.size.xxl,
+    fontWeight: typescale.weight.bold,
+    color: colors.text,
+    letterSpacing: -0.5,
+  },
+  tagline: {
+    fontSize: typescale.size.base,
+    color: colors.muted,
+    textAlign: "center",
+    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
+    paddingHorizontal: spacing.sm,
+  },
+
   formCard: {
     padding: spacing.xl,
     gap: spacing.md,
+    borderRadius: 20,
   },
+
+  errorBanner: {
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorText: {
+    fontSize: typescale.size.sm,
+    color: colors.danger,
+    fontWeight: typescale.weight.medium,
+  },
+
+  successBanner: {
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: "#6EE7B7",
+  },
+  successText: {
+    fontSize: typescale.size.sm,
+    color: colors.success,
+    fontWeight: typescale.weight.medium,
+  },
+
   footer: {
     textAlign: "center",
+    fontSize: typescale.size.xs,
     color: colors.subtle,
-    paddingHorizontal: spacing.xl,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    paddingHorizontal: spacing.lg,
   },
 });

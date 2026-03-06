@@ -10,6 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
+import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -20,20 +21,7 @@ import exportSummary from "../../lib/health/export.summary.json";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 
-type RecentDoc = {
-  id: string;
-  file_name: string;
-  status: "uploaded" | "queued" | "processing" | "done" | "error";
-  created_at: string;
-};
-
-const STATUS_META: Record<RecentDoc["status"], { label: string; color: string; bg: string }> = {
-  uploaded:   { label: "Pending",    color: colors.warning, bg: colors.warnSoft    },
-  queued:     { label: "Queued",     color: colors.blue,    bg: colors.blueSoft    },
-  processing: { label: "Processing", color: colors.teal,    bg: colors.tealSoft    },
-  done:       { label: "Done",       color: colors.success, bg: colors.successSoft },
-  error:      { label: "Error",      color: colors.danger,  bg: colors.dangerSoft  },
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeGreeting(): string {
   const h = new Date().getHours();
@@ -50,48 +38,73 @@ function todayLabel(): string {
   });
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export function HomeScreen({ navigation }: Props) {
-  const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([]);
-  const [docsLoading, setDocsLoading] = useState(true);
+  // Health summary score — sourced from health_profiles → health_evaluations fallback
+  const [scoreLoading, setScoreLoading] = useState(true);
+  const [score, setScore]   = useState<number | null>(null);
+  const [label, setLabel]   = useState<string | null>(null);
+  const [overview, setOverview] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      (async () => {
+        setScoreLoading(true);
+        try {
+          const { data: userRes } = await supabase.auth.getUser();
+          if (!userRes?.user || !active) return;
+
+          const userId = userRes.user.id;
+          const [profile, evalRow] = await Promise.all([
+            getHealthProfile(userId),
+            getLatestEvaluation(userId),
+          ]);
+
+          if (!active) return;
+
+          // Mirror exactly what HealthSummaryScreen does to derive the score
+          const evalResult = evalRow?.result ?? null;
+
+          const resolvedScore =
+            profile?.score ?? evalResult?.score_0_to_100 ?? null;
+          const resolvedLabel =
+            profile?.score_label ?? evalResult?.score_label ?? null;
+          const resolvedOverview =
+            profile?.summary_json?.overview ?? evalResult?.overview ?? null;
+
+          setScore(typeof resolvedScore === "number" ? resolvedScore : null);
+          setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
+          setOverview(typeof resolvedOverview === "string" ? resolvedOverview : null);
+        } catch {
+          // Silently fail on the dashboard — errors are surfaced on Health Summary
+        } finally {
+          if (active) setScoreLoading(false);
+        }
+      })();
+
+      return () => { active = false; };
+    }, [])
+  );
 
   const hrText =
     exportSummary.heartRate.latestBpm != null
       ? `${exportSummary.heartRate.latestBpm} bpm`
-      : "No data";
+      : "—";
 
   const sleepText =
     exportSummary.sleep.avg7dMinutes != null
       ? `${Math.floor(exportSummary.sleep.avg7dMinutes / 60)}h ${String(
           exportSummary.sleep.avg7dMinutes % 60
         ).padStart(2, "0")}m`
-      : "No data";
+      : "—";
 
   const stepsText =
     exportSummary.steps.avg7dPerDay != null
       ? `${exportSummary.steps.avg7dPerDay.toLocaleString()}`
-      : "No data";
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      (async () => {
-        setDocsLoading(true);
-        const { data: userRes } = await supabase.auth.getUser();
-        if (!userRes?.user || !active) return;
-        const { data } = await supabase
-          .from("documents")
-          .select("id, file_name, status, created_at")
-          .eq("user_id", userRes.user.id)
-          .order("created_at", { ascending: false })
-          .limit(4);
-        if (active) {
-          setRecentDocs((data ?? []) as RecentDoc[]);
-          setDocsLoading(false);
-        }
-      })();
-      return () => { active = false; };
-    }, [])
-  );
+      : "—";
 
   return (
     <Screen>
@@ -99,52 +112,73 @@ export function HomeScreen({ navigation }: Props) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Greeting ───────────────────────────────────────── */}
+        {/* ── Greeting ──────────────────────────────────────── */}
         <View style={styles.greeting}>
-          <AppText variant="caption" style={styles.greetDate}>{todayLabel()}</AppText>
+          <AppText style={styles.greetDate}>{todayLabel()}</AppText>
           <AppText variant="h1" style={styles.greetTitle}>{timeGreeting()}</AppText>
         </View>
 
-        {/* ── Score ring hero ────────────────────────────────── */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTop}>
-            <View>
+        {/* ── SHIN Score ring card ───────────────────────────── */}
+        <Pressable
+          style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
+          onPress={() => navigation.navigate("ShinScore")}
+        >
+          <View style={styles.heroHeader}>
+            <View style={styles.heroLabelBlock}>
               <AppText style={styles.heroLabel}>SHIN SCORE</AppText>
               <AppText style={styles.heroSub}>Overall health index</AppText>
             </View>
-            <View style={styles.trendPill}>
-              <AppText style={styles.trendText}>+3 this week</AppText>
-            </View>
-          </View>
-          <View style={styles.ringWrap}>
-            <ScoreRing value={82} />
-          </View>
-        </View>
-
-        {/* ── AI Insights card ───────────────────────────────── */}
-        <Pressable
-          style={({ pressed }) => [styles.aiCard, pressed && styles.cardPressed]}
-          onPress={() => navigation.navigate("HealthSummary")}
-        >
-          <View style={styles.aiAccent} />
-          <View style={styles.aiBody}>
-            <View style={styles.aiHeader}>
-              <View style={styles.aiIconWrap}>
-                <AppText style={styles.aiIcon}>✦</AppText>
+            {scoreLoading ? null : score != null ? (
+              <View style={styles.labelPill}>
+                <AppText style={styles.labelPillText}>{label ?? "View details"}</AppText>
               </View>
-              <View style={{ flex: 1 }}>
-                <AppText style={styles.aiTitle}>AI Health Summary</AppText>
-                <AppText style={styles.aiSub}>
-                  Generate insights from your documents
+            ) : (
+              <View style={[styles.labelPill, styles.labelPillMuted]}>
+                <AppText style={styles.labelPillTextMuted}>Not generated</AppText>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.ringWrap}>
+            {scoreLoading ? (
+              <View style={styles.ringPlaceholder}>
+                <ActivityIndicator color={colors.teal} size="large" />
+                <AppText style={styles.ringPlaceholderText}>Loading score…</AppText>
+              </View>
+            ) : score != null ? (
+              <ScoreRing value={score} />
+            ) : (
+              <View style={styles.emptyScore}>
+                <View style={styles.emptyScoreRing}>
+                  <AppText style={styles.emptyScoreIcon}>✦</AppText>
+                </View>
+                <AppText style={styles.emptyScoreTitle}>No score yet</AppText>
+                <AppText style={styles.emptyScoreBody}>
+                  Upload documents and generate{"\n"}your AI health summary to see your score.
                 </AppText>
               </View>
-              <AppText style={styles.aiChevron}>›</AppText>
-            </View>
+            )}
           </View>
         </Pressable>
 
-        {/* ── Quick actions ──────────────────────────────────── */}
-        <SectionHeader title="Quick actions" />
+        {/* ── AI Health Summary card ─────────────────────────── */}
+        <Pressable
+          style={({ pressed }) => [styles.summaryCard, pressed && styles.summaryPressed]}
+          onPress={() => navigation.navigate("HealthSummary")}
+        >
+          <View style={styles.summaryAccent} />
+          <View style={styles.summaryIconWrap}>
+            <AppText style={styles.summaryIcon}>✦</AppText>
+          </View>
+          <View style={styles.summaryTextBlock}>
+            <AppText style={styles.summaryTitle}>AI Health Summary</AppText>
+            <AppText style={styles.summarySub}>Generate insights from your documents</AppText>
+          </View>
+          <AppText style={styles.summaryChevron}>›</AppText>
+        </Pressable>
+
+        {/* ── Actions + metrics grid ─────────────────────────── */}
+        <SectionHeader title="Actions" />
         <View style={styles.actionsRow}>
           <QuickAction label="Documents" symbol="📄" onPress={() => navigation.navigate("ManageDocuments")} />
           <QuickAction label="Timeline"  symbol="📅" onPress={() => navigation.navigate("Timeline")} />
@@ -152,70 +186,20 @@ export function HomeScreen({ navigation }: Props) {
           <QuickAction label="Share"     symbol="🔗" onPress={() => navigation.navigate("Share")} />
         </View>
 
-        {/* ── Metrics ───────────────────────────────────────── */}
         <SectionHeader title="Today's health" />
         <View style={styles.metricsGrid}>
-          <MetricTile symbol="❤️" label="Heart rate" value={hrText}    sub="latest" tone="orange" />
-          <MetricTile symbol="💤" label="Sleep"      value={sleepText}  sub="7d avg" tone="blue"   />
-          <MetricTile symbol="👟" label="Steps"      value={stepsText}  sub="7d avg" tone="green"  />
-          <MetricTile symbol="🧠" label="AI insights" value="2 new"    sub="unread" tone="teal"   onPress={() => navigation.navigate("HealthSummary")} />
+          <MetricTile symbol="❤️" label="Heart rate" value={hrText}   sub="latest" tone="orange" />
+          <MetricTile symbol="💤" label="Sleep"      value={sleepText} sub="7d avg" tone="blue"   />
+          <MetricTile symbol="👟" label="Steps"      value={stepsText} sub="7d avg" tone="green"  />
+          <MetricTile
+            symbol="🧠"
+            label="SHIN Score"
+            value={score != null ? `${score}/100` : "—"}
+            sub={label ?? "not generated"}
+            tone="teal"
+            onPress={() => navigation.navigate("ShinScore")}
+          />
         </View>
-
-        {/* ── Recent documents ──────────────────────────────── */}
-        <SectionHeader
-          title="Recent documents"
-          action="See all"
-          onAction={() => navigation.navigate("ManageDocuments")}
-        />
-
-        {docsLoading ? (
-          <View style={styles.docsLoading}>
-            <ActivityIndicator color={colors.teal} size="small" />
-          </View>
-        ) : recentDocs.length === 0 ? (
-          <Pressable
-            style={({ pressed }) => [styles.emptyCard, pressed && styles.cardPressed]}
-            onPress={() => navigation.navigate("ManageDocuments")}
-          >
-            <AppText style={styles.emptySymbol}>📂</AppText>
-            <View style={{ flex: 1 }}>
-              <AppText style={styles.emptyTitle}>No documents yet</AppText>
-              <AppText style={styles.emptyBody}>Upload a PDF or voice note to get started</AppText>
-            </View>
-            <AppText style={styles.emptyChevron}>›</AppText>
-          </Pressable>
-        ) : (
-          <View style={styles.docList}>
-            {recentDocs.map((doc) => {
-              const meta = STATUS_META[doc.status] ?? STATUS_META.uploaded;
-              return (
-                <Pressable
-                  key={doc.id}
-                  style={({ pressed }) => [styles.docRow, pressed && styles.cardPressed]}
-                  onPress={() => navigation.navigate("ManageDocuments")}
-                >
-                  <View style={styles.docIconWrap}>
-                    <AppText style={styles.docIconText}>📄</AppText>
-                  </View>
-                  <View style={styles.docInfo}>
-                    <AppText style={styles.docName} numberOfLines={1}>{doc.file_name}</AppText>
-                    <AppText style={styles.docDate}>
-                      {new Date(doc.created_at).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </AppText>
-                  </View>
-                  <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
-                    <AppText style={[styles.statusText, { color: meta.color }]}>
-                      {meta.label}
-                    </AppText>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
 
         {/* ── Sign out ──────────────────────────────────────── */}
         <Pressable
@@ -229,26 +213,13 @@ export function HomeScreen({ navigation }: Props) {
   );
 }
 
-// ── Shared components ─────────────────────────────────────────────────────────
+// ─── Shared components ────────────────────────────────────────────────────────
 
-function SectionHeader({
-  title,
-  action,
-  onAction,
-}: {
-  title: string;
-  action?: string;
-  onAction?: () => void;
-}) {
+function SectionHeader({ title }: { title: string }) {
   return (
     <View style={sh.row}>
       <View style={sh.accent} />
       <AppText style={sh.title}>{title}</AppText>
-      {action && onAction ? (
-        <Pressable onPress={onAction} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-          <AppText style={sh.link}>{action}</AppText>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -259,7 +230,6 @@ const sh = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.xl,
     gap: spacing.xs,
-    marginTop: spacing.xs,
   },
   accent: {
     width: 3,
@@ -268,17 +238,11 @@ const sh = StyleSheet.create({
     backgroundColor: colors.teal,
   },
   title: {
-    flex: 1,
-    fontSize: typescale.size.sm,
+    fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
     color: colors.muted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
-  },
-  link: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold,
-    color: colors.teal,
   },
 });
 
@@ -351,7 +315,7 @@ function MetricTile({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   scroll: {
@@ -366,8 +330,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   greetDate: {
-    color: colors.teal,
+    fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
+    color: colors.teal,
     letterSpacing: 0.3,
     marginBottom: 3,
   },
@@ -375,7 +340,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
-  // Hero score card
+  // SHIN Score ring card
   heroCard: {
     marginHorizontal: spacing.xl,
     backgroundColor: colors.surface,
@@ -383,13 +348,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
+    gap: spacing.sm,
     ...shadows.card,
   },
-  heroTop: {
+  heroPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
+  heroHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: spacing.sm,
+  },
+  heroLabelBlock: {
+    gap: 3,
   },
   heroLabel: {
     fontSize: typescale.size.xs,
@@ -400,76 +372,132 @@ const styles = StyleSheet.create({
   heroSub: {
     fontSize: typescale.size.xs,
     color: colors.muted,
-    marginTop: 3,
   },
-  trendPill: {
-    backgroundColor: colors.successSoft,
+  labelPill: {
+    backgroundColor: colors.tealSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  trendText: {
+  labelPillText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.success,
+    color: colors.teal,
+  },
+  labelPillMuted: {
+    backgroundColor: colors.bgSecondary,
+  },
+  labelPillTextMuted: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: colors.muted,
   },
   ringWrap: {
     alignItems: "center",
-    paddingTop: spacing.xs,
+    paddingVertical: spacing.xs,
   },
-
-  // AI card
-  aiCard: {
-    marginHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.tealBorder,
-    flexDirection: "row",
-    overflow: "hidden",
-    ...shadows.xs,
-  },
-  aiAccent: {
-    width: 4,
-    backgroundColor: colors.teal,
-  },
-  aiBody: {
-    flex: 1,
-    padding: spacing.md,
-  },
-  aiHeader: {
-    flexDirection: "row",
+  ringPlaceholder: {
+    paddingVertical: spacing.xxl,
     alignItems: "center",
     gap: spacing.sm,
   },
-  aiIconWrap: {
+  ringPlaceholderText: {
+    fontSize: typescale.size.sm,
+    color: colors.muted,
+  },
+  emptyScore: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  emptyScoreRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
+  emptyScoreIcon: {
+    fontSize: 26,
+    color: colors.teal,
+    lineHeight: 32,
+  },
+  emptyScoreTitle: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.bold,
+    color: colors.text,
+  },
+  emptyScoreBody: {
+    fontSize: typescale.size.xs,
+    color: colors.muted,
+    textAlign: "center",
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // AI Health Summary card
+  summaryCard: {
+    marginHorizontal: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingRight: spacing.md,
+    ...shadows.xs,
+  },
+  summaryPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
+  },
+  summaryAccent: {
+    width: 4,
+    alignSelf: "stretch",
+    backgroundColor: colors.teal,
+    borderTopLeftRadius: radius.xl,
+    borderBottomLeftRadius: radius.xl,
+    marginRight: spacing.xs,
+    flexShrink: 0,
+  },
+  summaryIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: radius.sm,
+    borderRadius: 18,
     backgroundColor: colors.tealSoft,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  aiIcon: {
-    fontSize: 16,
+  summaryIcon: {
+    fontSize: 15,
     color: colors.teal,
-    fontWeight: typescale.weight.bold,
+    lineHeight: 20,
   },
-  aiTitle: {
+  summaryTextBlock: {
+    flex: 1,
+    gap: 3,
+  },
+  summaryTitle: {
     fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold,
+    fontWeight: typescale.weight.bold,
     color: colors.text,
   },
-  aiSub: {
+  summarySub: {
     fontSize: typescale.size.xs,
     color: colors.muted,
-    marginTop: 2,
   },
-  aiChevron: {
+  summaryChevron: {
     fontSize: 22,
     color: colors.teal,
-    fontWeight: typescale.weight.bold,
     lineHeight: 28,
+    flexShrink: 0,
   },
 
   // Quick actions
@@ -551,96 +579,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
 
-  // Card press state (shared)
+  // Shared press state
   cardPressed: {
     opacity: 0.78,
     transform: [{ scale: 0.985 }],
-  },
-
-  // Docs
-  docsLoading: {
-    paddingVertical: spacing.lg,
-    alignItems: "center",
-  },
-  emptyCard: {
-    marginHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    ...shadows.xs,
-  },
-  emptySymbol: {
-    fontSize: 24,
-    lineHeight: 30,
-  },
-  emptyTitle: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold,
-    color: colors.text,
-  },
-  emptyBody: {
-    fontSize: typescale.size.xs,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  emptyChevron: {
-    fontSize: 22,
-    color: colors.subtle,
-    lineHeight: 28,
-  },
-  docList: {
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xs,
-  },
-  docRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.sm,
-    gap: spacing.sm,
-    ...shadows.xs,
-  },
-  docIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.xs,
-    backgroundColor: colors.bgSecondary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  docIconText: {
-    fontSize: 16,
-    lineHeight: 20,
-  },
-  docInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  docName: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium,
-    color: colors.text,
-  },
-  docDate: {
-    fontSize: typescale.size.xs,
-    color: colors.muted,
-  },
-  statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-  },
-  statusText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
   },
 
   // Sign out

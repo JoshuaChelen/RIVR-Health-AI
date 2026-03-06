@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, TextInput, StyleSheet, TextInputProps, Pressable } from "react-native";
 import { AppText } from "./AppText";
 import { colors, radius, shadows, typescale } from "../../../theme/tokens";
@@ -8,15 +8,19 @@ type Props = TextInputProps & {
   rightAccessory?: React.ReactNode;
 };
 
-export function TextField({ label, style, rightAccessory, ...props }: Props) {
+export function TextField({ label, style, rightAccessory, onFocus, onBlur, ...props }: Props) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.container}>
-      {label ? <AppText variant="label" style={styles.label}>{label}</AppText> : null}
-      <View style={styles.wrap}>
+      {label ? <AppText variant="label" style={[styles.label, focused && styles.labelFocused]}>{label}</AppText> : null}
+      <View style={[styles.wrap, focused && styles.wrapFocused]}>
         <TextInput
           {...props}
           placeholderTextColor={colors.subtle}
           style={[styles.input, style]}
+          onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+          onBlur={(e)  => { setFocused(false); onBlur?.(e); }}
         />
         {rightAccessory ? <View style={styles.right}>{rightAccessory}</View> : null}
       </View>
@@ -40,6 +44,9 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 1,
   },
+  labelFocused: {
+    color: colors.teal,
+  },
   wrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -48,8 +55,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: 14,
-    height: 50,
+    height: 52,
     ...shadows.xs,
+  },
+  wrapFocused: {
+    borderColor: colors.teal,
+    borderWidth: 1.5,
+    shadowColor: colors.teal,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   input: {
     flex: 1,

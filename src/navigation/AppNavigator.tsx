@@ -9,6 +9,7 @@ import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
 import { TimelineEventDetailsScreen } from "../screens/App/TimelineEventDetailsScreen";
 import { PreVisitNoteScreen } from "../screens/App/PreVisitNoteScreen";
 import HealthSummaryScreen from "../screens/App/HealthSummaryScreen";
+import { ShinScoreScreen } from "../screens/App/ShinScoreScreen";
 
 import { colors, typescale } from "../theme/tokens";
 
@@ -51,9 +52,14 @@ export function AppNavigator() {
         options={{ title: "Timeline" }}
       />
       <Stack.Screen
+        name="ShinScore"
+        component={ShinScoreScreen}
+        options={{ title: "SHIN Score" }}
+      />
+      <Stack.Screen
         name="HealthSummary"
         component={HealthSummaryScreen}
-        options={{ title: "Health Summary" }}
+        options={{ title: "AI Health Summary" }}
       />
       <Stack.Screen
         name="PreVisitNote"
