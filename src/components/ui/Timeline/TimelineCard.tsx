@@ -1,220 +1,289 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   View,
   StyleSheet,
   Pressable,
   Switch,
+  Animated,
   ViewStyle,
   StyleProp,
 } from "react-native";
 import { AppText } from "../Primitives/AppText";
-import { colors, radius, shadows, typescale } from "../../../theme/tokens";
+import { colors, radius, shadows, spacing, typescale } from "../../../theme/tokens";
 
-type PillTone = "green" | "gray" | "pink" | "blue";
+// ─── Category config ──────────────────────────────────────────────────────────
 
-type Pill = {
-  label: string;
-  tone?: PillTone;
-  icon?: React.ReactNode;
+type CategoryMeta = {
+  iconSymbol: string;
+  iconColor: string;
+  iconBg: string;
+  pillBg: string;
+  pillText: string;
+  dot: string;
 };
 
-type TimelineCardProps = {
-  categoryPill: Pill;
-  sourcePill?: Pill;
-  leadingIcon?: React.ReactNode;
+const DEFAULT_META: CategoryMeta = {
+  iconSymbol: "•",
+  iconColor: colors.orange,
+  iconBg:    colors.orangeSoft,
+  pillBg:    colors.orangeSoft,
+  pillText:  colors.orange,
+  dot:       colors.orange,
+};
 
+const CATEGORY_MAP: Array<{ test: (c: string) => boolean; meta: CategoryMeta }> = [
+  {
+    test: (c) => c.includes("med"),
+    meta: {
+      iconSymbol: "Rx",
+      iconColor:  "#075985",
+      iconBg:     colors.blueSoft,
+      pillBg:     colors.blueSoft,
+      pillText:   "#075985",
+      dot:        colors.blue,
+    },
+  },
+  {
+    test: (c) => c.includes("vital") || c.includes("lab"),
+    meta: {
+      iconSymbol: "∿",
+      iconColor:  colors.green,
+      iconBg:     colors.greenSoft,
+      pillBg:     colors.greenSoft,
+      pillText:   colors.green,
+      dot:        colors.green,
+    },
+  },
+  {
+    test: (c) => c.includes("life") || c.includes("habit"),
+    meta: {
+      iconSymbol: "♥",
+      iconColor:  "#9D174D",
+      iconBg:     "#FCE7F3",
+      pillBg:     "#FCE7F3",
+      pillText:   "#9D174D",
+      dot:        "#BE185D",
+    },
+  },
+  {
+    test: (c) => c.includes("visit") || c.includes("appoint"),
+    meta: {
+      iconSymbol: "🩺",
+      iconColor:  colors.teal,
+      iconBg:     colors.tealSoft,
+      pillBg:     colors.tealSoft,
+      pillText:   colors.teal,
+      dot:        colors.teal,
+    },
+  },
+];
+
+export function categoryMeta(category: string): CategoryMeta {
+  const c = (category ?? "").toLowerCase();
+  return CATEGORY_MAP.find((m) => m.test(c))?.meta ?? DEFAULT_META;
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+type TimelineCardProps = {
   title: string;
   dateLabel: string;
-  report: string;
-
+  category: string;
+  source?: string;
+  summary: string;
   included: boolean;
   onToggleIncluded: (next: boolean) => void;
-  onPressEdit?: () => void;
   onPress?: () => void;
-
   style?: StyleProp<ViewStyle>;
 };
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function TimelineCard({
-  categoryPill,
-  sourcePill,
-  leadingIcon,
   title,
   dateLabel,
-  report,
+  category,
+  source,
+  summary,
   included,
   onToggleIncluded,
-  onPressEdit,
   onPress,
   style,
 }: TimelineCardProps) {
+  const meta = categoryMeta(category);
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn  = () =>
+    Animated.spring(scale, { toValue: 0.985, useNativeDriver: true, speed: 40 }).start();
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 25 }).start();
+
+  const sourceLabel = prettySource(source);
+  const cleanCategory = (category ?? "").trim() || "Other";
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      style={({ pressed }) => [
-        styles.card,
-        pressed && onPress ? styles.cardPressed : null,
-        style,
-      ]}
-    >
-      {/* Header row: pills + edit */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          {leadingIcon ? (
-            <View style={styles.leadingChip}>{leadingIcon}</View>
-          ) : null}
-          <PillView {...categoryPill} />
-          {sourcePill ? <PillView {...sourcePill} /> : null}
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPress ? onPressIn : undefined}
+        onPressOut={onPress ? onPressOut : undefined}
+        disabled={!onPress}
+        style={styles.card}
+      >
+        {/* ── Top row: icon + title + date ── */}
+        <View style={styles.topRow}>
+          <View style={[styles.iconWrap, { backgroundColor: meta.iconBg }]}>
+            <AppText style={[styles.iconText, { color: meta.iconColor }]}>
+              {meta.iconSymbol}
+            </AppText>
+          </View>
+
+          <View style={styles.titleBlock}>
+            <AppText style={styles.title} numberOfLines={2}>{title}</AppText>
+            {sourceLabel ? (
+              <AppText style={styles.source}>{sourceLabel}</AppText>
+            ) : null}
+          </View>
+
+          <AppText style={styles.date}>{dateLabel}</AppText>
         </View>
 
-        {onPressEdit ? (
-          <Pressable
-            onPress={onPressEdit}
-            hitSlop={10}
-            style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.6 }]}
-          >
-            <AppText style={styles.editIcon}>✎</AppText>
-          </Pressable>
+        {/* ── Summary ── */}
+        {summary?.trim() ? (
+          <AppText style={styles.summary} numberOfLines={3}>
+            {summary.trim()}
+          </AppText>
         ) : null}
-      </View>
 
-      <AppText variant="title" style={styles.title}>{title}</AppText>
-      <AppText variant="caption" style={styles.date}>{dateLabel}</AppText>
+        {/* ── Footer: category pill + include toggle ── */}
+        <View style={styles.footer}>
+          <View style={[styles.catPill, { backgroundColor: meta.pillBg }]}>
+            <AppText style={[styles.catText, { color: meta.pillText }]}>
+              {cleanCategory}
+            </AppText>
+          </View>
 
-      {!!report && (
-        <AppText variant="body" style={styles.report}>{report}</AppText>
-      )}
-
-      <View style={styles.divider} />
-
-      <View style={styles.footerRow}>
-        <AppText variant="caption" style={styles.footerText}>
-          Include in Pre-Visit Note
-        </AppText>
-        <Switch
-          value={included}
-          onValueChange={onToggleIncluded}
-          trackColor={{ false: colors.bgSecondary, true: colors.tealSoft }}
-          thumbColor={included ? colors.teal : colors.subtle}
-          ios_backgroundColor={colors.bgSecondary}
-        />
-      </View>
-    </Pressable>
+          <View style={styles.includeRow}>
+            <AppText style={[styles.includeLabel, included && styles.includeLabelActive]}>
+              Pre-Visit
+            </AppText>
+            <Switch
+              value={included}
+              onValueChange={onToggleIncluded}
+              trackColor={{ false: colors.bgSecondary, true: colors.tealSoft }}
+              thumbColor={included ? colors.teal : colors.subtle}
+              ios_backgroundColor={colors.bgSecondary}
+            />
+          </View>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
-function PillView({ label, tone = "gray", icon }: Pill) {
-  const toneStyle = pillToneStyles[tone];
-  return (
-    <View style={[styles.pill, toneStyle.container]}>
-      {icon ? <View style={styles.pillIcon}>{icon}</View> : null}
-      <AppText style={[styles.pillText, toneStyle.text]}>{label}</AppText>
-    </View>
-  );
+function prettySource(source?: string): string {
+  const s = (source ?? "").toLowerCase();
+  if (s === "document_upload") return "Document";
+  if (s === "manual_entry")    return "Manual entry";
+  if (s === "wearable")        return "Wearable";
+  if (s === "ai_guided")       return "AI";
+  return "";
 }
 
-const pillToneStyles: Record<PillTone, { container: any; text: any }> = {
-  green: {
-    container: { backgroundColor: colors.greenSoft, borderColor: "#BEEAD3" },
-    text:      { color: "#0F7A4A" },
-  },
-  gray: {
-    container: { backgroundColor: colors.bgSecondary, borderColor: colors.border },
-    text:      { color: colors.muted },
-  },
-  pink: {
-    container: { backgroundColor: "#FCE7F3", borderColor: "#FBCFE8" },
-    text:      { color: "#9D174D" },
-  },
-  blue: {
-    container: { backgroundColor: colors.blueSoft, borderColor: "#BAE6FD" },
-    text:      { color: "#075985" },
-  },
-};
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.xs,
     ...shadows.card,
   },
-  cardPressed: {
-    opacity: 0.93,
-    transform: [{ scale: 0.99 }],
-  },
-  headerRow: {
+
+  // Top row
+  topRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    alignItems: "flex-start",
+    gap: spacing.sm,
   },
-  headerLeft: {
-    flexDirection: "row",
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.sm,
     alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  iconText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.black,
+    lineHeight: typescale.size.sm * 1.4,
+  },
+  titleBlock: {
     flex: 1,
+    gap: 2,
+    paddingTop: 1,
   },
-  leadingChip: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.sm,
-    backgroundColor: colors.orangeSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  editBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  editIcon: {
-    fontSize: 14,
-    color: colors.teal,
-    fontWeight: typescale.weight.bold,
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  pillIcon:  { marginRight: 5 },
-  pillText:  { fontSize: typescale.size.xs, fontWeight: typescale.weight.bold },
   title: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.semibold,
     color: colors.text,
-    marginBottom: 3,
+    lineHeight: typescale.size.base * typescale.lineHeight.normal,
+  },
+  source: {
+    fontSize: typescale.size.xs,
+    color: colors.subtle,
+    fontWeight: typescale.weight.medium,
   },
   date: {
+    fontSize: typescale.size.xs,
     color: colors.teal,
     fontWeight: typescale.weight.semibold,
-    marginBottom: 10,
+    flexShrink: 0,
+    paddingTop: 2,
   },
-  report: {
-    color: colors.textSub,
+
+  // Summary
+  summary: {
     fontSize: typescale.size.sm,
+    color: colors.textSub,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    paddingLeft: 34 + spacing.sm, // align with title
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginVertical: 12,
-  },
-  footerRow: {
+
+  // Footer
+  footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    marginTop: spacing.xxs,
   },
-  footerText: {
-    color: colors.teal,
+  catPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  catText: {
+    fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
+  },
+  includeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  includeLabel: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: colors.subtle,
+  },
+  includeLabelActive: {
+    color: colors.teal,
   },
 });

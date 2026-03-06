@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "../Primitives/AppText";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, radius, spacing, typescale } from "../../../theme/tokens";
 
 type Props = {
   label: string;
@@ -11,9 +11,8 @@ type Props = {
 export function MonthDivider({ label, style }: Props) {
   return (
     <View style={[styles.row, style]}>
-      <View style={styles.line} />
-      <View style={styles.pill}>
-        <AppText variant="label" style={styles.text}>{label}</AppText>
+      <View style={styles.badge}>
+        <AppText style={styles.text}>{label}</AppText>
       </View>
       <View style={styles.line} />
     </View>
@@ -24,26 +23,29 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
+    gap: spacing.sm,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
   },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: radius.pill,
     backgroundColor: colors.tealSoft,
     borderWidth: 1,
     borderColor: colors.tealBorder,
+    flexShrink: 0,
   },
   text: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
     color: colors.teal,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.borderLight,
   },
 });

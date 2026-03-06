@@ -6,7 +6,6 @@ import { supabase } from "../../lib/supabase";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { Card } from "../../components/ui/Primitives/Card";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 
 import { UploadFile } from "../../components/ui/ManageDocuments/UploadFile";
@@ -125,31 +124,33 @@ export function ManageDocumentsScreen({ navigation }: Props) {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Card style={styles.footerCard}>
-          {msg ? (
-            <AppText variant="caption" style={styles.msg}>{msg}</AppText>
-          ) : null}
+        {msg ? (
+          <AppText variant="caption" style={styles.msg}>{msg}</AppText>
+        ) : null}
 
-          <PrimaryButton
-            label={
-              starting
-                ? "Starting…"
-                : pendingCount > 0
-                ? `Process ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
-                : "Process documents"
-            }
-            onPress={startProcessing}
-            disabled={starting || pendingCount === 0}
-            tone="teal"
-            style={{ width: "100%" }}
-          />
+        <PrimaryButton
+          label={
+            starting
+              ? "Starting…"
+              : pendingCount > 0
+              ? `Process ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
+              : "No files to process"
+          }
+          onPress={startProcessing}
+          disabled={starting || pendingCount === 0}
+          tone="teal"
+          style={styles.processBtn}
+        />
 
-          {pendingCount === 0 ? (
-            <AppText variant="caption" style={styles.noFiles}>
-              No files waiting to process.
-            </AppText>
-          ) : null}
-        </Card>
+        {pendingCount === 0 && !msg ? (
+          <AppText variant="caption" style={styles.noFiles}>
+            Upload files above, then tap Process to extract your health data.
+          </AppText>
+        ) : pendingCount > 0 ? (
+          <AppText variant="caption" style={styles.readyHint}>
+            {pendingCount} file{pendingCount === 1 ? "" : "s"} ready — AI will extract facts, timeline, and summary.
+          </AppText>
+        ) : null}
       </View>
     </Screen>
   );
@@ -177,20 +178,33 @@ const styles = StyleSheet.create({
 
   footer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.bg,
+    gap: spacing.xs,
   },
-  footerCard: { gap: spacing.sm, padding: spacing.md },
-
+  processBtn: {
+    width: "100%",
+    shadowColor: colors.teal,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
   msg: {
+    fontSize: typescale.size.xs,
     color: colors.textSub,
+    textAlign: "center",
   },
   noFiles: {
-    marginTop: 6,
     textAlign: "center",
     color: colors.subtle,
+  },
+  readyHint: {
+    textAlign: "center",
+    color: colors.teal,
+    fontWeight: typescale.weight.medium,
   },
 });

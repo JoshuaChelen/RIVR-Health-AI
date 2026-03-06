@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, StyleSheet, Pressable, Animated } from "react-native";
 import { supabase } from "../../../lib/supabase";
 import * as DocumentPicker from "expo-document-picker";
 
 import { AppText } from "../Primitives/AppText";
-import { colors, spacing, radius, typescale } from "../../../theme/tokens";
+import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
 
 async function insertDocumentRow(params: {
   userId: string;
@@ -41,9 +41,19 @@ type Props = {
 };
 
 export function UploadFile({ onUploaded }: Props) {
-  const [busy, setBusy]     = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy]       = useState(false);
+  const [status, setStatus]   = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
+
+  const pressAnim = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    if (busy) return;
+    Animated.spring(pressAnim, { toValue: 0.97, useNativeDriver: true, speed: 30 }).start();
+  };
+  const onPressOut = () => {
+    Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+  };
 
   const pickAndUpload = async () => {
     const picked = await DocumentPicker.getDocumentAsync({
@@ -110,69 +120,69 @@ export function UploadFile({ onUploaded }: Props) {
   };
 
   return (
-    <Pressable
-      onPress={pickAndUpload}
-      disabled={busy}
-      style={({ pressed }) => [
-        styles.zone,
-        pressed && !busy && styles.zonePressed,
-        busy && styles.zoneBusy,
-      ]}
-    >
-      {busy ? (
-        <ActivityIndicator color={colors.teal} />
-      ) : (
-        <View style={styles.icon}>
-          <AppText style={styles.iconText}>↑</AppText>
+    <Animated.View style={{ transform: [{ scale: pressAnim }] }}>
+      <Pressable
+        onPress={pickAndUpload}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={busy}
+        style={[styles.zone, busy && styles.zoneBusy]}
+      >
+        {/* Upload icon */}
+        <View style={[styles.iconCircle, busy && styles.iconCircleBusy]}>
+          <AppText style={styles.iconText}>{busy ? "…" : "↑"}</AppText>
         </View>
-      )}
 
-      <AppText variant="title" style={styles.zoneTitle}>
-        {busy ? "Uploading…" : "Upload PDFs"}
-      </AppText>
+        {/* Text */}
+        <View style={styles.textBlock}>
+          <AppText style={styles.zoneTitle}>
+            {busy ? "Uploading…" : "Upload PDF files"}
+          </AppText>
 
-      {status ? (
-        <AppText
-          variant="caption"
-          style={[styles.statusText, isError && { color: colors.danger }]}
-        >
-          {status}
-        </AppText>
-      ) : (
-        <AppText variant="caption" style={styles.hint}>
-          Tap to select one or more PDF files
-        </AppText>
-      )}
-    </Pressable>
+          {status ? (
+            <AppText style={[styles.statusText, isError && styles.statusError]}>
+              {status}
+            </AppText>
+          ) : (
+            <AppText style={styles.hint}>
+              Tap to select one or more PDF files
+            </AppText>
+          )}
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   zone: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
     borderWidth: 1.5,
     borderStyle: "dashed",
     borderColor: colors.tealBorder,
     borderRadius: radius.lg,
     backgroundColor: colors.tealSoft,
-    padding: spacing.xl,
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  zonePressed: {
-    backgroundColor: "#D6F4F2",
-    borderColor: colors.teal,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    ...shadows.xs,
   },
   zoneBusy: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
-  icon: {
+
+  iconCircle: {
     width: 44,
     height: 44,
     borderRadius: radius.pill,
     backgroundColor: colors.teal,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.xs,
+    flexShrink: 0,
+  },
+  iconCircleBusy: {
+    backgroundColor: colors.tealMid,
   },
   iconText: {
     color: "#fff",
@@ -180,15 +190,27 @@ const styles = StyleSheet.create({
     fontWeight: typescale.weight.black,
     lineHeight: typescale.size.xl * 1.2,
   },
+
+  textBlock: {
+    flex: 1,
+    gap: 3,
+  },
   zoneTitle: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.semibold,
     color: colors.teal,
   },
   hint: {
+    fontSize: typescale.size.xs,
     color: colors.teal,
-    opacity: 0.7,
+    opacity: 0.75,
   },
   statusText: {
+    fontSize: typescale.size.xs,
     color: colors.teal,
-    textAlign: "center",
+    fontWeight: typescale.weight.medium,
+  },
+  statusError: {
+    color: colors.danger,
   },
 });

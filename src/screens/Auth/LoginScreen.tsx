@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   View,
   StyleSheet,
   KeyboardAvoidingView,
@@ -20,7 +22,7 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { EmailInput } from "../../components/ui/Account/EmailInput";
 import { PasswordInput } from "../../components/ui/Account/PasswordInput";
-import { colors, spacing, typescale } from "../../theme/tokens";
+import { colors, spacing, radius, typescale } from "../../theme/tokens";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
@@ -30,13 +32,33 @@ export function LoginScreen({ navigation }: Props) {
   const [busy, setBusy]         = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
+  // Entrance animation
+  const headerOpacity  = useRef(new Animated.Value(0)).current;
+  const headerSlide    = useRef(new Animated.Value(16)).current;
+  const formOpacity    = useRef(new Animated.Value(0)).current;
+  const formSlide      = useRef(new Animated.Value(24)).current;
+  const footerOpacity  = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(headerOpacity, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(headerSlide,   { toValue: 0, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(formOpacity, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(formSlide,   { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
+      Animated.timing(footerOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   const onLogin = async () => {
     setErrorText(null);
     if (!email.trim() || !password) {
       setErrorText("Please enter your email and password.");
       return;
     }
-
     try {
       setBusy(true);
       const { error } = await supabase.auth.signInWithPassword({
@@ -65,58 +87,72 @@ export function LoginScreen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.inner}>
-            {/* Brand */}
-            <View style={styles.brand}>
-              <AuthLogo size={68} />
-              <AppText variant="h1" style={styles.appName}>RIVR Health</AppText>
-              <AppText variant="muted" style={styles.tagline}>
-                Your health records, organized.
-              </AppText>
-            </View>
 
-            {/* Form */}
-            <Card style={styles.formCard}>
-              <AppText variant="h2" style={styles.formTitle}>Welcome back</AppText>
-              <AppText variant="muted" style={styles.formSub}>
-                Sign in to access your documents and timeline.
-              </AppText>
+            {/* ── Brand ─────────────────────────────────────── */}
+            <Animated.View style={[styles.brand, { opacity: headerOpacity, transform: [{ translateY: headerSlide }] }]}>
+              <AuthLogo size={72} />
+              <AppText style={styles.appName}>RIVR Health</AppText>
+              <AppText style={styles.tagline}>Your health records, organized.</AppText>
+            </Animated.View>
 
-              <EmailInput    value={email}    onChangeText={setEmail}    label="Email" />
-              <PasswordInput value={password} onChangeText={setPassword} label="Password" />
-
-              {errorText ? (
-                <AppText variant="caption" style={{ color: colors.danger }}>
-                  {errorText}
-                </AppText>
-              ) : null}
-
-              <PrimaryButton
-                label={busy ? "Signing in…" : "Sign in"}
-                onPress={onLogin}
-                disabled={busy}
-                tone="teal"
-              />
-
-              {busy ? (
-                <View style={{ alignItems: "center" }}>
-                  <ActivityIndicator color={colors.teal} />
+            {/* ── Form card ─────────────────────────────────── */}
+            <Animated.View style={{ opacity: formOpacity, transform: [{ translateY: formSlide }] }}>
+              <Card style={styles.formCard}>
+                <View style={styles.formHeader}>
+                  <AppText style={styles.formTitle}>Welcome back</AppText>
+                  <AppText style={styles.formSub}>Sign in to access your documents and timeline.</AppText>
                 </View>
-              ) : null}
 
-              <View style={styles.links}>
-                <Pressable onPress={() => navigation.navigate("ForgotPassword")}>
-                  <AppText variant="caption" style={styles.link}>Forgot password?</AppText>
-                </Pressable>
-                <Pressable onPress={() => navigation.navigate("SignUp")}>
-                  <AppText variant="caption" style={styles.link}>Create account</AppText>
-                </Pressable>
-              </View>
-            </Card>
+                <View style={styles.fields}>
+                  <EmailInput    value={email}    onChangeText={setEmail}    label="Email" />
+                  <PasswordInput value={password} onChangeText={setPassword} label="Password" />
+                </View>
 
-            {/* Footer */}
-            <AppText variant="caption" style={styles.footer}>
-              Your data stays private. Links you share expire automatically.
-            </AppText>
+                {errorText ? (
+                  <View style={styles.errorBanner}>
+                    <AppText style={styles.errorText}>{errorText}</AppText>
+                  </View>
+                ) : null}
+
+                <PrimaryButton
+                  label={busy ? "Signing in…" : "Sign in"}
+                  onPress={onLogin}
+                  disabled={busy}
+                  tone="teal"
+                />
+
+                {busy ? (
+                  <View style={styles.busyRow}>
+                    <ActivityIndicator color={colors.teal} size="small" />
+                  </View>
+                ) : null}
+
+                <View style={styles.divider} />
+
+                <View style={styles.links}>
+                  <Pressable
+                    onPress={() => navigation.navigate("ForgotPassword")}
+                    style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.6 }]}
+                  >
+                    <AppText style={styles.linkText}>Forgot password?</AppText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => navigation.navigate("SignUp")}
+                    style={({ pressed }) => [styles.linkBtnPrimary, pressed && { opacity: 0.6 }]}
+                  >
+                    <AppText style={styles.linkTextPrimary}>Create account</AppText>
+                  </Pressable>
+                </View>
+              </Card>
+            </Animated.View>
+
+            {/* ── Footer ────────────────────────────────────── */}
+            <Animated.View style={{ opacity: footerOpacity }}>
+              <AppText style={styles.footer}>
+                Your data stays private. Links you share expire automatically.
+              </AppText>
+            </Animated.View>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -141,40 +177,101 @@ const styles = StyleSheet.create({
   brand: {
     alignItems: "center",
     gap: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   appName: {
+    fontSize: typescale.size.xxl,
+    fontWeight: typescale.weight.bold,
     color: colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
   tagline: {
+    fontSize: typescale.size.base,
+    color: colors.muted,
     textAlign: "center",
   },
 
   formCard: {
     padding: spacing.xl,
     gap: spacing.md,
+    borderRadius: 20,
+  },
+  formHeader: {
+    gap: 4,
+    marginBottom: spacing.xs,
   },
   formTitle: {
-    marginBottom: 2,
+    fontSize: typescale.size.xl,
+    fontWeight: typescale.weight.bold,
+    color: colors.text,
+    letterSpacing: -0.3,
   },
   formSub: {
-    marginBottom: spacing.xs,
+    fontSize: typescale.size.sm,
+    color: colors.muted,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+
+  fields: {
+    gap: spacing.md,
+  },
+
+  errorBanner: {
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorText: {
+    fontSize: typescale.size.sm,
+    color: colors.danger,
+    fontWeight: typescale.weight.medium,
+  },
+
+  busyRow: {
+    alignItems: "center",
+    paddingTop: 2,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.xxs,
   },
 
   links: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: spacing.xs,
+    alignItems: "center",
   },
-  link: {
+  linkBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  linkText: {
+    fontSize: typescale.size.sm,
+    color: colors.muted,
+    fontWeight: typescale.weight.medium,
+  },
+  linkBtnPrimary: {
+    backgroundColor: colors.tealSoft,
+    paddingVertical: 7,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  linkTextPrimary: {
+    fontSize: typescale.size.sm,
     color: colors.teal,
     fontWeight: typescale.weight.semibold,
   },
 
   footer: {
     textAlign: "center",
+    fontSize: typescale.size.xs,
     color: colors.subtle,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-    paddingHorizontal: spacing.xl,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    paddingHorizontal: spacing.lg,
   },
 });
