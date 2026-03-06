@@ -21,6 +21,30 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+// ─── Cancellation ─────────────────────────────────────────────────────────────
+
+class CancellationError extends Error {
+  constructor() {
+    super("Job cancelled by user");
+    this.name = "CancellationError";
+  }
+}
+
+async function checkCancelled(jobId: string, ac: AbortController): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from("ai_jobs")
+    .select("cancel_requested, status")
+    .eq("id", jobId)
+    .single();
+
+  if (data?.cancel_requested || data?.status === "cancelled") {
+    ac.abort();
+    throw new CancellationError();
+  }
+}
+
+// ─── Job helpers ──────────────────────────────────────────────────────────────
+
 async function claimJob() {
   const workerId = `${os.hostname()}:${process.pid}`;
   const { data, error } = await supabaseAdmin.rpc("claim_ai_job", { p_worker_id: workerId });
@@ -47,7 +71,6 @@ async function setStage(jobId: string, stage: string, progress?: any) {
   });
 }
 
-
 async function markJob(jobId: string, patch: any) {
   const { error } = await supabaseAdmin.from("ai_jobs").update(patch).eq("id", jobId);
   if (error) throw error;
@@ -62,6 +85,12 @@ async function uploadJson(path: string, obj: any) {
     .upload(path, blob, { upsert: true, contentType: "application/json" });
 
   if (error) throw error;
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw new CancellationError();
+  }
 }
 
 async function downloadFile(storagePath: string): Promise<Buffer> {
@@ -162,9 +191,36 @@ async function processJob(job: any) {
   const jobId = job.id as string;
   const userId = job.user_id as string;
 
-  await setStage(jobId, "started");
+  // One AbortController per job — shared across all concurrent document tasks
+  const abortController = new AbortController();
+  const { signal } = abortController;
+
+  const cancelTimer = setInterval(async () => {
+    try {
+      const { data } = await supabaseAdmin
+        .from("ai_jobs")
+        .select("cancel_requested, status")
+        .eq("id", jobId)
+        .single();
+
+      if (data?.cancel_requested || data?.status === "cancelled") {
+        abortController.abort();
+      }
+    } catch {}
+  }, 1000);
+
+try {
+    await markJob(jobId, {
+    status: "running",
+    stage: "started",
+    heartbeat_at: nowIso(),
+    updated_at: nowIso(),
+  });
   await logEvent(jobId, "info", "Job started", { userId });
-  
+
+  // [1] First cancellation check — before any document work begins
+  await checkCancelled(jobId, abortController);
+
   const docIds: string[] = Array.isArray(job.document_ids) ? job.document_ids : [];
   const limitedDocIds = docIds.slice(0, MAX_DOCS_PER_JOB);
 
@@ -196,7 +252,6 @@ async function processJob(job: any) {
   const limit = pLimit(2);
 
   await logEvent(jobId, "info", "const docFacts = await Promise.all(", { userId });
-// ... inside processJob function ...
 
 const docFacts = await Promise.all(
   docs.map((d, idx) =>
@@ -205,6 +260,9 @@ const docFacts = await Promise.all(
       const docId = String(d.id);
 
       const fallbackDate = new Date(d.created_at ?? Date.now()).toISOString().slice(0, 10);
+
+      // [2a] Before download
+      await checkCancelled(jobId, abortController);
 
       await setStage(jobId, "downloading_file", {
         total: docs.length,
@@ -252,6 +310,7 @@ const docFacts = await Promise.all(
 
       try {
         const buf = await downloadFile(storagePath);
+        throwIfAborted(signal);
 
         const mime = d.mime_type ? String(d.mime_type) : null;
         const isAudio = !!mime && mime.toLowerCase().startsWith("audio/");
@@ -267,7 +326,9 @@ const docFacts = await Promise.all(
           await logEvent(jobId, "info", "Transcribing audio", { docId, mime });
 
           rawText = await transcribeAudioBuffer(buf, mime);
+          throwIfAborted(signal);
           rawText = rawText || "[No transcript text found. The audio may be empty or unclear.]";
+
         } else {
           await setStage(jobId, "extracting_text", {
             total: docs.length,
@@ -276,6 +337,7 @@ const docFacts = await Promise.all(
           });
 
           rawText = await extractPdfText(buf);
+          throwIfAborted(signal);
           rawText = (rawText || "").trim();
 
           // OCR fallback if the extracted text is basically empty
@@ -283,6 +345,9 @@ const docFacts = await Promise.all(
           const OCR_MAX_PAGES = Number(process.env.OCR_MAX_PAGES || 10);
 
           if (rawText.length < OCR_MIN_CHARS) {
+            // [2b] Before expensive OCR render
+            await checkCancelled(jobId, abortController);
+
             await setStage(jobId, "ocr_pdf", { total: docs.length, done: idx, currentDocId: docId });
             await logEvent(jobId, "info", "PDF text looks empty, running OCR fallback", {
               docId,
@@ -291,7 +356,10 @@ const docFacts = await Promise.all(
             });
 
             const pages = await renderPdfToPngPages(buf, OCR_MAX_PAGES);
+            throwIfAborted(signal);
+
             const ocrText = (await ocrPngPagesToText(pages)).trim();
+            throwIfAborted(signal);
 
             if (ocrText) {
               rawText = rawText ? `${rawText}\n\n[OCR TEXT]\n${ocrText}` : ocrText;
@@ -305,6 +373,9 @@ const docFacts = await Promise.all(
 
         const capped = capText(rawText, 180_000);
 
+        // [2c] Before OpenAI extract call (most expensive)
+        await checkCancelled(jobId, abortController);
+
         await setStage(jobId, "openai_extract", {
           total: docs.length,
           done: idx,
@@ -316,10 +387,15 @@ const docFacts = await Promise.all(
           document_id: docId,
           title: d.title ?? null,
           text: isAudio ? `VOICE NOTE TRANSCRIPT:\n${capped}` : capped,
+          signal,
         });
+        throwIfAborted(signal);
 
         const summaryPath = `${userId}/processed/${docId}/summary.json`;
         await uploadJson(summaryPath, facts);
+
+        // [2d] Before FK-sensitive timeline_events write — fixes the FK violation bug
+        await checkCancelled(jobId, abortController);
 
         await replaceDocTimelineEvents(
           userId,
@@ -327,6 +403,9 @@ const docFacts = await Promise.all(
           Array.isArray(facts.timeline_events) ? facts.timeline_events : [],
           fallbackDate
         );
+
+        // [2e] Before marking doc complete
+        await checkCancelled(jobId, abortController);
 
         await updateDocument(docId, userId, {
           status: "processed",
@@ -344,6 +423,16 @@ const docFacts = await Promise.all(
 
         return facts;
       } catch (e: any) {
+        // Propagate cancellation without touching doc status — the cancellation
+        // handler in main() will revert still-processing docs to 'uploaded'.
+        if (e instanceof CancellationError || e?.name === "AbortError") {
+          await setStage(jobId, "safe_quitting", {
+            total: docs.length,
+            done: idx,
+            currentDocId: docId,
+          });
+          throw new CancellationError();
+        }
         await updateDocument(docId, userId, {
           status: "failed",
           processing_error: String(e?.message || e),
@@ -364,7 +453,7 @@ const { data: allProcessedDocs } = await supabaseAdmin
   .eq("user_id", userId)
   .eq("status", "processed")
   .not("summary_path", "is", null)
-  .not("id", "in", `(${limitedDocIds.join(",")})`);
+  .not("id", "in", `(${limitedDocIds.map((id) => `"${id}"`).join(",")})`);
 
 const historicalFacts: any[] = [];
 
@@ -384,6 +473,9 @@ if (allProcessedDocs && allProcessedDocs.length > 0) {
 
 const allDocFacts = [...historicalFacts, ...docFacts];
 
+// [3] Before the expensive health evaluation OpenAI call
+await checkCancelled(jobId, abortController);
+
 await setStage(jobId, "openai_eval", { total: docs.length, done: docs.length });
 await logEvent(jobId, "info", "Calling OpenAI evaluation", { userId, totalFacts: allDocFacts.length });
 
@@ -391,7 +483,9 @@ const evaluation = await evaluateUserHealth({
   user_id: userId,
   docFacts: allDocFacts,
   appleHealth,
+  signal,
 });
+throwIfAborted(signal);
 
 const { data: evalRow, error: insErr } = await supabaseAdmin
   .from("health_evaluations")
@@ -407,6 +501,9 @@ if (insErr) throw insErr;
 
 const evalPath = `${userId}/ai/evaluation/latest.json`;
 await uploadJson(evalPath, evaluation);
+
+// [4] Before writing the health profile
+await checkCancelled(jobId, abortController);
 
 await setStage(jobId, "saving_profile", { total: docs.length, done: docs.length });
 
@@ -449,7 +546,14 @@ await markJob(jobId, {
   locked_by: null,
 });
 
+}finally {
+    clearInterval(cancelTimer);
+  }
+  
 }
+
+
+
 async function main() {
   console.log("[worker] started");
 
@@ -467,14 +571,33 @@ async function main() {
         await processJob(job);
         console.log("[worker] finished job", job.id);
       } catch (e: any) {
-        console.error("[worker] job failed", job.id, e?.message || e);
-        await markJob(job.id, {
+        if (e instanceof CancellationError) {
+          console.log("[worker] job cancelled", job.id);
+          // Mark job cancelled and revert any docs still stuck at 'processing'
+          await markJob(job.id, {
+            status: "cancelled",
+            cancelled_at: nowIso(),
+            error: null,
+            updated_at: nowIso(),
+            locked_at: null,
+            locked_by: null,
+          });
+          await supabaseAdmin
+            .from("documents")
+            .update({ status: "uploaded", processing_error: null, updated_at: nowIso() })
+            .eq("user_id", job.user_id)
+            .in("id", job.document_ids)
+            .eq("status", "processing");
+        } else {
+          console.error("[worker] job failed", job.id, e?.message || e);
+          await markJob(job.id, {
             status: "failed",
             error: String(e?.message || e),
             updated_at: nowIso(),
             locked_at: null,
             locked_by: null,
-            });
+          });
+        }
       }
     } catch (e: any) {
       console.error("[worker] loop error", e?.message || e);

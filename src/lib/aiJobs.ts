@@ -66,6 +66,14 @@ export async function getAllDocumentIds(userId: string) {
   return (data ?? []).map((r: any) => String(r.id));
 }
 
+export async function requestCancelJob(jobId: string): Promise<void> {
+  const { error } = await supabase
+    .from("ai_jobs")
+    .update({ cancel_requested: true })
+    .eq("id", jobId);
+  if (error) throw error;
+}
+
 // keep your old name if you want
 export async function startAiJob(documentIds: string[]) {
   return enqueueDocumentProcessing(documentIds);

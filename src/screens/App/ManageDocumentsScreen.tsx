@@ -90,14 +90,20 @@ export function ManageDocumentsScreen({ navigation }: Props) {
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Not signed in");
 
-      const { error: jobErr } = await supabase.functions.invoke(
-        "enqueue-document-processing",
-        { headers: { Authorization: `Bearer ${token}` }, body: { documentIds: ids } }
-      );
+      for (const id of ids) {
+        const { error: jobErr } = await supabase.functions.invoke(
+          "enqueue-document-processing",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            body: { documentIds: [id] },
+          }
+        );
 
-      if (jobErr) throw jobErr;
+        if (jobErr) throw jobErr;
+      }
 
       setMsg(`Started processing ${ids.length} file(s).`);
+
       setRefreshKey((k) => k + 1);
     } catch (e: any) {
       setMsg(e?.message ?? "Failed to start processing.");

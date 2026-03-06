@@ -44,39 +44,52 @@ const PROCESSING_MESSAGES = [
   "Almost there…",
 ];
 
-function useProcessingMessage(): string {
+const STOPPING_MESSAGES = [
+  "Safely stopping…",
+  "Finishing current step…",
+  "Wrapping up…",
+  "Almost done stopping…",
+];
+
+function useProcessingMessage(isStopping: boolean): string {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
+    setIdx(0);
+  }, [isStopping]);
+  useEffect(() => {
+    const messages = isStopping ? STOPPING_MESSAGES : PROCESSING_MESSAGES;
     const t = setInterval(() => {
-      setIdx((i) => (i + 1) % PROCESSING_MESSAGES.length);
+      setIdx((i) => (i + 1) % messages.length);
     }, 2600);
     return () => clearInterval(t);
-  }, []);
-  return PROCESSING_MESSAGES[idx];
+  }, [isStopping]);
+  const messages = isStopping ? STOPPING_MESSAGES : PROCESSING_MESSAGES;
+  return messages[idx % messages.length];
 }
 
-function ShimmerBar() {
+function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
   const position = useRef(new Animated.Value(0)).current;
   const brightness = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
+    const slideDuration = stopping ? 2800 : 1400;
     const slide = Animated.loop(
       Animated.timing(position, {
         toValue: 1,
-        duration: 1400,
+        duration: slideDuration,
         useNativeDriver: true,
       })
     );
     const breathe = Animated.loop(
       Animated.sequence([
-        Animated.timing(brightness, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(brightness, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+        Animated.timing(brightness, { toValue: stopping ? 0.5 : 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(brightness, { toValue: stopping ? 0.2 : 0.5, duration: 700, useNativeDriver: true }),
       ])
     );
     slide.start();
     breathe.start();
     return () => { slide.stop(); breathe.stop(); };
-  }, [position, brightness]);
+  }, [position, brightness, stopping]);
 
   const translateX = position.interpolate({
     inputRange: [0, 1],
@@ -88,6 +101,7 @@ function ShimmerBar() {
       <Animated.View
         style={[
           shimmerStyles.highlight,
+          stopping && shimmerStyles.highlightStopping,
           { opacity: brightness, transform: [{ translateX }] },
         ]}
       />
@@ -109,6 +123,9 @@ const shimmerStyles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.teal,
   },
+  highlightStopping: {
+    backgroundColor: colors.muted,
+  },
 });
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -117,6 +134,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   uploaded:   { label: "Ready",      color: colors.blue,    bg: colors.blueSoft    },
   queued:     { label: "Queued",     color: colors.warning, bg: colors.warnSoft    },
   processing: { label: "Analyzing",  color: colors.teal,    bg: colors.tealSoft    },
+  stopping:   { label: "Stopping",   color: colors.muted,   bg: colors.bgSecondary },
   failed:     { label: "Failed",     color: colors.danger,  bg: colors.dangerSoft  },
 };
 
@@ -357,14 +375,17 @@ function DocCard({
   anim,
   onDelete,
   onCancel,
+  isStopping,
 }: {
   doc: DocRow;
   anim: DocAnim;
   onDelete: () => void;
   onCancel: () => void;
+  isStopping?: boolean;
 }) {
-  const processingMsg = useProcessingMessage();
-  const st = doc.status ?? "unknown";
+  const processingMsg = useProcessingMessage(!!isStopping);
+  // Use a virtual "stopping" status for display when the user has requested stop
+  const st = isStopping && doc.status === "processing" ? "stopping" : (doc.status ?? "unknown");
 
   const dateStr = new Date(doc.created_at).toLocaleDateString(undefined, {
     month: "short",
@@ -403,11 +424,13 @@ function DocCard({
           <StatusBadge status={st} />
         </View>
 
-        {/* Processing progress */}
-        {st === "processing" ? (
+        {/* Processing / stopping progress */}
+        {(st === "processing" || st === "stopping") ? (
           <View style={cardStyles.progressBlock}>
-            <ShimmerBar />
-            <AppText style={cardStyles.processingMsg}>{processingMsg}</AppText>
+            <ShimmerBar stopping={st === "stopping"} />
+            <AppText style={[cardStyles.processingMsg, st === "stopping" && cardStyles.stoppingMsg]}>
+              {processingMsg}
+            </AppText>
           </View>
         ) : null}
 
@@ -425,11 +448,14 @@ function DocCard({
         <View style={cardStyles.footer}>
           {st === "processing" ? (
             <Pressable
-              style={({ pressed }) => [cardStyles.actionBtn, cardStyles.cancelBtn, pressed && { opacity: 0.7 }]}
-              onPress={onCancel}
+              style={[cardStyles.actionBtn, cardStyles.cancelBtn, isStopping && cardStyles.cancelBtnStopping]}
+              onPress={isStopping ? undefined : onCancel}
               hitSlop={8}
+              disabled={isStopping}
             >
-              <AppText style={cardStyles.cancelBtnText}>Stop processing</AppText>
+              <AppText style={[cardStyles.cancelBtnText, isStopping && cardStyles.cancelBtnTextStopping]}>
+                {isStopping ? "Stopping…" : "Stop processing"}
+              </AppText>
             </Pressable>
           ) : (
             <Pressable
@@ -503,6 +529,9 @@ const cardStyles = StyleSheet.create({
     fontWeight: typescale.weight.medium,
     marginTop: 3,
   },
+  stoppingMsg: {
+    color: colors.muted,
+  },
 
   // Error
   errorBlock: {
@@ -547,10 +576,18 @@ const cardStyles = StyleSheet.create({
     borderColor: colors.tealBorder,
     backgroundColor: colors.tealSoft,
   },
+  cancelBtnStopping: {
+    borderColor: colors.border,
+    backgroundColor: colors.bgSecondary,
+    opacity: 0.7,
+  },
   cancelBtnText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
     color: colors.teal,
+  },
+  cancelBtnTextStopping: {
+    color: colors.muted,
   },
   removeBtn: {
     borderColor: colors.border,
@@ -595,6 +632,7 @@ export function ListDocuments({
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | { mode: "delete" | "cancel"; doc: DocRow }>(null);
+  const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const pending = docs.filter((d) => (d.status ?? "") === "uploaded").length;
@@ -603,13 +641,14 @@ export function ListDocuments({
 
   async function runCancel(doc: DocRow) {
     if (!userId) { setError("Not signed in."); return; }
+    // Show "Stopping…" immediately while the worker acknowledges the signal.
+    // Do NOT optimistically update doc status — the worker handles the revert.
+    setStoppingIds((prev) => new Set(prev).add(doc.id));
     try {
       await cancelProcessing(doc.id, userId);
-      setDocs((prev) =>
-        prev.map((d) => (d.id === doc.id ? { ...d, status: "uploaded", processing_error: null } : d))
-      );
       onStatusChange?.();
     } catch (e: any) {
+      setStoppingIds((prev) => { const s = new Set(prev); s.delete(doc.id); return s; });
       setError(e?.message ?? "Could not cancel processing.");
     }
   }
@@ -719,6 +758,10 @@ export function ListDocuments({
               animsRef.current.delete(updated.id);
             });
           } else {
+            // Worker reverted doc to 'uploaded' after acknowledging cancellation
+            if (updated.status === "uploaded") {
+              setStoppingIds((prev) => { const s = new Set(prev); s.delete(updated.id); return s; });
+            }
             setDocs((prev) => {
               const exists = prev.some((d) => d.id === updated.id);
               if (exists) return prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d));
@@ -809,6 +852,9 @@ export function ListDocuments({
             onStatusChange?.();
           });
         } else if (updated.status !== current.status) {
+          if (updated.status === "uploaded" || updated.status === "failed") {
+            setStoppingIds((prev) => { const s = new Set(prev); s.delete(updated.id); return s; });
+          }
           setDocs((prev) =>
             prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d))
           );
@@ -900,6 +946,7 @@ export function ListDocuments({
               anim={anim}
               onDelete={() => handleDelete(d)}
               onCancel={() => handleCancel(d)}
+              isStopping={stoppingIds.has(d.id)}
             />
           );
         }}

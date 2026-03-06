@@ -121,6 +121,7 @@ export async function extractDocumentFacts(input: {
   document_id: string;
   title: string | null;
   text: string;
+  signal?: AbortSignal;
 }): Promise<DocumentFacts> {
   const system = `You extract structured medical facts from ONE document AND produce timeline events.
 Rules:
@@ -150,8 +151,7 @@ Return JSON only in the required schema.`;
       model: MODEL_EXTRACT,
       input: messages,
       text: { format: zodTextFormat(DocumentFactsSchema, "document_facts") },
-      
-    });
+    }, { signal: input.signal });
   };
 
   const resp = await parseWithRetry(
@@ -166,6 +166,7 @@ export async function evaluateUserHealth(input: {
   user_id: string;
   docFacts: DocumentFacts[];
   appleHealth: { steps_avg_7d: number | null; sleep_avg_min_7d: number | null; resting_hr_recent: number | null; };
+  signal?: AbortSignal;
 }): Promise<HealthEvaluation> {
   const system = `You create a supportive, patient-friendly health summary and a "3x5 essentials" card.
 Important:
@@ -193,7 +194,7 @@ Important:
       model: MODEL_EVAL,
       input: messages,
       text: { format: zodTextFormat(HealthEvaluationSchema, "health_evaluation") },
-    });
+    }, { signal: input.signal });
   };
 
   const resp = await parseWithRetry(
