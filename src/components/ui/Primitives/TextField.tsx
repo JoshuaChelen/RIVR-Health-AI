@@ -1,7 +1,7 @@
 import React from "react";
 import { View, TextInput, StyleSheet, TextInputProps, Pressable } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, radius, shadows, typescale } from "../../../theme/tokens";
 
 type Props = TextInputProps & {
   label?: string;
@@ -10,8 +10,8 @@ type Props = TextInputProps & {
 
 export function TextField({ label, style, rightAccessory, ...props }: Props) {
   return (
-    <View style={{ gap: 6 }}>
-      {label ? <AppText variant="label">{label}</AppText> : null}
+    <View style={styles.container}>
+      {label ? <AppText variant="label" style={styles.label}>{label}</AppText> : null}
       <View style={styles.wrap}>
         <TextInput
           {...props}
@@ -26,29 +26,44 @@ export function TextField({ label, style, rightAccessory, ...props }: Props) {
 
 export function SmallTextButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.smallBtn, pressed && { opacity: 0.7 }]}>
-      <AppText variant="caption" style={{ color: colors.teal, fontWeight: "800" }}>{label}</AppText>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.smallBtn, pressed && { opacity: 0.7 }]}
+    >
+      <AppText variant="caption" style={styles.smallBtnText}>{label}</AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { gap: 7 },
+  label: {
+    marginBottom: 1,
+  },
   wrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    height: 46,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    height: 50,
+    ...shadows.xs,
   },
   input: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.medium,
     color: colors.text,
   },
   right: { marginLeft: 10 },
-  smallBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  smallBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  smallBtnText: {
+    color: colors.teal,
+    fontWeight: typescale.weight.bold,
+  },
 });

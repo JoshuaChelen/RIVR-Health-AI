@@ -1,8 +1,6 @@
-// src/screens/TimelineScreen.tsx
 import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -18,7 +16,8 @@ import { ActionCard } from "../../components/ui/Timeline/ActionCard";
 import { TimelineCard } from "../../components/ui/Timeline/TimelineCard";
 import { SectionHeader } from "../../components/ui/Timeline/SectionHeader";
 import { MonthDivider } from "../../components/ui/Timeline/MonthDivider";
-import { colors } from "../../theme/tokens";
+import { AppText } from "../../components/ui/Primitives/AppText";
+import { colors, spacing, radius, typescale } from "../../theme/tokens";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
 
@@ -26,13 +25,13 @@ type DatePrecision = "day" | "month" | "year";
 
 type TimelineEventRow = {
   id: string;
-  occurred_at: string; // YYYY-MM-DD
+  occurred_at: string;
   date_precision: DatePrecision;
   title: string;
   event_type: string;
   category: string;
   source: string;
-  summary: string; // IMPORTANT: this is the column you actually have
+  summary: string;
   included_in_previsit: boolean;
 };
 
@@ -41,12 +40,11 @@ type RenderRow =
   | { kind: "event"; key: string; event: TimelineEventRow };
 
 export function TimelineScreen({ navigation }: Props) {
-  const [events, setEvents] = useState<TimelineEventRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents]       = useState<TimelineEventRow[]>([]);
+  const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr]             = useState<string | null>(null);
 
-  // CHANGED: make load useCallback so we can call it from useFocusEffect safely
   const load = useCallback(async () => {
     setErr(null);
     try {
@@ -67,11 +65,8 @@ export function TimelineScreen({ navigation }: Props) {
     }
   }, []);
 
-  // CHANGED: refresh every time this screen becomes active again (coming back from Details)
   useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
+    useCallback(() => { load(); }, [load])
   );
 
   const rows: RenderRow[] = useMemo(() => {
@@ -81,14 +76,9 @@ export function TimelineScreen({ navigation }: Props) {
     for (const ev of events) {
       const monthKey = monthBucketKey(ev.occurred_at, ev.date_precision);
       if (monthKey !== lastMonthKey) {
-        out.push({
-          kind: "month",
-          key: `m-${monthKey}`,
-          label: monthDividerLabel(ev.occurred_at, ev.date_precision),
-        });
+        out.push({ kind: "month", key: `m-${monthKey}`, label: monthDividerLabel(ev.occurred_at, ev.date_precision) });
         lastMonthKey = monthKey;
       }
-
       out.push({ kind: "event", key: `e-${ev.id}`, event: ev });
     }
 
@@ -96,7 +86,6 @@ export function TimelineScreen({ navigation }: Props) {
   }, [events]);
 
   const onToggleIncluded = async (eventId: string, next: boolean) => {
-    // optimistic UI
     setEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: next } : e))
     );
@@ -107,14 +96,14 @@ export function TimelineScreen({ navigation }: Props) {
       .eq("id", eventId);
 
     if (error) {
-      // revert if failed
       setEvents((prev) =>
-        prev.map((e) =>
-          e.id === eventId ? { ...e, included_in_previsit: !next } : e
-        )
+        prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: !next } : e))
       );
     }
   };
+
+  const includedEvents = events.filter((e) => !!e.included_in_previsit);
+  const previewItems   = includedEvents.slice(0, 3);
 
   return (
     <ScrollView
@@ -123,45 +112,49 @@ export function TimelineScreen({ navigation }: Props) {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            load();
-          }}
+          onRefresh={() => { setRefreshing(true); load(); }}
+          tintColor={colors.teal}
         />
       }
     >
       <SectionHeader title="Health Timeline" />
 
+      {/* Loading */}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.teal} />
-          <Text style={styles.muted}>Loading timeline...</Text>
+          <AppText variant="caption" style={{ marginTop: 8 }}>Loading timeline…</AppText>
         </View>
       ) : null}
 
+      {/* Error */}
       {err ? (
-        <Text style={[styles.muted, { color: colors.danger }]}>{err}</Text>
+        <AppText variant="caption" style={{ color: colors.danger, textAlign: "center" }}>
+          {err}
+        </AppText>
       ) : null}
 
+      {/* Empty state */}
       {!loading && !err && rows.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyTitle}>No timeline events yet</Text>
-          <Text style={styles.muted}>
-            Upload a document or add a manual entry to get started.
-          </Text>
+        <View style={styles.empty}>
+          <AppText variant="title" style={styles.emptyTitle}>No timeline events yet</AppText>
+          <AppText variant="muted" style={styles.emptyBody}>
+            Upload a document and process it to populate your timeline.
+          </AppText>
         </View>
       ) : null}
 
+      {/* Events */}
       {!loading && !err
         ? rows.map((row) => {
             if (row.kind === "month") {
               return <MonthDivider key={row.key} label={row.label} />;
             }
 
-            const ev = row.event;
-            const pillTone = categoryToTone(ev.category);
+            const ev         = row.event;
+            const pillTone   = categoryToTone(ev.category);
             const sourceLabel = sourceToLabel(ev.source);
-            const icon = categoryToIcon(ev.category);
+            const icon       = categoryToIcon(ev.category);
 
             return (
               <TimelineCard
@@ -171,95 +164,71 @@ export function TimelineScreen({ navigation }: Props) {
                 leadingIcon={icon}
                 title={ev.title}
                 dateLabel={formatEventDate(ev.occurred_at, ev.date_precision)}
-                report={ev.summary} // IMPORTANT: summary is your column
+                report={ev.summary}
                 included={ev.included_in_previsit}
                 onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
                 onPress={() => navigation.navigate("Details", { id: ev.id })}
-                
               />
             );
           })
         : null}
 
-      {/* --- NEW DOCTOR NOTE SECTION REPLACING ACTION CARDS --- */}
-      {(() => {
-        const includedEvents = events.filter((e) => !!e.included_in_previsit);
-        const preview = includedEvents.slice(0, 3);
+      {/* Pre-Visit Note panel */}
+      <SectionHeader
+        title="Pre-Visit Note"
+        subtitle={
+          includedEvents.length === 0
+            ? "Nothing selected yet"
+            : `${includedEvents.length} item${includedEvents.length === 1 ? "" : "s"} selected`
+        }
+      />
 
-        return (
-          <>
-            <SectionHeader
-              title="Pre-Visit Note"
-              subtitle={
-                includedEvents.length === 0
-                  ? "Nothing selected yet"
-                  : `${includedEvents.length} item(s) selected`
-              }
-            />
+      <View style={styles.noteCard}>
+        <AppText variant="title" style={styles.noteTitle}>Doctor Note Draft</AppText>
+        <AppText variant="muted" style={styles.noteBody}>
+          Toggle "Include in Pre-Visit Note" on timeline events above. They'll appear here automatically.
+        </AppText>
 
-            <View style={styles.noteCard}>
-              <Text style={styles.noteTitle}>Doctor Note Draft</Text>
-              <Text style={styles.noteMuted}>
-                Toggle “Include in Pre-Visit Note” on timeline events. Everything
-                you include shows up here.
-              </Text>
-
-              {includedEvents.length === 0 ? (
-                <Text style={[styles.noteMuted, { marginTop: 10 }]}>
-                  Select a few timeline items and come back. This will auto fill.
-                </Text>
-              ) : (
-                <View style={{ gap: 6, marginTop: 12 }}>
-                  {preview.map((e) => (
-                    <View key={e.id} style={styles.noteRow}>
-                      <View style={styles.noteDot} />
-                      <Text style={styles.noteItemText} numberOfLines={1}>
-                        {e.title ?? "(untitled)"}
-                      </Text>
-                    </View>
-                  ))}
-
-                  {includedEvents.length > preview.length ? (
-                    <Text style={styles.noteMuted}>
-                      + {includedEvents.length - preview.length} more
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-
-              <View style={{ marginTop: 16 }}>
-                <Pressable
-                  onPress={() => navigation.navigate("PreVisitNote")}
-                  style={({ pressed }) => [
-                    styles.noteButton,
-                    pressed && { opacity: 0.85 },
-                  ]}
-                >
-                  <Text style={styles.noteButtonText}>Open Pre-Visit Note</Text>
-                </Pressable>
+        {includedEvents.length > 0 ? (
+          <View style={styles.noteItems}>
+            {previewItems.map((e) => (
+              <View key={e.id} style={styles.noteRow}>
+                <View style={styles.noteDot} />
+                <AppText variant="body" style={styles.noteItemText} numberOfLines={1}>
+                  {e.title ?? "(untitled)"}
+                </AppText>
               </View>
-            </View>
-          </>
-        );
-      })()}
+            ))}
+            {includedEvents.length > previewItems.length ? (
+              <AppText variant="caption" style={{ marginTop: 2 }}>
+                +{includedEvents.length - previewItems.length} more
+              </AppText>
+            ) : null}
+          </View>
+        ) : null}
+
+        <Pressable
+          onPress={() => navigation.navigate("PreVisitNote")}
+          style={({ pressed }) => [styles.noteBtn, pressed && { opacity: 0.85 }]}
+        >
+          <AppText style={styles.noteBtnText}>Open Pre-Visit Note</AppText>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
 
-/* helpers stay the same */
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parseYMD(ymd: string) {
-  const [y, m, d] = ymd.split("-").map((x) => Number(x));
+  const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
 function monthBucketKey(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);
-  const y = dt.getFullYear();
-  const m = dt.getMonth() + 1;
-
-  if (precision === "year") return `${y}`;
-  return `${y}-${String(m).padStart(2, "0")}`;
+  if (precision === "year") return `${dt.getFullYear()}`;
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function monthDividerLabel(ymd: string, precision: DatePrecision) {
@@ -270,82 +239,113 @@ function monthDividerLabel(ymd: string, precision: DatePrecision) {
 
 function formatEventDate(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);
-
-  if (precision === "year") return `${dt.getFullYear()}`;
-  if (precision === "month") {
-    return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  }
-
-  return dt.toLocaleDateString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  if (precision === "year")  return `${dt.getFullYear()}`;
+  if (precision === "month") return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  return dt.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
 function categoryToTone(category: string): "green" | "gray" | "pink" | "blue" {
   const c = category.toLowerCase();
   if (c.includes("vital") || c.includes("lab")) return "green";
-  if (c.includes("med")) return "blue";
-  if (c.includes("life")) return "pink";
+  if (c.includes("med"))                         return "blue";
+  if (c.includes("life"))                        return "pink";
   return "gray";
 }
 
 function sourceToLabel(source: string) {
   const s = source.toLowerCase();
-  if (s === "document_upload") return "Document Upload";
-  if (s === "manual_entry") return "Manual Entry";
-  if (s === "wearable") return "Wearable";
-  if (s === "ai_guided") return "AI Guided";
+  if (s === "document_upload") return "Document";
+  if (s === "manual_entry")    return "Manual";
+  if (s === "wearable")        return "Wearable";
+  if (s === "ai_guided")       return "AI";
   return "Source";
 }
 
 function categoryToIcon(category: string) {
   const c = category.toLowerCase();
-
-  if (c.includes("med")) {
-    return <Text style={{ color: "#0369A1", fontWeight: "900" }}>⚕</Text>;
-  }
-  if (c.includes("vital") || c.includes("lab")) {
-    return <Text style={{ color: "#15803D", fontWeight: "900" }}>∿</Text>;
-  }
-  if (c.includes("life")) {
-    return <Text style={{ color: "#BE185D", fontWeight: "900" }}>♥</Text>;
-  }
-
-  return <Text style={{ fontWeight: "900", color: "#B45309" }}>∿</Text>;
+  if (c.includes("med"))                        return <AppText style={{ color: "#0369A1", fontWeight: typescale.weight.black }}>⚕</AppText>;
+  if (c.includes("vital") || c.includes("lab")) return <AppText style={{ color: colors.green, fontWeight: typescale.weight.black }}>∿</AppText>;
+  if (c.includes("life"))                       return <AppText style={{ color: "#BE185D", fontWeight: typescale.weight.black }}>♥</AppText>;
+  return <AppText style={{ color: colors.orange, fontWeight: typescale.weight.black }}>∿</AppText>;
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12, paddingBottom: 40 },
-  center: { paddingVertical: 20, alignItems: "center", gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
-  muted: { fontSize: 12.5, color: colors.muted, textAlign: "center" },
-  
-  // Doctor Note Styles
+  container: {
+    paddingBottom: 48,
+    gap: spacing.sm,
+  },
+  center: {
+    paddingVertical: spacing.xl,
+    alignItems: "center",
+    gap: 8,
+  },
+  empty: {
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    alignItems: "center",
+    gap: 10,
+  },
+  emptyTitle: {
+    color: colors.text,
+    textAlign: "center",
+  },
+  emptyBody: {
+    textAlign: "center",
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+
+  // Pre-visit note card
   noteCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: "#E6EEF5",
+    borderColor: colors.border,
+    gap: spacing.sm,
     shadowColor: "#0B1220",
     shadowOpacity: 0.04,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  noteTitle: { fontSize: 15, fontWeight: "800", color: colors.text, marginBottom: 4 },
-  noteMuted: { fontSize: 13, color: colors.muted, lineHeight: 18 },
-  noteRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  noteDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.teal },
-  noteItemText: { fontSize: 13, fontWeight: "600", color: colors.text, flex: 1 },
-  noteButton: {
-    backgroundColor: colors.teal,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
+  noteTitle: {
+    color: colors.text,
+    marginBottom: 2,
   },
-  noteButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+  noteBody: {
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+  noteItems: {
+    gap: 6,
+    marginTop: 4,
+  },
+  noteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  noteDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.teal,
+  },
+  noteItemText: {
+    flex: 1,
+    fontSize: typescale.size.sm,
+    color: colors.text,
+  },
+  noteBtn: {
+    backgroundColor: colors.teal,
+    borderRadius: radius.md,
+    paddingVertical: 13,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  noteBtnText: {
+    color: "#fff",
+    fontWeight: typescale.weight.bold,
+    fontSize: typescale.size.base,
+  },
 });

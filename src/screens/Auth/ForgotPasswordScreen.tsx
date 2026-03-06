@@ -17,17 +17,17 @@ import { Screen } from "../../components/ui/Primitives/Screen";
 import { Card } from "../../components/ui/Primitives/Card";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
-import { EmailInput } from "../../components/ui/Account/EmailInput";
-import { colors } from "../../theme/tokens";
 import { SecondaryButton } from "../../components/ui/Primitives/SecondaryButton";
+import { EmailInput } from "../../components/ui/Account/EmailInput";
+import { colors, spacing, typescale } from "../../theme/tokens";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "ForgotPassword">;
 
 export function ForgotPasswordScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy]   = useState(false);
+  const [msg, setMsg]     = useState<string | null>(null);
+  const [err, setErr]     = useState<string | null>(null);
 
   const sendReset = async () => {
     setErr(null);
@@ -41,13 +41,8 @@ export function ForgotPasswordScreen({ navigation }: Props) {
     try {
       setBusy(true);
 
-      const redirectTo =
-        process.env.EXPO_PUBLIC_RESET_REDIRECT_TO ?? "http://localhost:8081";
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo,
-      });
-
+      const redirectTo = process.env.EXPO_PUBLIC_RESET_REDIRECT_TO ?? "http://localhost:8081";
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       if (error) throw error;
 
       setMsg("If that email exists, you will receive a reset link shortly.");
@@ -60,119 +55,88 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
   return (
     <Screen>
-      <View style={{ flex: 1 }}>
-        <Pressable
-          style={StyleSheet.absoluteFillObject}
-          onPress={Keyboard.dismiss}
-        />
+      <Pressable style={StyleSheet.absoluteFillObject} onPress={Keyboard.dismiss} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.inner}>
-              {/* Top Brand */}
-              <View style={styles.top}>
-                <AuthLogo />
-
-                <AppText variant="h1">Reset password</AppText>
-                <AppText variant="muted" style={{ textAlign: "center" }}>
-                  Enter your email and we’ll send you a link to reset your password.
-                </AppText>
-              </View>
-
-              {/* Form Card */}
-              <Card style={styles.card}>
-                <EmailInput value={email} onChangeText={setEmail} label="Email" />
-
-                {err ? (
-                  <AppText variant="caption" style={{ color: colors.danger }}>
-                    {err}
-                  </AppText>
-                ) : null}
-
-                {msg ? (
-                  <AppText
-                    variant="caption"
-                    style={{ color: colors.green, fontWeight: "800" }}
-                  >
-                    {msg}
-                  </AppText>
-                ) : null}
-
-                <PrimaryButton
-                  label={busy ? "Sending..." : "Send reset link"}
-                  onPress={sendReset}
-                  disabled={busy}
-                  tone="teal"
-                />
-
-                <SecondaryButton
-                  label="Back to sign in"
-                  onPress={() => navigation.navigate("Login")}
-                  disabled={busy}
-                />
-              </Card>
-
-              {/* Footer */}
-              <AppText variant="caption" style={styles.footer}>
-                Your data stays private. Links you generate expire automatically.
+          <View style={styles.inner}>
+            <View style={styles.brand}>
+              <AuthLogo size={68} />
+              <AppText variant="h1">Reset password</AppText>
+              <AppText variant="muted" style={{ textAlign: "center" }}>
+                Enter your email and we'll send you a link to reset your password.
               </AppText>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+
+            <Card style={styles.formCard}>
+              <EmailInput value={email} onChangeText={setEmail} label="Email" />
+
+              {err ? (
+                <AppText variant="caption" style={{ color: colors.danger }}>{err}</AppText>
+              ) : null}
+
+              {msg ? (
+                <AppText variant="caption" style={{ color: colors.success, fontWeight: typescale.weight.semibold }}>
+                  {msg}
+                </AppText>
+              ) : null}
+
+              <PrimaryButton
+                label={busy ? "Sending…" : "Send reset link"}
+                onPress={sendReset}
+                disabled={busy}
+                tone="teal"
+              />
+
+              <SecondaryButton
+                label="Back to sign in"
+                onPress={() => navigation.navigate("Login")}
+                disabled={busy}
+              />
+            </Card>
+
+            <AppText variant="caption" style={styles.footer}>
+              Your data stays private. Links you generate expire automatically.
+            </AppText>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
+  scroll: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
     justifyContent: "center",
   },
   inner: {
     width: "100%",
-    maxWidth: 400,
+    maxWidth: 420,
     alignSelf: "center",
-    gap: 32,
+    gap: spacing.xl,
   },
-  top: { alignItems: "center", gap: 12 },
-  logoDot: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: colors.teal,
+  brand: {
     alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    gap: spacing.sm,
   },
-  logoInner: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.teal,
-  },
-  card: {
-    padding: 24,
-    gap: 20,
+  formCard: {
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   footer: {
     textAlign: "center",
-    opacity: 0.5,
-    paddingHorizontal: 20,
-    lineHeight: 18,
+    color: colors.subtle,
+    paddingHorizontal: spacing.xl,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
 });

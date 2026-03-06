@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Pressable,
   Share,
-  Text,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -17,7 +16,8 @@ import { supabase } from "../../lib/supabase";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { Card } from "../../components/ui/Primitives/Card";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { colors } from "../../theme/tokens";
+import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
+import { colors, spacing, radius, typescale } from "../../theme/tokens";
 
 type Props = NativeStackScreenProps<AppStackParamList, "PreVisitNote">;
 
@@ -35,10 +35,10 @@ type TimelineEventRow = {
 };
 
 export function PreVisitNoteScreen({ navigation }: Props) {
-  const [rows, setRows] = useState<TimelineEventRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [rows, setRows]           = useState<TimelineEventRow[]>([]);
+  const [loading, setLoading]     = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr]             = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -51,15 +51,12 @@ export function PreVisitNoteScreen({ navigation }: Props) {
 
       const { data, error } = await supabase
         .from("timeline_events")
-        .select(
-          "id, occurred_at, date_precision, title, category, source, summary, included_in_previsit"
-        )
+        .select("id, occurred_at, date_precision, title, category, source, summary, included_in_previsit")
         .eq("user_id", userData.user.id)
         .eq("included_in_previsit", true)
         .order("occurred_at", { ascending: false });
 
       if (error) throw error;
-
       setRows((data ?? []) as TimelineEventRow[]);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load pre-visit note.");
@@ -69,15 +66,11 @@ export function PreVisitNoteScreen({ navigation }: Props) {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const noteText = useMemo(() => {
     if (rows.length === 0) {
-      return "No items selected yet.\n\nGo back to Timeline and toggle “Include in Pre-Visit Note” on a few events.";
+      return 'No items selected yet.\n\nGo back to Timeline and toggle "Include in Pre-Visit Note" on a few events.';
     }
 
     const lines: string[] = [];
@@ -89,7 +82,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
 
     for (const ev of rows) {
       lines.push(
-        `• ${formatEventDate(ev.occurred_at, ev.date_precision)} - ${ev.title} (${ev.category})`
+        `• ${formatEventDate(ev.occurred_at, ev.date_precision)} — ${ev.title} (${ev.category})`
       );
       if (ev.summary?.trim()) lines.push(`  ${ev.summary.trim()}`);
       lines.push("");
@@ -99,45 +92,44 @@ export function PreVisitNoteScreen({ navigation }: Props) {
   }, [rows]);
 
   const onShare = async () => {
-    try {
-      await Share.share({ message: noteText });
-    } catch (e) {
-      // ignore
-    }
+    try { await Share.share({ message: noteText }); }
+    catch { /* ignore */ }
   };
 
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load();
-            }}
+            onRefresh={() => { setRefreshing(true); load(); }}
+            tintColor={colors.teal}
           />
         }
       >
-        <View style={styles.headerRow}>
+        {/* Header */}
+        <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <AppText variant="h1">Pre-Visit Note</AppText>
-            <AppText variant="muted">
-              {loading ? "Loading..." : `${rows.length} item(s) included`}
+            <AppText variant="muted" style={styles.headerSub}>
+              {loading ? "Loading…" : `${rows.length} item${rows.length === 1 ? "" : "s"} included`}
             </AppText>
           </View>
 
-          
-            
-          
+          {rows.length > 0 ? (
+            <Pressable
+              onPress={onShare}
+              style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.8 }]}
+            >
+              <AppText style={styles.shareBtnText}>Share</AppText>
+            </Pressable>
+          ) : null}
         </View>
 
         {err ? (
-          <AppText variant="caption" style={{ color: colors.danger }}>
-            {err}
-          </AppText>
+          <AppText variant="caption" style={{ color: colors.danger }}>{err}</AppText>
         ) : null}
 
         {loading ? (
@@ -146,17 +138,17 @@ export function PreVisitNoteScreen({ navigation }: Props) {
           </View>
         ) : null}
 
+        {/* Note body */}
         <Card style={styles.noteCard}>
-          <AppText variant="caption" style={styles.noteMono}>
-            {noteText}
-          </AppText>
+          <AppText variant="mono" style={styles.noteText}>{noteText}</AppText>
         </Card>
 
+        {/* Back link */}
         <Pressable
           onPress={() => navigation.navigate("Timeline")}
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.75 }]}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
         >
-          <Text style={styles.backBtnText}>Back to Timeline</Text>
+          <AppText variant="caption" style={styles.backText}>← Back to Timeline</AppText>
         </Pressable>
       </ScrollView>
     </Screen>
@@ -164,55 +156,67 @@ export function PreVisitNoteScreen({ navigation }: Props) {
 }
 
 function parseYMD(ymd: string) {
-  const [y, m, d] = ymd.split("-").map((x) => Number(x));
+  const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
 function formatEventDate(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);
-
-  if (precision === "year") return `${dt.getFullYear()}`;
-
-  if (precision === "month") {
-    return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  }
-
-  return dt.toLocaleDateString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  if (precision === "year")  return `${dt.getFullYear()}`;
+  if (precision === "month") return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  return dt.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 12,
-    paddingBottom: 28,
+  scroll: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+    paddingBottom: spacing.xxl,
   },
-  headerRow: {
+
+  header: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    marginBottom: spacing.xs,
   },
+  headerSub: {
+    marginTop: 3,
+  },
+  shareBtn: {
+    backgroundColor: colors.tealSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.tealBorder,
+  },
+  shareBtnText: {
+    color: colors.teal,
+    fontWeight: typescale.weight.bold,
+    fontSize: typescale.size.sm,
+  },
+
   center: {
-    paddingVertical: 16,
+    paddingVertical: spacing.lg,
     alignItems: "center",
   },
+
   noteCard: {
-    padding: 14,
-    gap: 10,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
   },
-  noteMono: {
+  noteText: {
     color: colors.text,
-    lineHeight: 18,
+    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
   },
+
   backBtn: {
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
-  backBtnText: {
+  backText: {
     color: colors.teal,
-    fontWeight: "900",
+    fontWeight: typescale.weight.semibold,
   },
 });

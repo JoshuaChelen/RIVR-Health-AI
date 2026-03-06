@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, radius, typescale } from "../../../theme/tokens";
 
 type Props = {
   label: string;
@@ -12,9 +12,9 @@ type Props = {
 };
 
 const toneMap = {
-  teal: colors.teal,
-  blue: colors.blue,
-  green: colors.green,
+  teal:   colors.teal,
+  blue:   colors.blue,
+  green:  colors.green,
   orange: colors.orange,
 };
 
@@ -26,8 +26,8 @@ export function PrimaryButton({ label, onPress, disabled, tone = "teal", style }
       style={({ pressed }) => [
         styles.btn,
         { backgroundColor: toneMap[tone] },
-        disabled && { opacity: 0.5 },
-        pressed && !disabled && { opacity: 0.85 },
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
         style,
       ]}
     >
@@ -40,15 +40,22 @@ export function PrimaryButton({ label, onPress, disabled, tone = "teal", style }
 
 const styles = StyleSheet.create({
   btn: {
-    height: 46,
+    height: 48,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   text: {
     color: "#fff",
-    fontWeight: "800",
-    fontSize: 14,
+    fontWeight: typescale.weight.bold,
+    fontSize: typescale.size.base,
+  },
+  disabled: {
+    opacity: 0.45,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
 });

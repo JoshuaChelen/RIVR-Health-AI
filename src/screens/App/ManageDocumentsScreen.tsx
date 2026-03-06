@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -10,13 +12,36 @@ import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { UploadFile } from "../../components/ui/ManageDocuments/UploadFile";
 import { ListDocuments } from "../../components/ui/ManageDocuments/ListDocuments";
 import { RecordVoiceNote } from "../../components/ui/ManageDocuments/RecordVoiceNote";
-import { colors } from "../../theme/tokens";
+import { colors, spacing, radius, typescale } from "../../theme/tokens";
 
-export function ManageDocumentsScreen() {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [starting, setStarting] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+type Props = NativeStackScreenProps<AppStackParamList, "ManageDocuments">;
+
+export function ManageDocumentsScreen({ navigation }: Props) {
+  const [refreshKey, setRefreshKey]     = useState(0);
+  const [starting, setStarting]         = useState(false);
+  const [msg, setMsg]                   = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
+
+  // Sync pending badge into the native navigation header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View
+          style={[
+            styles.badge,
+            pendingCount > 0 ? styles.badgeActive : styles.badgeIdle,
+          ]}
+        >
+          <AppText
+            variant="label"
+            style={{ color: pendingCount > 0 ? colors.teal : colors.subtle }}
+          >
+            {pendingCount} pending
+          </AppText>
+        </View>
+      ),
+    });
+  }, [navigation, pendingCount]);
 
   async function loadPendingCount() {
     const { data: userRes } = await supabase.auth.getUser();
@@ -66,10 +91,10 @@ export function ManageDocumentsScreen() {
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Not signed in");
 
-      const { error: jobErr } = await supabase.functions.invoke("enqueue-document-processing", {
-        headers: { Authorization: `Bearer ${token}` },
-        body: { documentIds: ids },
-      });
+      const { error: jobErr } = await supabase.functions.invoke(
+        "enqueue-document-processing",
+        { headers: { Authorization: `Bearer ${token}` }, body: { documentIds: ids } }
+      );
 
       if (jobErr) throw jobErr;
 
@@ -84,30 +109,8 @@ export function ManageDocumentsScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <AppText variant="h1">Manage Documents</AppText>
-          <AppText variant="caption" style={{ marginTop: 4 }}>
-            Upload PDFs or voice notes, then start processing when ready.
-          </AppText>
-        </View>
-
-        <View
-          style={[
-            styles.pendingBadge,
-            pendingCount > 0 ? styles.pendingBadgeActive : styles.pendingBadgeIdle,
-          ]}
-        >
-          <AppText
-            variant="caption"
-            style={{ fontWeight: "800", color: pendingCount > 0 ? colors.teal : colors.muted }}
-          >
-            {pendingCount} pending
-          </AppText>
-        </View>
-      </View>
-
-      <View style={styles.content}>
+      {/* List */}
+      <View style={styles.list}>
         <ListDocuments
           refreshKey={refreshKey}
           onPendingCountChange={setPendingCount}
@@ -120,17 +123,20 @@ export function ManageDocumentsScreen() {
         />
       </View>
 
+      {/* Footer */}
       <View style={styles.footer}>
         <Card style={styles.footerCard}>
-          {msg ? <AppText variant="caption">{msg}</AppText> : null}
+          {msg ? (
+            <AppText variant="caption" style={styles.msg}>{msg}</AppText>
+          ) : null}
 
           <PrimaryButton
             label={
               starting
-                ? "Starting..."
+                ? "Starting…"
                 : pendingCount > 0
-                ? `Start processing (${pendingCount})`
-                : "Start processing"
+                ? `Process ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
+                : "Process documents"
             }
             onPress={startProcessing}
             disabled={starting || pendingCount === 0}
@@ -139,8 +145,8 @@ export function ManageDocumentsScreen() {
           />
 
           {pendingCount === 0 ? (
-            <AppText variant="caption" style={{ marginTop: 8, color: colors.subtle }}>
-              No pending uploads right now.
+            <AppText variant="caption" style={styles.noFiles}>
+              No files waiting to process.
             </AppText>
           ) : null}
         </Card>
@@ -152,39 +158,39 @@ export function ManageDocumentsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
 
-  headerRow: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  pendingBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
     borderWidth: 1,
   },
-  pendingBadgeActive: {
+  badgeActive: {
     backgroundColor: colors.tealSoft,
-    borderColor: "rgba(44,185,176,0.25)",
+    borderColor: colors.tealBorder,
   },
-  pendingBadgeIdle: {
-    backgroundColor: "#fff",
+  badgeIdle: {
+    backgroundColor: colors.bgSecondary,
     borderColor: colors.border,
   },
 
-  content: { flex: 1 },
+  list: { flex: 1 },
 
   footer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 10,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.bg,
   },
-  footerCard: { gap: 10, padding: 14 },
+  footerCard: { gap: spacing.sm, padding: spacing.md },
+
+  msg: {
+    color: colors.textSub,
+  },
+  noFiles: {
+    marginTop: 6,
+    textAlign: "center",
+    color: colors.subtle,
+  },
 });

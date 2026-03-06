@@ -8,9 +8,9 @@ import { TimelineScreen } from "../screens/App/TimelineScreen";
 import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
 import { TimelineEventDetailsScreen } from "../screens/App/TimelineEventDetailsScreen";
 import { PreVisitNoteScreen } from "../screens/App/PreVisitNoteScreen";
-
-import { colors } from "../theme/tokens";
 import HealthSummaryScreen from "../screens/App/HealthSummaryScreen";
+
+import { colors, typescale } from "../theme/tokens";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -19,29 +19,51 @@ export function AppNavigator() {
     <Stack.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
+        headerStyle:       { backgroundColor: colors.bg },
         headerShadowVisible: false,
-        headerTitleStyle: { fontSize: 15, fontWeight: "800", color: colors.text },
-        headerTintColor: colors.text,
-        contentStyle: { backgroundColor: colors.bg },
+        headerTitleStyle:  {
+          fontSize:   typescale.size.md,
+          fontWeight: typescale.weight.bold,
+          color:      colors.text,
+        },
+        headerTintColor:   colors.teal,
+        contentStyle:      { backgroundColor: colors.bg },
       }}
     >
-      <Stack.Screen name="Home" component={HomeScreen} />
-      <Stack.Screen name="ManageDocuments" component={ManageDocumentsScreen} />
-      <Stack.Screen name="Share" component={ShareScreen} />
-      <Stack.Screen name="Timeline" component={TimelineScreen} options={{ title: "Timeline" }} />
-      <Stack.Screen name="HealthSummary" component={HealthSummaryScreen} />
-
+      <Stack.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ManageDocuments"
+        component={ManageDocumentsScreen}
+        options={{ title: "Documents" }}
+      />
+      <Stack.Screen
+        name="Share"
+        component={ShareScreen}
+        options={{ title: "Share Records" }}
+      />
+      <Stack.Screen
+        name="Timeline"
+        component={TimelineScreen}
+        options={{ title: "Timeline" }}
+      />
+      <Stack.Screen
+        name="HealthSummary"
+        component={HealthSummaryScreen}
+        options={{ title: "Health Summary" }}
+      />
       <Stack.Screen
         name="PreVisitNote"
         component={PreVisitNoteScreen}
         options={{ title: "Pre-Visit Note" }}
       />
-
       <Stack.Screen
         name="Details"
         component={TimelineEventDetailsScreen}
-        options={{ title: "Timeline" }}
+        options={{ title: "Event Details" }}
       />
     </Stack.Navigator>
   );

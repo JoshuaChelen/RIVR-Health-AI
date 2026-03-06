@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Audio } from "expo-av";
 
 import { Card } from "../Primitives/Card";
@@ -7,7 +7,7 @@ import { AppText } from "../Primitives/AppText";
 import { PrimaryButton } from "../Primitives/PrimaryButton";
 import { SecondaryButton } from "../Primitives/SecondaryButton";
 import { GhostButton } from "../Primitives/GhostButton";
-import { colors } from "../../../theme/tokens";
+import { colors, spacing, radius, typescale } from "../../../theme/tokens";
 
 import { uploadUriToStorage } from "../../../lib/storageUpload";
 import { insertDocumentRow, safeFilename } from "../../../lib/documents";
@@ -26,42 +26,38 @@ function mmss(ms: number) {
 
 export function RecordVoiceNote({ onUploaded }: Props) {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [uri, setUri] = useState<string | null>(null);
+  const [uri, setUri]             = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("Idle");
+  const [busy, setBusy]           = useState(false);
+  const [status, setStatus]       = useState<string | null>(null);
+  const [isError, setIsError]     = useState(false);
 
   const timerRef = useRef<any>(null);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
   const startRecording = async () => {
-    setStatus("Requesting mic permission...");
+    setStatus(null);
+    setIsError(false);
     const perm = await Audio.requestPermissionsAsync();
     if (!perm.granted) {
       setStatus("Mic permission denied.");
+      setIsError(true);
       return;
     }
 
-    setStatus("Starting recording...");
     setUri(null);
     setDurationMs(0);
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
     const rec = new Audio.Recording();
     await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
     await rec.startAsync();
 
     setRecording(rec);
-    setStatus("Recording...");
 
     timerRef.current = setInterval(async () => {
       try {
@@ -69,16 +65,12 @@ export function RecordVoiceNote({ onUploaded }: Props) {
         if (st.isRecording && typeof st.durationMillis === "number") {
           setDurationMs(st.durationMillis);
         }
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }, 300);
   };
 
   const stopRecording = async () => {
     if (!recording) return;
-
-    setStatus("Stopping...");
     if (timerRef.current) clearInterval(timerRef.current);
 
     try {
@@ -90,28 +82,31 @@ export function RecordVoiceNote({ onUploaded }: Props) {
 
       if (!u) {
         setStatus("Failed to save recording.");
+        setIsError(true);
         return;
       }
 
       setUri(u);
-      setStatus("Recorded. Ready to upload.");
+      setStatus(null);
     } catch (e: any) {
       setRecording(null);
-      setStatus(`Error: ${e?.message ?? "Failed to stop recording"}`);
+      setStatus(e?.message ?? "Failed to stop recording.");
+      setIsError(true);
     }
   };
 
   const discard = () => {
     setUri(null);
     setDurationMs(0);
-    setStatus("Idle");
+    setStatus(null);
+    setIsError(false);
   };
 
   const upload = async () => {
     if (!uri) return;
-
     setBusy(true);
-    setStatus("Checking auth...");
+    setIsError(false);
+    setStatus("Uploading…");
 
     try {
       const { data: auth, error: authErr } = await supabase.auth.getUser();
@@ -119,35 +114,32 @@ export function RecordVoiceNote({ onUploaded }: Props) {
       if (!auth.user) throw new Error("Not signed in");
 
       const userId = auth.user.id;
-
-      // HIGH_QUALITY preset uses .m4a on iOS + Android :contentReference[oaicite:2]{index=2}
       const filename = safeFilename(`voice_note_${Date.now()}.m4a`);
       const storagePath = `${userId}/voice-notes/${filename}`;
 
-      setStatus("Uploading voice note...");
       const { sizeBytes } = await uploadUriToStorage({
         bucket: "documents",
         storagePath,
         uri,
-        contentType: "audio/mp4", // good for .m4a
+        contentType: "audio/mp4",
         upsert: false,
       });
 
-      setStatus("Saving document row...");
       await insertDocumentRow({
         userId,
         title: filename,
-        storagePath,         // stored in pdf_path for now
+        storagePath,
         mimeType: "audio/mp4",
         sizeBytes,
       });
 
-      setStatus("Uploaded. Ready to process.");
+      setStatus("Voice note ready to process.");
       setUri(null);
       setDurationMs(0);
       onUploaded?.();
     } catch (e: any) {
-      setStatus(`Error: ${e?.message ?? String(e)}`);
+      setStatus(e?.message ?? String(e));
+      setIsError(true);
     } finally {
       setBusy(false);
     }
@@ -156,26 +148,52 @@ export function RecordVoiceNote({ onUploaded }: Props) {
   const isRecording = !!recording;
 
   return (
-    <Card style={{ gap: 10 }}>
-      <AppText variant="title">Voice note</AppText>
-      <AppText variant="caption" style={{ color: colors.subtle }}>
-        {isRecording ? `Recording ${mmss(durationMs)}` : uri ? "Recorded" : "Tap record to start"}
-      </AppText>
+    <Card style={styles.card}>
+      {/* Header row */}
+      <View style={styles.headerRow}>
+        <View style={[styles.micIcon, isRecording && styles.micIconActive]}>
+          <AppText style={[styles.micText, isRecording && { color: "#fff" }]}>♪</AppText>
+        </View>
 
-      <AppText variant="caption">Status: {status}</AppText>
+        <View style={{ flex: 1 }}>
+          <AppText variant="title">Voice Note</AppText>
+          <AppText variant="caption" style={styles.hint}>
+            {isRecording
+              ? `Recording  ${mmss(durationMs)}`
+              : uri
+              ? "Ready to upload"
+              : "Tap record to describe symptoms in your own words"}
+          </AppText>
+        </View>
 
-      {busy ? <ActivityIndicator color={colors.teal} /> : null}
+        {busy ? <ActivityIndicator color={colors.teal} /> : null}
+      </View>
 
+      {status ? (
+        <AppText
+          variant="caption"
+          style={[styles.statusText, isError && { color: colors.danger }]}
+        >
+          {status}
+        </AppText>
+      ) : null}
+
+      {/* Actions */}
       {!uri ? (
         <PrimaryButton
-          label={isRecording ? "Stop" : "Record"}
+          label={isRecording ? "Stop recording" : "Record"}
           onPress={isRecording ? stopRecording : startRecording}
           disabled={busy}
           tone={isRecording ? "orange" : "teal"}
         />
       ) : (
-        <View style={styles.row}>
-          <SecondaryButton label="Upload voice note" onPress={upload} disabled={busy} style={{ flex: 1 }} />
+        <View style={styles.uploadRow}>
+          <SecondaryButton
+            label="Upload voice note"
+            onPress={upload}
+            disabled={busy}
+            style={{ flex: 1 }}
+          />
           <GhostButton label="Discard" onPress={discard} disabled={busy} />
         </View>
       )}
@@ -184,5 +202,43 @@ export function RecordVoiceNote({ onUploaded }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  card: { gap: spacing.sm },
+
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  micIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    backgroundColor: colors.tealSoft,
+    borderWidth: 1,
+    borderColor: colors.tealBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  micIconActive: {
+    backgroundColor: colors.teal,
+    borderColor: colors.teal,
+  },
+  micText: {
+    fontSize: typescale.size.lg,
+    color: colors.teal,
+  },
+
+  hint: {
+    marginTop: 2,
+  },
+
+  statusText: {
+    color: colors.textSub,
+  },
+
+  uploadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
 });

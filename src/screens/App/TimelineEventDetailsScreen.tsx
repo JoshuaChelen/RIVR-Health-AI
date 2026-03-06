@@ -16,7 +16,7 @@ import { supabase } from "../../lib/supabase";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { Card } from "../../components/ui/Primitives/Card";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { colors } from "../../theme/tokens";
+import { colors, radius, spacing, typescale } from "../../theme/tokens";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Details">;
 
@@ -225,7 +225,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
         {err ? (
           <Card style={styles.errorCard}>
-            <AppText variant="caption" style={{ color: colors.danger, fontWeight: "800" }}>
+            <AppText variant="caption" style={{ color: colors.danger, fontWeight: "700" }}>
               {err}
             </AppText>
           </Card>
@@ -439,7 +439,14 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
               <View style={styles.toggleRow}>
                 <AppText style={styles.toggleLabel}>Include in Pre-Visit Note</AppText>
-                <Switch value={included} onValueChange={onToggleIncluded} disabled={saving} />
+                <Switch
+                  value={included}
+                  onValueChange={onToggleIncluded}
+                  disabled={saving}
+                  trackColor={{ false: colors.bgSecondary, true: colors.tealSoft }}
+                  thumbColor={included ? colors.teal : colors.subtle}
+                  ios_backgroundColor={colors.bgSecondary}
+                />
               </View>
 
               {saving ? <AppText variant="caption" style={{ color: colors.muted }}>Saving...</AppText> : null}
@@ -594,78 +601,79 @@ function iconForCategory(category?: string | null) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12 },
-  center: { paddingVertical: 30, alignItems: "center", gap: 10 },
+  container: { padding: spacing.md, gap: spacing.sm },
+  center: { paddingVertical: spacing.xxl, alignItems: "center", gap: spacing.sm },
 
-  header: { gap: 8, paddingBottom: 4 },
+  header: { gap: spacing.xs, paddingBottom: spacing.xs },
 
   headerTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   headerActions: {
     flexDirection: "row",
-    gap: 10,
+    gap: spacing.sm,
     alignItems: "center",
   },
 
   smallBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
   },
-  smallBtnText: { fontWeight: "900", color: colors.teal },
+  smallBtnText: { fontWeight: typescale.weight.bold, color: colors.teal },
 
   smallBtnPrimary: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.teal,
+    borderRadius: radius.sm,
     backgroundColor: colors.teal,
   },
-  smallBtnPrimaryText: { fontWeight: "900", color: "#FFFFFF" },
+  smallBtnPrimaryText: { fontWeight: typescale.weight.bold, color: "#FFFFFF" },
 
   iconChip: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  iconChipText: { fontWeight: "900", color: colors.teal },
+  iconChipText: { fontWeight: typescale.weight.bold, color: colors.teal },
 
   title: { color: colors.text },
   meta: { textAlign: "left" },
 
-  pillsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  pillsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
 
-  card: { gap: 12 },
-  editCard: { gap: 12, marginTop: 10 },
+  card: { gap: spacing.sm },
+  editCard: { gap: spacing.sm, marginTop: spacing.sm },
   errorCard: { borderWidth: 1, borderColor: colors.danger },
 
-  sectionLabel: { color: colors.muted, fontWeight: "900" },
-  bodyText: { color: colors.text, lineHeight: 18 },
+  sectionLabel: { color: colors.muted },
+  bodyText: {
+    color: colors.textSub,
+    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
+  },
 
-  fieldLabel: { color: colors.muted, fontWeight: "900" },
+  fieldLabel: { color: colors.muted },
 
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: colors.text,
-    fontWeight: "700",
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.medium,
   },
   inputMultiline: {
     minHeight: 92,
@@ -674,64 +682,76 @@ const styles = StyleSheet.create({
 
   twoCol: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.sm,
   },
 
   segmentRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.xs,
     flexWrap: "wrap",
   },
   segment: {
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
   },
   segmentActive: {
     borderColor: colors.teal,
-    backgroundColor: "#E7F7EF",
+    backgroundColor: colors.tealSoft,
   },
-  segmentText: { fontWeight: "900", color: colors.muted },
-  segmentTextActive: { color: "#0F7A4A" },
+  segmentText: { fontWeight: typescale.weight.semibold, color: colors.muted },
+  segmentTextActive: { color: colors.teal },
 
-  infoRow: { flexDirection: "row", justifyContent: "space-between", gap: 14 },
-  infoLabel: { color: colors.muted, fontWeight: "800" },
-  infoValue: { color: colors.text, fontWeight: "700", textAlign: "right", flex: 1 },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  infoLabel: { color: colors.muted, fontWeight: typescale.weight.semibold },
+  infoValue: { color: colors.text, fontWeight: typescale.weight.medium, textAlign: "right", flex: 1 },
 
-  divider: { height: 1, backgroundColor: colors.border },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
 
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  toggleLabel: { fontWeight: "800", color: colors.teal },
+  toggleLabel: { fontWeight: typescale.weight.semibold, color: colors.teal },
 
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
-  pillText: { fontWeight: "800" },
+  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, borderWidth: 1 },
+  pillText: { fontWeight: typescale.weight.bold },
 
-  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   tagChip: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#F1F5F9",
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgSecondary,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: colors.border,
   },
-  tagText: { fontWeight: "800", color: "#475569" },
+  tagText: { fontWeight: typescale.weight.semibold, color: colors.muted },
 
   dataHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 
-  jsonWrap: { gap: 8 },
+  jsonWrap: { gap: spacing.xs },
   jsonToggle: {
     alignSelf: "flex-start",
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
   },
-  jsonToggleText: { fontWeight: "900", color: colors.teal },
-  jsonText: { fontFamily: "Menlo", fontSize: 12, lineHeight: 16, color: colors.text },
+  jsonToggleText: { fontWeight: typescale.weight.semibold, color: colors.teal },
+  jsonText: {
+    fontFamily: "Menlo",
+    fontSize: typescale.size.xs,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    color: colors.textSub,
+  },
 });

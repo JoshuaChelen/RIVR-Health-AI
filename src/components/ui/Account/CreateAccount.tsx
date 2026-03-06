@@ -90,7 +90,7 @@ export default function CreateAccount({ onSuccess, onGoToLogin }: Props) {
       ) : null}
 
       {successText ? (
-        <AppText variant="caption" style={{ color: colors.green, fontWeight: "800" }}>
+        <AppText variant="caption" style={{ color: colors.green, fontWeight: "700" }}>
           {successText}
         </AppText>
       ) : null}
