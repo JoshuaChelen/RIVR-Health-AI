@@ -176,7 +176,7 @@ if (req.method === "GET") {
 
       const { data: pkg, error: pkgErr } = await admin
         .from("share_packages")
-        .select("id, owner_id, file_type, expires_at, revoked, max_views, views_count, pin_hash")
+        .select("id, owner_id, file_type, expires_at, revoked, max_views, views_count, pin_hash, payload_json")
         .eq("token_hash", tokenHash)
         .single();
 
@@ -225,9 +225,42 @@ if (req.method === "GET") {
         });
       }
 
-      // Increment views (simple)
+      // Increment views
       await admin.from("share_packages").update({ views_count: pkg.views_count + 1 }).eq("id", pkg.id);
 
+      // ── Profile-based share: resolve PDFs from share-artifacts bucket ──────
+      if (pkg.file_type === "health_profile") {
+        const pdfs = (pkg.payload_json as any)?.pdfs ?? {};
+        const TYPE_LABELS: Record<string, string> = {
+          full_summary:   "Full Health Summary",
+          card_3x5:       "3×5 Health Card",
+          pre_visit_note: "Pre-Visit Note",
+        };
+
+        const items: Array<{ title: string; signedUrl: string; expiresIn: number }> = [];
+        for (const [type, storagePath] of Object.entries(pdfs)) {
+          const { data: signed } = await admin.storage
+            .from("share-artifacts")
+            .createSignedUrl(storagePath as string, 120);
+          if (signed?.signedUrl) {
+            items.push({ title: TYPE_LABELS[type] ?? type, signedUrl: signed.signedUrl, expiresIn: 120 });
+          }
+        }
+
+        if (items.length === 0) {
+          return new Response(JSON.stringify({ error: "No PDF files found for this share" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ items, expiresAt: pkg.expires_at, pinRequired: false }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── Document-based share: generate short-lived signed URLs ─────────────
       const { data: rows, error: rowsErr } = await admin
         .from("share_package_items")
         .select("document_id, documents!inner(id, user_id, title, pdf_path, summary_path, fhir_path)")

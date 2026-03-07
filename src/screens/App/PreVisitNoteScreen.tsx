@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -6,7 +6,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
-  Share,
   Animated,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -268,30 +267,6 @@ export function PreVisitNoteScreen({ navigation }: Props) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Build the plain-text version for sharing
-  const noteText = useMemo(() => {
-    if (rows.length === 0) return "";
-
-    const lines: string[] = [];
-    lines.push("Pre-Visit Note");
-    lines.push(`Generated: ${new Date().toLocaleDateString()}`);
-    lines.push("");
-
-    for (const ev of rows) {
-      lines.push(`• ${formatEventDate(ev.occurred_at, ev.date_precision)} — ${ev.title} (${ev.category})`);
-      if (ev.summary?.trim()) lines.push(`  ${ev.summary.trim()}`);
-      lines.push("");
-    }
-
-    return lines.join("\n").trim();
-  }, [rows]);
-
-  const onShare = async () => {
-    if (!noteText) return;
-    try { await Share.share({ message: noteText }); }
-    catch { /* ignore */ }
-  };
-
   const hasEvents = rows.length > 0;
 
   return (
@@ -393,9 +368,9 @@ export function PreVisitNoteScreen({ navigation }: Props) {
             <View style={styles.actionsRow}>
               <Pressable
                 style={({ pressed }) => [styles.shareBtn, pressed && styles.btnPressed]}
-                onPress={onShare}
+                onPress={() => navigation.navigate("Share")}
               >
-                <AppText style={styles.shareBtnText}>Share note</AppText>
+                <AppText style={styles.shareBtnText}>Open Share Options</AppText>
               </Pressable>
 
               <Pressable
