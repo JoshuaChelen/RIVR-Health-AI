@@ -186,6 +186,8 @@ export async function buildFullSummaryPdf(data: {
   overview?: string | null;
   full_summary_markdown?: string | null;
   disclaimer?: string | null;
+  patient_name?: string | null;
+  patient_demographics?: string | null;  // e.g. "42 y/o  ·  Female"
 }): Promise<Uint8Array> {
   const doc     = await PDFDocument.create();
   const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -198,8 +200,13 @@ export async function buildFullSummaryPdf(data: {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
+  const subtitleParts: string[] = [];
+  if (data.patient_name) subtitleParts.push(clean(data.patient_name));
+  subtitleParts.push(`Generated ${dateStr}`);
+  if (data.patient_demographics) subtitleParts.push(clean(data.patient_demographics));
+
   let page = newPage();
-  let y    = drawPageHeader(page, "AI Health Summary", `Generated ${dateStr}`, bold, regular);
+  let y    = drawPageHeader(page, "AI Health Summary", subtitleParts.join("  ·  "), bold, regular);
 
   // ── SHIN Score ──────────────────────────────────────────────────────────────
   if (typeof data.score === "number") {
@@ -339,6 +346,11 @@ export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
   page.drawText("HEALTH ESSENTIAL CARD", {
     x: CX + 16, y: CY + CH - 36, size: 11, font: bold, color: WHITE, characterSpacing: 0.4,
   });
+  if (cardData?.patient_name) {
+    page.drawText(clean(cardData.patient_name), {
+      x: CX + 16, y: CY + CH - HBAND + 9, size: 8.5, font: bold, color: WHITE,
+    });
+  }
   page.drawText(dateStr, {
     x: CX + CW2 - dW - 16, y: CY + CH - 18, size: 8, font: regular, color: TEAL_SOFT,
   });
@@ -415,6 +427,7 @@ export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
 export async function buildPreVisitNotePdf(data: {
   generated_at: string;
   events: any[];
+  patient_name?: string | null;
 }): Promise<Uint8Array> {
   const doc     = await PDFDocument.create();
   const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -428,13 +441,12 @@ export async function buildPreVisitNotePdf(data: {
   const pages: any[] = [];
   const newPage = () => { const p = doc.addPage([PW, PH]); pages.push(p); return p; };
 
+  const pvSubtitle = data.patient_name
+    ? `${clean(data.patient_name)}  ·  ${dateStr}  ·  ${events.length} event${events.length !== 1 ? "s" : ""} selected`
+    : `${dateStr}  ·  ${events.length} event${events.length !== 1 ? "s" : ""} selected`;
+
   let page = newPage();
-  let y = drawPageHeader(
-    page,
-    "Pre-Visit Note",
-    `${dateStr}  ·  ${events.length} event${events.length !== 1 ? "s" : ""} selected`,
-    bold, regular,
-  );
+  let y = drawPageHeader(page, "Pre-Visit Note", pvSubtitle, bold, regular);
 
   if (events.length === 0) {
     page.drawText("No events have been selected for this pre-visit note.", {
@@ -527,6 +539,7 @@ export async function buildPreVisitNotePdf(data: {
 export async function buildFullTimelinePdf(data: {
   generated_at: string;
   events: any[];
+  patient_name?: string | null;
 }): Promise<Uint8Array> {
   const doc     = await PDFDocument.create();
   const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -540,13 +553,12 @@ export async function buildFullTimelinePdf(data: {
   const pages: any[] = [];
   const newPage = () => { const p = doc.addPage([PW, PH]); pages.push(p); return p; };
 
+  const ftSubtitle = data.patient_name
+    ? `${clean(data.patient_name)}  ·  ${dateStr}  ·  ${events.length} event${events.length !== 1 ? "s" : ""}`
+    : `${dateStr}  ·  ${events.length} event${events.length !== 1 ? "s" : ""}`;
+
   let page = newPage();
-  let y = drawPageHeader(
-    page,
-    "Full Health Timeline",
-    `${dateStr}  ·  ${events.length} event${events.length !== 1 ? "s" : ""}`,
-    bold, regular,
-  );
+  let y = drawPageHeader(page, "Full Health Timeline", ftSubtitle, bold, regular);
 
   if (events.length === 0) {
     page.drawText("No timeline events found.", {

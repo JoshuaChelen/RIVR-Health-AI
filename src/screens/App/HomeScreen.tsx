@@ -11,6 +11,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
+import { getProfile } from "../../lib/profile";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -46,6 +47,7 @@ export function HomeScreen({ navigation }: Props) {
   const [score, setScore]   = useState<number | null>(null);
   const [label, setLabel]   = useState<string | null>(null);
   const [overview, setOverview] = useState<string | null>(null);
+  const [profileInitials, setProfileInitials] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,9 +60,10 @@ export function HomeScreen({ navigation }: Props) {
           if (!userRes?.user || !active) return;
 
           const userId = userRes.user.id;
-          const [profile, evalRow] = await Promise.all([
+          const [healthProfile, evalRow, userProfile] = await Promise.all([
             getHealthProfile(userId),
             getLatestEvaluation(userId),
+            getProfile(userId),
           ]);
 
           if (!active) return;
@@ -69,15 +72,21 @@ export function HomeScreen({ navigation }: Props) {
           const evalResult = evalRow?.result ?? null;
 
           const resolvedScore =
-            profile?.score ?? evalResult?.score_0_to_100 ?? null;
+            healthProfile?.score ?? evalResult?.score_0_to_100 ?? null;
           const resolvedLabel =
-            profile?.score_label ?? evalResult?.score_label ?? null;
+            healthProfile?.score_label ?? evalResult?.score_label ?? null;
           const resolvedOverview =
-            profile?.summary_json?.overview ?? evalResult?.overview ?? null;
+            healthProfile?.summary_json?.overview ?? evalResult?.overview ?? null;
 
           setScore(typeof resolvedScore === "number" ? resolvedScore : null);
           setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
           setOverview(typeof resolvedOverview === "string" ? resolvedOverview : null);
+
+          if (userProfile?.first_name) {
+            const first = userProfile.first_name[0]?.toUpperCase() ?? "";
+            const last  = userProfile.last_name?.[0]?.toUpperCase() ?? "";
+            setProfileInitials(first + last);
+          }
         } catch {
           // Silently fail on the dashboard — errors are surfaced on Health Summary
         } finally {
@@ -114,14 +123,28 @@ export function HomeScreen({ navigation }: Props) {
       >
         {/* ── Greeting ──────────────────────────────────────── */}
         <View style={styles.greeting}>
-          <AppText style={styles.greetDate}>{todayLabel()}</AppText>
-          <AppText variant="h1" style={styles.greetTitle}>{timeGreeting()}</AppText>
+          <View style={styles.greetLeft}>
+            <AppText style={styles.greetDate}>{todayLabel()}</AppText>
+            <AppText variant="h1" style={styles.greetTitle}>{timeGreeting()}</AppText>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.profileAvatar, pressed && { opacity: 0.7 }]}
+            onPress={() => navigation.navigate("Profile")}
+          >
+            <AppText style={styles.profileAvatarText}>
+              {profileInitials ?? "·"}
+            </AppText>
+          </Pressable>
         </View>
 
         {/* ── SHIN Score ring card ───────────────────────────── */}
         <Pressable
           style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
-          onPress={() => navigation.navigate("ShinScore")}
+          onPress={() =>
+            score != null || scoreLoading
+              ? navigation.navigate("ShinScore")
+              : navigation.navigate("ManageDocuments")
+          }
         >
           <View style={styles.heroHeader}>
             <View style={styles.heroLabelBlock}>
@@ -158,7 +181,7 @@ export function HomeScreen({ navigation }: Props) {
                 </View>
                 <AppText style={styles.emptyScoreTitle}>No score yet</AppText>
                 <AppText style={styles.emptyScoreBody}>
-                  Upload documents and generate{"\n"}your AI health summary to see your score.
+                  Tap to upload documents, then{"\n"}generate your AI health summary.
                 </AppText>
               </View>
             )}
@@ -332,6 +355,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  greetLeft: {
+    flex: 1,
+    gap: 3,
+    marginRight: spacing.sm,
+  },
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.teal,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  profileAvatarText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.bold,
+    color: "#fff",
+    letterSpacing: 0.5,
   },
   greetDate: {
     fontSize: typescale.size.sm,

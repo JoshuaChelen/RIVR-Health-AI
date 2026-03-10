@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   wrapFocused: {
     borderColor: colors.teal,
-    borderWidth: 1.5,
+    borderWidth: 1,
     shadowColor: colors.teal,
     shadowOpacity: 0.12,
     shadowRadius: 6,
@@ -68,6 +68,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    height: "100%" as any,
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.medium,
     color: colors.text,

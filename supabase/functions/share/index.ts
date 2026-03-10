@@ -144,7 +144,6 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
 
   const SHARE_WEB_BASE = Deno.env.get("SHARE_WEB_BASE")!; 
-// example: https://rivr-share.vercel.app/share
 
 if (req.method === "GET") {
   const token = url.searchParams.get("token");

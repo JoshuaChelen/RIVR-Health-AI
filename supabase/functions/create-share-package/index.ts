@@ -11,6 +11,18 @@ import {
 
 const PROFILE_TYPES = new Set(["full_summary", "card_3x5", "pre_visit_note", "full_timeline"]);
 
+function computeAge(dob: string | null): number | null {
+  if (!dob) return null;
+  try {
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  } catch { return null; }
+}
+
 function base64url(bytes: Uint8Array): string {
   const str = btoa(String.fromCharCode(...bytes));
   return str.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
@@ -110,6 +122,19 @@ Deno.serve(async (req) => {
         profileRow = data;
       }
 
+      // Fetch user profile for demographics and manually-entered medical data
+      const { data: userProfileData } = await admin
+        .from("user_profiles")
+        .select("first_name, last_name, date_of_birth, sex_or_gender, allergies, medications, emergency_contact_name, emergency_contact_phone")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const userProfile: any = userProfileData;
+
+      // Derived patient info helpers (story_answers intentionally excluded)
+      const patientFullName = userProfile
+        ? [userProfile.first_name, userProfile.last_name].filter(Boolean).join(" ") || null
+        : null;
+
       let eventsRows: any[] = [];
       if (shareTypes.includes("pre_visit_note")) {
         const { data } = await admin
@@ -135,27 +160,61 @@ Deno.serve(async (req) => {
       const snapshots: Record<string, any> = {};
       if (shareTypes.includes("full_summary") && profileRow) {
         const sj = profileRow.summary_json ?? {};
+        const age = computeAge(userProfile?.date_of_birth ?? null);
+        const demoParts: string[] = [];
+        if (age != null) demoParts.push(`${age} y/o`);
+        if (userProfile?.sex_or_gender) demoParts.push(userProfile.sex_or_gender);
         snapshots.full_summary = {
           score:                 profileRow.score,
           label:                 profileRow.score_label,
           overview:              sj.overview ?? null,
           full_summary_markdown: sj.full_summary_markdown ?? null,
           disclaimer:            sj.disclaimer ?? null,
+          patient_name:          patientFullName,
+          patient_demographics:  demoParts.length ? demoParts.join("  ·  ") : null,
         };
       }
       if (shareTypes.includes("card_3x5") && profileRow) {
-        snapshots.card_3x5 = profileRow.card_json ?? null;
+        // Start from AI-derived card_json; fill gaps with manually-entered profile data
+        const card: Record<string, any> = { ...(profileRow.card_json ?? {}) };
+        if (userProfile) {
+          // Emergency contact: use profile if AI extraction left it empty
+          if (!card.emergency_contact?.name && userProfile.emergency_contact_name) {
+            card.emergency_contact = {
+              name:  userProfile.emergency_contact_name,
+              phone: userProfile.emergency_contact_phone ?? "",
+            };
+          }
+          // Allergies: use profile if AI extraction left it empty
+          if ((!card.allergies || card.allergies.length === 0) &&
+              Array.isArray(userProfile.allergies) && userProfile.allergies.length > 0) {
+            card.allergies = userProfile.allergies.map((a: any) =>
+              [a.allergen, a.reaction].filter(Boolean).join(" - ")
+            );
+          }
+          // Medications: use profile if AI extraction left it empty
+          if ((!card.current_meds || card.current_meds.length === 0) &&
+              Array.isArray(userProfile.medications) && userProfile.medications.length > 0) {
+            card.current_meds = userProfile.medications.map((m: any) =>
+              [m.name, m.dose, m.frequency].filter(Boolean).join(" ")
+            );
+          }
+          if (patientFullName) card.patient_name = patientFullName;
+        }
+        snapshots.card_3x5 = card;
       }
       if (shareTypes.includes("pre_visit_note")) {
         snapshots.pre_visit_note = {
           generated_at: new Date().toISOString(),
-          events: eventsRows,
+          events:        eventsRows,
+          patient_name:  patientFullName,
         };
       }
       if (shareTypes.includes("full_timeline")) {
         snapshots.full_timeline = {
           generated_at: new Date().toISOString(),
-          events: fullTimelineRows,
+          events:        fullTimelineRows,
+          patient_name:  patientFullName,
         };
       }
 

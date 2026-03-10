@@ -8,4 +8,7 @@ export type AppStackParamList = {
   PreVisitNote: undefined;
   ShinScore: undefined;
   HealthSummary: undefined;
+  Profile: undefined;
+  MedicalProfile: undefined;
+  Story: undefined;
 };
