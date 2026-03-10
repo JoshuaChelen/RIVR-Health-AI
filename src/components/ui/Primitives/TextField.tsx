@@ -6,20 +6,22 @@ import { colors, radius, shadows, typescale } from "../../../theme/tokens";
 type Props = TextInputProps & {
   label?: string;
   rightAccessory?: React.ReactNode;
+  disabled?: boolean;
 };
 
-export function TextField({ label, style, rightAccessory, onFocus, onBlur, ...props }: Props) {
+export function TextField({ label, style, rightAccessory, onFocus, onBlur, disabled, ...props }: Props) {
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={styles.container}>
-      {label ? <AppText variant="label" style={[styles.label, focused && styles.labelFocused]}>{label}</AppText> : null}
-      <View style={[styles.wrap, focused && styles.wrapFocused]}>
+      {label ? <AppText variant="label" style={styles.label}>{label}</AppText> : null}
+      <View style={[styles.wrap, !disabled && focused && styles.wrapFocused, disabled && styles.wrapDisabled]}>
         <TextInput
           {...props}
+          editable={disabled ? false : props.editable}
           placeholderTextColor={colors.subtle}
-          style={[styles.input, style]}
-          onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+          style={[styles.input, disabled && styles.inputDisabled, style]}
+          onFocus={(e) => { if (!disabled) { setFocused(true); onFocus?.(e); } }}
           onBlur={(e)  => { setFocused(false); onBlur?.(e); }}
         />
         {rightAccessory ? <View style={styles.right}>{rightAccessory}</View> : null}
@@ -39,8 +41,13 @@ export function SmallTextButton({ label, onPress }: { label: string; onPress: ()
   );
 }
 
+
 const styles = StyleSheet.create({
-  container: { gap: 7 },
+  container: {
+    gap: 7,
+    width: "100%",
+    minWidth: 0,
+  },
   label: {
     marginBottom: 1,
   },
@@ -50,6 +57,8 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
     alignItems: "center",
+    width: "100%",
+    minWidth: 0,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -66,20 +75,32 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
+  wrapDisabled: {
+    backgroundColor: colors.borderLight,
+    borderColor: colors.border,
+  },
   input: {
     flex: 1,
+    minWidth: 0,
     height: "100%" as any,
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.medium,
     color: colors.text,
+    paddingVertical: 0,
   },
-  right: { marginLeft: 10 },
+  inputDisabled: {
+    color: colors.muted,
+  },
+  right: {
+    marginLeft: 8,
+    flexShrink: 0,
+  },
   smallBtn: {
-    paddingHorizontal: 6,
     paddingVertical: 4,
+    paddingHorizontal: 2,
   },
   smallBtnText: {
     color: colors.teal,
-    fontWeight: typescale.weight.bold,
+    fontWeight: typescale.weight.semibold as any,
   },
 });

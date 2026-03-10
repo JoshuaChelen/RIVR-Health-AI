@@ -26,6 +26,7 @@ import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 
 import { colors, radius, spacing, typescale } from "../../theme/tokens";
+import { COUNTRIES, Country, parseStoredPhone, PhoneField } from "../../components/ui/Primitives/PhoneField";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep3">;
 
@@ -33,7 +34,8 @@ export function OnboardingStep3Screen({ navigation }: Props) {
   const { onComplete } = useOnboarding();
 
   const [contactName, setContactName]   = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [contactPhoneCountry, setContactPhoneCountry] = useState<Country>(COUNTRIES[0]);
+  const [contactPhoneNumber, setContactPhoneNumber] = useState("");
   const [contactRel, setContactRel]     = useState("");
   const [saving, setSaving]             = useState(false);
   const [error, setError]               = useState<string | null>(null);
@@ -46,7 +48,9 @@ export function OnboardingStep3Screen({ navigation }: Props) {
         const profile = await getProfile(userId);
         if (profile) {
           setContactName(profile.emergency_contact_name ?? "");
-          setContactPhone(profile.emergency_contact_phone ?? "");
+          const parsedEmergency = parseStoredPhone(profile.emergency_contact_phone ?? "");
+          setContactPhoneCountry(parsedEmergency.country);
+          setContactPhoneNumber(parsedEmergency.number);
           setContactRel(profile.emergency_contact_relationship ?? "");
         }
       } catch {
@@ -65,7 +69,9 @@ export function OnboardingStep3Screen({ navigation }: Props) {
       const userId = await getCurrentUserId();
       await upsertProfile(userId, {
         emergency_contact_name:         contactName.trim() || null,
-        emergency_contact_phone:        contactPhone.trim() || null,
+        emergency_contact_phone: contactPhoneNumber.trim()
+          ? `${contactPhoneCountry.dial} ${contactPhoneNumber.trim()}`
+          : null,
         emergency_contact_relationship: contactRel.trim() || null,
         onboarding_completed_at:        new Date().toISOString(),
       });
@@ -77,7 +83,10 @@ export function OnboardingStep3Screen({ navigation }: Props) {
     }
   }
 
-  const anyFilled = contactName.trim() || contactPhone.trim() || contactRel.trim();
+  const anyFilled =
+  contactName.trim() ||
+  contactPhoneNumber.trim() ||
+  contactRel.trim();
 
   return (
     <Screen>
@@ -118,14 +127,14 @@ export function OnboardingStep3Screen({ navigation }: Props) {
                   editable={!saving}
                 />
 
-                <TextField
+                <PhoneField
                   label="Contact phone"
-                  placeholder="(555) 000-0000"
-                  value={contactPhone}
-                  onChangeText={(v) => setContactPhone(formatPhoneInput(v))}
-                  keyboardType="phone-pad"
-                  returnKeyType="next"
+                  country={contactPhoneCountry}
+                  number={contactPhoneNumber}
+                  onCountryChange={setContactPhoneCountry}
+                  onNumberChange={setContactPhoneNumber}
                   editable={!saving}
+                  returnKeyType="next"
                 />
 
                 <TextField
