@@ -3,18 +3,14 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  Share as RNShare,
   StyleSheet,
   View,
 } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
-import { GhostButton } from "../../components/ui/Primitives/GhostButton";
 
 import { supabase } from "../../lib/supabase";
 import {
@@ -26,41 +22,6 @@ import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens"
 
 function safeJoin(arr: any[]) {
   return Array.isArray(arr) && arr.length ? arr.join(", ") : "";
-}
-
-function format3x5Text(input: { score?: number | null; label?: string | null; card: any }) {
-  const { score, label, card } = input;
-  const lines: string[] = [];
-  if (typeof score === "number") lines.push(`Shin Score: ${score}/100${label ? ` (${label})` : ""}`);
-  lines.push("");
-  lines.push("3x5 Essentials");
-  lines.push(`Blood type: ${card?.blood_type ?? "Unknown"}`);
-  lines.push(`Major conditions: ${safeJoin(card?.major_conditions) || "None listed"}`);
-  lines.push(`Major surgeries: ${safeJoin(card?.major_surgeries) || "None listed"}`);
-  lines.push(`Current meds: ${safeJoin(card?.current_meds) || "None listed"}`);
-  lines.push(`Allergies: ${safeJoin(card?.allergies) || "None listed"}`);
-  lines.push(`Implants/devices: ${safeJoin(card?.implants_devices) || "None listed"}`);
-  lines.push(`Anticoagulants: ${safeJoin(card?.anticoagulants) || "None listed"}`);
-  lines.push(`Anesthesia notes: ${safeJoin(card?.anesthesia_notes) || "None listed"}`);
-  const ec = card?.emergency_contact;
-  if (ec?.name || ec?.phone) lines.push(`Emergency contact: ${ec?.name ?? ""} ${ec?.phone ?? ""}`.trim());
-  if (card?.one_line_summary) { lines.push(""); lines.push(`Summary: ${String(card.one_line_summary)}`); }
-  return lines.join("\n");
-}
-
-function formatFullSummaryText(input: {
-  score?: number | null;
-  label?: string | null;
-  overview?: string | null;
-  full?: string | null;
-  disclaimer?: string | null;
-}) {
-  const lines: string[] = [];
-  if (typeof input.score === "number") lines.push(`Shin Score: ${input.score}/100${input.label ? ` (${input.label})` : ""}`);
-  if (input.overview) { lines.push(""); lines.push(String(input.overview)); }
-  if (input.full)     { lines.push(""); lines.push(String(input.full)); }
-  if (input.disclaimer) { lines.push(""); lines.push(String(input.disclaimer)); }
-  return lines.join("\n");
 }
 
 type Props = NativeStackScreenProps<AppStackParamList, "HealthSummary">;
@@ -103,22 +64,6 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const card        = profile?.card_json ?? evaluation?.three_by_five_card ?? null;
 
   const hasContent  = !!(fullSummary || card);
-
-  // ── Share / copy ──────────────────────────────────────────────────────────
-  const onShareCard = async () => {
-    if (!card) return;
-    await RNShare.share({ message: format3x5Text({ score, label, card }) });
-  };
-  const onCopyCard = async () => {
-    if (!card) return;
-    await Clipboard.setStringAsync(format3x5Text({ score, label, card }));
-  };
-  const onShareFull = async () => {
-    await RNShare.share({ message: formatFullSummaryText({ score, label, overview, full: fullSummary, disclaimer }) });
-  };
-  const onCopyFull = async () => {
-    await Clipboard.setStringAsync(formatFullSummaryText({ score, label, overview, full: fullSummary, disclaimer }));
-  };
 
   return (
     <Screen>
@@ -163,10 +108,12 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           <View style={styles.contentCard}>
             <View style={styles.contentCardHeader}>
               <AppText style={styles.contentCardTitle}>Full Summary</AppText>
-              <View style={styles.contentCardActions}>
-                <GhostButton label="Copy" onPress={onCopyFull} />
-                <PrimaryButton label="Share" onPress={onShareFull} />
-              </View>
+              <Pressable
+                onPress={() => navigation.navigate("Share")}
+                style={({ pressed }) => [styles.shareNavBtn, pressed && { opacity: 0.75 }]}
+              >
+                <AppText style={styles.shareNavBtnText}>Share</AppText>
+              </Pressable>
             </View>
             <AppText style={styles.fullText}>{String(fullSummary)}</AppText>
             {disclaimer ? (
@@ -180,10 +127,12 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           <View style={styles.contentCard}>
             <View style={styles.contentCardHeader}>
               <AppText style={styles.contentCardTitle}>3×5 Essentials</AppText>
-              <View style={styles.contentCardActions}>
-                <GhostButton label="Copy" onPress={onCopyCard} />
-                <PrimaryButton label="Share" onPress={onShareCard} />
-              </View>
+              <Pressable
+                onPress={() => navigation.navigate("Share")}
+                style={({ pressed }) => [styles.shareNavBtn, pressed && { opacity: 0.75 }]}
+              >
+                <AppText style={styles.shareNavBtnText}>Share</AppText>
+              </Pressable>
             </View>
             <View style={styles.essentialsList}>
               <EssentialRow label="Blood type"   value={card?.blood_type ?? "Unknown"} />
@@ -344,10 +293,18 @@ const styles = StyleSheet.create({
     fontWeight: typescale.weight.bold,
     color: colors.text,
   },
-  contentCardActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
+  shareNavBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    backgroundColor: colors.tealSoft,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.tealBorder,
+  },
+  shareNavBtnText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: colors.teal,
   },
   fullText: {
     fontSize: typescale.size.sm,

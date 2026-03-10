@@ -1,39 +1,382 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Shared Files</title>
+  <title>RIVR Health – Shared Records</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto; background:#f7fafc; margin:0; padding:24px;}
-    .card{max-width:720px; margin:0 auto; background:#fff; border:1px solid #e6eef5; border-radius:14px; padding:16px;}
-    h1{margin:0 0 8px 0; font-size:18px;}
-    p{margin:0 0 12px 0; color:#64748b; font-size:13px; line-height:18px;}
-    .row{display:flex; gap:10px; align-items:center; margin-top:12px;}
-    input{flex:1; padding:10px 12px; border-radius:10px; border:1px solid #e6eef5; font-size:14px;}
-    button{padding:10px 12px; border-radius:10px; border:none; background:#2cb9b0; color:#fff; font-weight:700; cursor:pointer;}
-    .err{color:#dc2626; font-weight:700; margin-top:10px; font-size:13px;}
-    ul{padding-left:18px;}
-    a{color:#2563eb; font-weight:700; word-break:break-all;}
-    .meta{margin-top:10px; font-size:12px; color:#94a3b8;}
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #F5F8FA;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: #0D1B2A;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #E4ECF2;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      height: 56px;
+      flex-shrink: 0;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #1FADA6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-mark svg { display: block; }
+    .header-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0D1B2A;
+      letter-spacing: 0.01em;
+    }
+    .header-badge {
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #E6FAF8;
+      color: #1FADA6;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 20px 40px;
+    }
+
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: #fff;
+      border: 1px solid #E4ECF2;
+      border-radius: 18px;
+      box-shadow: 0 4px 24px rgba(13, 27, 42, 0.07), 0 1px 4px rgba(13, 27, 42, 0.04);
+      overflow: hidden;
+    }
+
+    .card-top {
+      padding: 28px 28px 0;
+    }
+
+    .card-icon-wrap {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: #E6FAF8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0D1B2A;
+      margin: 0 0 6px;
+      line-height: 1.25;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: #64748B;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: #E4ECF2;
+      margin: 20px 0 0;
+    }
+
+    .card-body {
+      padding: 20px 28px 28px;
+    }
+
+    /* ── PIN gate ── */
+    .pin-section {
+      display: none;
+      margin-bottom: 4px;
+    }
+    .pin-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #3D526B;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .pin-hint {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .pin-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .pin-input {
+      flex: 1;
+      padding: 11px 14px;
+      border: 1.5px solid #E4ECF2;
+      border-radius: 10px;
+      font-size: 15px;
+      color: #0D1B2A;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      letter-spacing: 0.14em;
+      background: #F5F8FA;
+    }
+    .pin-input:focus {
+      border-color: #1FADA6;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(31, 173, 166, 0.13);
+    }
+    .pin-btn {
+      padding: 11px 22px;
+      border-radius: 10px;
+      border: none;
+      background: #1FADA6;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .pin-btn:hover  { opacity: 0.88; }
+    .pin-btn:active { opacity: 0.76; transform: scale(0.98); }
+
+    /* ── Loading ── */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 0 28px;
+      gap: 14px;
+    }
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid #E4ECF2;
+      border-top-color: #1FADA6;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+      font-size: 13px;
+      color: #64748B;
+    }
+
+    /* ── Error ── */
+    .error-wrap {
+      display: none;
+      flex-direction: row;
+      gap: 10px;
+      align-items: flex-start;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      border-radius: 10px;
+      padding: 13px 14px;
+    }
+    .error-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #DC2626;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .error-msg {
+      font-size: 13px;
+      font-weight: 600;
+      color: #991B1B;
+      line-height: 1.5;
+    }
+
+    /* ── File list ── */
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 14px;
+      border: 1px solid #E4ECF2;
+      border-radius: 12px;
+      background: #F5F8FA;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    }
+    .file-item:hover {
+      background: #EDF2F7;
+      border-color: #C8D8E8;
+      box-shadow: 0 2px 8px rgba(13, 27, 42, 0.05);
+    }
+    .file-item-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #E6FAF8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-item-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0D1B2A;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-item-sub {
+      font-size: 11px;
+      color: #94A3B8;
+      margin-top: 2px;
+    }
+    .file-item-arrow {
+      color: #94A3B8;
+      flex-shrink: 0;
+      transition: color 0.12s;
+    }
+    .file-item:hover .file-item-arrow { color: #1FADA6; }
+
+    /* ── Expiry notice ── */
+    .expiry {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 14px;
+      padding: 9px 12px;
+      background: #F5F8FA;
+      border: 1px solid #E4ECF2;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #64748B;
+    }
+    .expiry-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #1FADA6;
+      flex-shrink: 0;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: #94A3B8;
+      flex-shrink: 0;
+    }
+    .footer a { color: #1FADA6; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 560px) {
+      .main { padding: 24px 12px 32px; }
+      .card { border-radius: 14px; }
+      .card-top { padding: 22px 20px 0; }
+      .card-body { padding: 16px 20px 22px; }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Shared files</h1>
-    <p>Links are time limited. If one expires, refresh to generate new ones.</p>
 
-    <div id="pinWrap" style="display:none">
-      <p>This share requires a PIN.</p>
-      <div class="row">
-        <input id="pin" placeholder="Enter PIN" />
-        <button id="loadBtn">Open</button>
+  <header class="header">
+    <div class="header-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+      </div>
+      <span class="header-name">RIVR Health</span>
+      <span class="header-badge">Shared</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1FADA6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10,9 9,9 8,9"/>
+          </svg>
+        </div>
+        <h1 class="card-title">Shared Health Records</h1>
+        <p class="card-subtitle">Securely shared via RIVR Health. Links expire automatically — refresh the page if a link stops working.</p>
+        <div class="divider"></div>
+      </div>
+
+      <div class="card-body">
+        <div id="pinWrap" class="pin-section">
+          <div class="pin-label">PIN Required</div>
+          <div class="pin-hint">This share is protected. Enter the PIN provided by the sender.</div>
+          <div class="pin-row">
+            <input id="pin" class="pin-input" type="password" placeholder="••••" autocomplete="one-time-code" inputmode="numeric" />
+            <button id="loadBtn" class="pin-btn">Unlock</button>
+          </div>
+        </div>
+
+        <div id="content"></div>
+        <div id="error" class="error-wrap"></div>
       </div>
     </div>
+  </main>
 
-    <div id="content"></div>
-    <div id="error" class="err" style="display:none"></div>
-  </div>
+  <footer class="footer">
+    Secured by <a href="#">RIVR Health AI</a> &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; For healthcare provider use
+  </footer>
 
 <script>
   const params = new URLSearchParams(location.search);
@@ -42,78 +385,118 @@
   // IMPORTANT: this must point to your Supabase function
   const RESOLVE_URL = "https://vpzywhfrnyyztwylbbzf.functions.supabase.co/share/resolve";
 
-  const content = document.getElementById("content");
-  const errEl = document.getElementById("error");
-  const pinWrap = document.getElementById("pinWrap");
+  const content  = document.getElementById("content");
+  const errEl    = document.getElementById("error");
+  const pinWrap  = document.getElementById("pinWrap");
   const pinInput = document.getElementById("pin");
-  const loadBtn = document.getElementById("loadBtn");
+  const loadBtn  = document.getElementById("loadBtn");
 
-  function showError(msg){
-    errEl.style.display = "block";
-    errEl.textContent = msg;
+  const DOC_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1FADA6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14,2 14,8 20,8"/>
+  </svg>`;
+
+  const ARROW_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15,3 21,3 21,9"/>
+    <line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>`;
+
+  function showError(msg) {
+    errEl.style.display = "flex";
+    errEl.innerHTML = '<div class="error-icon">!</div><div class="error-msg">' + escHtml(msg) + '</div>';
+    content.innerHTML = "";
   }
 
-  async function resolve(pin){
+  function showLoading() {
     errEl.style.display = "none";
-    content.innerHTML = "Loading...";
+    content.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">Loading shared records\u2026</div></div>';
+  }
 
+  function escHtml(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function formatExpiry(expiresAt) {
+    try {
+      return new Date(expiresAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    } catch { return expiresAt; }
+  }
+
+  async function resolve(pin) {
     const res = await fetch(RESOLVE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, pin })
+      body: JSON.stringify({ token, pin }),
     });
-
     const json = await res.json().catch(() => ({}));
-
     if (!res.ok) {
       if (json && json.pinRequired) return json;
-      throw new Error(json.error || "Failed");
+      throw new Error(json.error || "Failed to load share.");
     }
     return json;
   }
 
-  function render(items, expiresAt){
-    const ul = document.createElement("ul");
-    items.forEach(it => {
-      const li = document.createElement("li");
+  function render(items, expiresAt) {
+    const list = document.createElement("div");
+    list.className = "file-list";
+    items.forEach(function(it) {
       const a = document.createElement("a");
+      a.className = "file-item";
       a.href = it.signedUrl;
-      a.textContent = it.title || "(untitled)";
       a.target = "_blank";
-      li.appendChild(a);
-      ul.appendChild(li);
+      a.rel = "noopener noreferrer";
+      a.innerHTML =
+        '<div class="file-item-icon">' + DOC_ICON + '</div>' +
+        '<div class="file-item-info">' +
+          '<div class="file-item-name">' + escHtml(it.title || "Untitled document") + '</div>' +
+          '<div class="file-item-sub">PDF \u00b7 Opens in new tab</div>' +
+        '</div>' +
+        '<div class="file-item-arrow">' + ARROW_ICON + '</div>';
+      list.appendChild(a);
     });
     content.innerHTML = "";
-    content.appendChild(ul);
+    content.appendChild(list);
 
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = "Expires at: " + expiresAt;
-    content.appendChild(meta);
+    if (expiresAt) {
+      var exp = document.createElement("div");
+      exp.className = "expiry";
+      exp.innerHTML = '<div class="expiry-dot"></div>Expires ' + escHtml(formatExpiry(expiresAt));
+      content.appendChild(exp);
+    }
   }
 
-  (async () => {
-    if (!token) return showError("Missing token.");
+  (async function() {
+    if (!token) return showError("No share token found. Check your link and try again.");
+    showLoading();
     try {
-      const quick = await resolve(null);
+      var quick = await resolve(null);
       if (quick.pinRequired) {
         content.innerHTML = "";
         pinWrap.style.display = "block";
-        loadBtn.onclick = async () => {
-          try {
-            const data = await resolve(pinInput.value || "");
+        pinInput.focus();
+        function tryUnlock() {
+          showLoading();
+          pinWrap.style.display = "block";
+          resolve(pinInput.value || "").then(function(data) {
+            pinWrap.style.display = "none";
             render(data.items, data.expiresAt);
-          } catch(e){
-            showError(e.message || "Failed to load share.");
+          }).catch(function(e) {
             content.innerHTML = "";
-          }
-        };
+            showError(e.message || "Incorrect PIN. Please try again.");
+            pinWrap.style.display = "block";
+            pinInput.focus();
+          });
+        }
+        loadBtn.onclick = tryUnlock;
+        pinInput.addEventListener("keydown", function(e) {
+          if (e.key === "Enter") tryUnlock();
+        });
         return;
       }
       render(quick.items, quick.expiresAt);
-    } catch(e){
+    } catch(e) {
       showError(e.message || "Failed to load share.");
-      content.innerHTML = "";
     }
   })();
 </script>

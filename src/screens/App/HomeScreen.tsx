@@ -130,11 +130,15 @@ export function HomeScreen({ navigation }: Props) {
             </View>
             {scoreLoading ? null : score != null ? (
               <View style={styles.labelPill}>
-                <AppText style={styles.labelPillText}>{label ?? "View details"}</AppText>
+                <AppText style={styles.labelPillText} numberOfLines={1} ellipsizeMode="tail">
+                  {label ?? "View details"}
+                </AppText>
               </View>
             ) : (
               <View style={[styles.labelPill, styles.labelPillMuted]}>
-                <AppText style={styles.labelPillTextMuted}>Not generated</AppText>
+                <AppText style={styles.labelPillTextMuted} numberOfLines={1} ellipsizeMode="tail">
+                  Not generated
+                </AppText>
               </View>
             )}
           </View>
@@ -308,9 +312,9 @@ function MetricTile({
         <AppText style={styles.metricSymbol}>{symbol}</AppText>
         <View style={[styles.metricDot, { backgroundColor: dotMap[tone] }]} />
       </View>
-      <AppText style={styles.metricValue}>{value}</AppText>
-      <AppText style={styles.metricLabel}>{label}</AppText>
-      <AppText style={styles.metricSub}>{sub}</AppText>
+      <AppText style={styles.metricValue} numberOfLines={1} ellipsizeMode="tail">{value}</AppText>
+      <AppText style={styles.metricLabel} numberOfLines={1} ellipsizeMode="tail">{label}</AppText>
+      <AppText style={styles.metricSub} numberOfLines={1} ellipsizeMode="tail">{sub}</AppText>
     </Pressable>
   );
 }
@@ -361,7 +365,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   heroLabelBlock: {
+    flex: 1,
     gap: 3,
+    marginRight: spacing.xs,
   },
   heroLabel: {
     fontSize: typescale.size.xs,
@@ -378,6 +384,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    maxWidth: 140,
+    flexShrink: 0,
   },
   labelPillText: {
     fontSize: typescale.size.xs,
