@@ -411,7 +411,7 @@ export function ProfileScreen({ navigation }: Props) {
             {editingSection === "basic" ? (
               <View style={styles.formFields}>
                 <View style={styles.formRow}>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <TextField
                       label="First name"
                       placeholder="Jane"
@@ -421,7 +421,7 @@ export function ProfileScreen({ navigation }: Props) {
                       autoCorrect={false}
                     />
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <TextField
                       label="Last name"
                       placeholder="Smith"
@@ -560,6 +560,7 @@ export function ProfileScreen({ navigation }: Props) {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  disabled
                 />
                 <PhoneField
                   label="Mobile phone"

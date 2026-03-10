@@ -246,6 +246,9 @@ export function OnboardingStep1Screen({ navigation }: Props) {
                 tone="teal"
               />
             </Card>
+            <AppText style={styles.footer}>
+                Your information is encrypted and only visible to you.
+              </AppText>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -541,5 +544,12 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.sm,
     color: colors.danger,
     fontWeight: typescale.weight.medium as any,
+  },
+  footer: {
+    textAlign: "center",
+    fontSize: typescale.size.xs,
+    color: colors.subtle,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    paddingHorizontal: spacing.lg,
   },
 });

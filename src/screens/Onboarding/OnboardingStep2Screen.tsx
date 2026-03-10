@@ -146,7 +146,7 @@ export function OnboardingStep2Screen({ navigation }: Props) {
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType="next"
-                  editable={!saving}
+                  disabled
                 />
 
                 <PhoneField
@@ -181,14 +181,13 @@ export function OnboardingStep2Screen({ navigation }: Props) {
                 <View>
                   <TextField
                     label="Number of children"
-                    placeholder="Optional — leave blank if none"
+                    placeholder="Optional"
                     value={children}
                     onChangeText={setChildren}
                     keyboardType="number-pad"
                     returnKeyType="done"
                     editable={!saving}
                   />
-                  <AppText variant="caption" style={styles.hint}>Optional</AppText>
                 </View>
               </View>
 
@@ -209,14 +208,15 @@ export function OnboardingStep2Screen({ navigation }: Props) {
                 />
               </View>
 
-              {!anyFilled ? (
                 <GhostButton
-                  label="Skip — I'll add this later"
-                  onPress={handleNext}
-                  disabled={saving}
-                />
-              ) : null}
+                label="Skip — I'll add this later"
+                onPress={handleNext}
+                disabled={saving}
+              />
             </Card>
+            <AppText style={styles.footer}>
+                          Your information is encrypted and only visible to you.
+                        </AppText>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -275,5 +275,12 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  footer: {
+    textAlign: "center",
+    fontSize: typescale.size.xs,
+    color: colors.subtle,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    paddingHorizontal: spacing.lg,
   },
 });
