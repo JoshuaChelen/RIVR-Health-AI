@@ -16,8 +16,9 @@ export const colors = {
   subtle:  "#94A3B8",
 
   // Status
-  danger:      "#DC2626",
-  dangerSoft:  "#FEF2F2",
+  danger:       "#DC2626",
+  dangerSoft:   "#FEF2F2",
+  dangerBorder: "#FECACA",
   warning:     "#D97706",
   warnSoft:    "#FFFBEB",
   success:     "#059669",

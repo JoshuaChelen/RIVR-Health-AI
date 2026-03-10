@@ -3,6 +3,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "./appTypes";
 
 import { HomeScreen } from "../screens/App/HomeScreen";
+import { ProfileScreen } from "../screens/App/ProfileScreen";
+import { MedicalProfileScreen } from "../screens/App/MedicalProfileScreen";
+import { StoryScreen } from "../screens/App/StoryScreen";
 import { ShareScreen } from "../screens/App/ShareScreen";
 import { TimelineScreen } from "../screens/App/TimelineScreen";
 import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
@@ -70,6 +73,21 @@ export function AppNavigator() {
         name="Details"
         component={TimelineEventDetailsScreen}
         options={{ title: "Event Details" }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: "My Profile" }}
+      />
+      <Stack.Screen
+        name="MedicalProfile"
+        component={MedicalProfileScreen}
+        options={{ title: "Medical Profile" }}
+      />
+      <Stack.Screen
+        name="Story"
+        component={StoryScreen}
+        options={{ title: "Your Health Story" }}
       />
     </Stack.Navigator>
   );

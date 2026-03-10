@@ -197,6 +197,13 @@ export function ShinScoreScreen({ navigation }: Props) {
                 >
                   <AppText style={styles.generateBtnText}>Generate SHIN Score</AppText>
                 </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [styles.uploadLink, pressed && { opacity: 0.7 }]}
+                  onPress={() => navigation.navigate("ManageDocuments")}
+                >
+                  <AppText style={styles.uploadLinkText}>Upload documents first →</AppText>
+                </Pressable>
               </View>
             ) : (
               /* Running but no score yet */
@@ -413,6 +420,16 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
     color: "#fff",
+  },
+  uploadLink: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  uploadLinkText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.medium,
+    color: colors.teal,
+    textAlign: "center",
   },
 
   // Running state (no score yet)

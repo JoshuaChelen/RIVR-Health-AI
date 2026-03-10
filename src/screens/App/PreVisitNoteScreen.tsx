@@ -370,7 +370,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
                 style={({ pressed }) => [styles.shareBtn, pressed && styles.btnPressed]}
                 onPress={() => navigation.navigate("Share")}
               >
-                <AppText style={styles.shareBtnText}>Open Share Options</AppText>
+                <AppText style={styles.shareBtnText}>Share</AppText>
               </Pressable>
 
               <Pressable
