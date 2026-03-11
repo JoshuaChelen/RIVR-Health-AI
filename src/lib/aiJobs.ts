@@ -1,16 +1,43 @@
 // src/lib/aiJobs.ts
 import { supabase } from "./supabase";
 
-export async function enqueueDocumentProcessing(documentIds: string[]) {
+async function getAuthToken(): Promise<string> {
   const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
   if (sessErr) throw sessErr;
-
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("Not signed in");
+  return token;
+}
+
+export async function enqueueDocumentProcessing(documentIds: string[]) {
+  const token = await getAuthToken();
 
   const { data, error } = await supabase.functions.invoke("enqueue-document-processing", {
     headers: { Authorization: `Bearer ${token}` },
     body: { documentIds },
+  });
+
+  if (error) throw error;
+  return data?.jobId as string;
+}
+
+/**
+ * Enqueue a profile-only health evaluation.
+ *
+ * No documents are required — the worker will evaluate the user's manually
+ * entered profile data (allergies, medications, medical history, story
+ * answers, etc.) alongside any previously processed document facts.
+ *
+ * Returns the jobId. If a queued or running profile evaluation already exists
+ * for this user the server returns the existing jobId with reused=true, so
+ * calling this multiple times in quick succession is safe.
+ */
+export async function enqueueProfileEvaluation(): Promise<string> {
+  const token = await getAuthToken();
+
+  const { data, error } = await supabase.functions.invoke("enqueue-document-processing", {
+    headers: { Authorization: `Bearer ${token}` },
+    body: { jobType: "profile_evaluation" },
   });
 
   if (error) throw error;

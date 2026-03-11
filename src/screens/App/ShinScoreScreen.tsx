@@ -16,11 +16,9 @@ import { ScoreRing } from "../../components/ui/Home/ScoreRing";
 
 import { supabase } from "../../lib/supabase";
 import {
-  getAllDocumentIds,
   getHealthProfile,
   getLatestJob,
   getLatestEvaluation,
-  startAiJob,
 } from "../../lib/aiJobs";
 
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
@@ -71,28 +69,9 @@ export function ShinScoreScreen({ navigation }: Props) {
     }
   }, []);
 
-  const start = useCallback(async () => {
-    setError(null);
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes?.user;
-    if (!user) { setError("Not signed in."); return; }
-    try {
-      setRunning(true);
-      const docIds = await getAllDocumentIds(user.id);
-      if (docIds.length === 0) {
-        setError("Upload at least one document first.");
-        setRunning(false);
-        return;
-      }
-      await startAiJob(docIds);
-      await load();
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(load, 2000);
-    } catch (e: any) {
-      setError(String(e?.message || e));
-      setRunning(false);
-    }
-  }, [load]);
+  const start = useCallback(() => {
+    navigation.navigate("ManageDocuments");
+  }, [navigation]);
 
   useEffect(() => {
     load();
@@ -118,7 +97,7 @@ export function ShinScoreScreen({ navigation }: Props) {
       headerRight: () => (
         <Pressable onPress={start} disabled={running} style={styles.headerBtn}>
           <AppText style={[styles.headerBtnText, running && styles.headerBtnDisabled]}>
-            {running ? "Running…" : score != null ? "Refresh ↺" : "Generate"}
+            {running ? "Running…" : "Documents"}
           </AppText>
         </Pressable>
       ),
@@ -189,20 +168,13 @@ export function ShinScoreScreen({ navigation }: Props) {
                 </View>
                 <AppText style={styles.emptyTitle}>No score yet</AppText>
                 <AppText style={styles.emptyBody}>
-                  Upload medical documents then tap "Generate" above to calculate your SHIN Score.
+                  Fill in your health profile or upload medical records,{"\n"}then tap "Process" in Documents.
                 </AppText>
                 <Pressable
                   style={({ pressed }) => [styles.generateBtn, pressed && { opacity: 0.8 }]}
                   onPress={start}
                 >
-                  <AppText style={styles.generateBtnText}>Generate SHIN Score</AppText>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [styles.uploadLink, pressed && { opacity: 0.7 }]}
-                  onPress={() => navigation.navigate("ManageDocuments")}
-                >
-                  <AppText style={styles.uploadLinkText}>Upload documents first →</AppText>
+                  <AppText style={styles.generateBtnText}>Open Documents</AppText>
                 </Pressable>
               </View>
             ) : (

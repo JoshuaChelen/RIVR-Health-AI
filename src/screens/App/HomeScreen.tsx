@@ -140,11 +140,7 @@ export function HomeScreen({ navigation }: Props) {
         {/* ── SHIN Score ring card ───────────────────────────── */}
         <Pressable
           style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
-          onPress={() =>
-            score != null || scoreLoading
-              ? navigation.navigate("ShinScore")
-              : navigation.navigate("ManageDocuments")
-          }
+          onPress={() => navigation.navigate("ShinScore")}
         >
           <View style={styles.heroHeader}>
             <View style={styles.heroLabelBlock}>
@@ -181,7 +177,7 @@ export function HomeScreen({ navigation }: Props) {
                 </View>
                 <AppText style={styles.emptyScoreTitle}>No score yet</AppText>
                 <AppText style={styles.emptyScoreBody}>
-                  Tap to upload documents, then{"\n"}generate your AI health summary.
+                  Fill in your profile or upload records,{"\n"}then generate your SHIN Score.
                 </AppText>
               </View>
             )}
@@ -199,7 +195,7 @@ export function HomeScreen({ navigation }: Props) {
           </View>
           <View style={styles.summaryTextBlock}>
             <AppText style={styles.summaryTitle}>AI Health Summary</AppText>
-            <AppText style={styles.summarySub}>Generate insights from your documents</AppText>
+            <AppText style={styles.summarySub}>View your AI-generated health insights</AppText>
           </View>
           <AppText style={styles.summaryChevron}>›</AppText>
         </Pressable>

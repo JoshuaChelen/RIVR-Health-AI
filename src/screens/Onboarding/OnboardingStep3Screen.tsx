@@ -75,6 +75,7 @@ export function OnboardingStep3Screen({ navigation }: Props) {
         emergency_contact_relationship: contactRel.trim() || null,
         onboarding_completed_at:        new Date().toISOString(),
       });
+
       onComplete();
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong. Please try again.");

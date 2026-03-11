@@ -2,6 +2,12 @@ import "dotenv/config";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { DocumentFactsSchema, HealthEvaluationSchema, type DocumentFacts, type HealthEvaluation } from "./schemas";
+import {
+  serializeProfileContext,
+  serializeBackfilledContext,
+  type ManualProfileContext,
+  type AiBackfilledContext,
+} from "./profileContext";
 
 import fs from "fs";
 import path from "path";
@@ -166,16 +172,146 @@ export async function evaluateUserHealth(input: {
   user_id: string;
   docFacts: DocumentFacts[];
   appleHealth: { steps_avg_7d: number | null; sleep_avg_min_7d: number | null; resting_hr_recent: number | null; };
+  manualProfile?: ManualProfileContext;
+  /** AI-backfilled items from user_profiles that the patient has not explicitly verified. */
+  profileBackfill?: AiBackfilledContext | null;
   signal?: AbortSignal;
 }): Promise<HealthEvaluation> {
-  const system = `You create a supportive, patient-friendly health summary and a "3x5 essentials" card.
-Important:
-- Output MUST match the schema exactly.
-- Score is 0-100. Be honest but kind.
-- If data is missing, mention it in missing_info.
-- Include a short disclaimer that this is not medical advice.`;
+  const hasManualProfile = !!input.manualProfile;
+  const hasDocFacts = input.docFacts.length > 0;
+  const hasBackfill = !!(
+    input.profileBackfill &&
+    (
+      (input.profileBackfill.allergies?.length ?? 0) > 0 ||
+      (input.profileBackfill.medications?.length ?? 0) > 0 ||
+      (input.profileBackfill.medical_history?.length ?? 0) > 0 ||
+      (input.profileBackfill.surgical_history?.length ?? 0) > 0
+    )
+  );
 
-  const userContent = `USER_ID: ${input.user_id}\n\nAPPLE_HEALTH:\n${JSON.stringify(input.appleHealth)}\n\nDOCUMENT_FACTS:\n${JSON.stringify(input.docFacts)}`;
+  // ── System prompt ──────────────────────────────────────────────────────────
+  // Trust ladder is built dynamically from whichever sources are present.
+  // MANUAL_PROFILE = only items the patient typed themselves (ai_ IDs excluded).
+  // PROFILE_BACKFILL = AI-backfilled items stored in user_profiles, not yet
+  //   verified by the patient. Lower trust than MANUAL_PROFILE, higher than
+  //   raw DOCUMENT_FACTS (because the patient at least implicitly accepted them
+  //   by not deleting them).
+
+  const ladder: string[] = [];
+  let r = 1;
+  if (hasManualProfile) {
+    ladder.push(`  ${r++}. MANUAL_PROFILE (highest trust) — entered directly by the patient. Every fact here is verified ground truth.`);
+  }
+  if (hasBackfill) {
+    ladder.push(`  ${r++}. PROFILE_BACKFILL (medium trust) — AI-suggested items from prior document analysis, stored in the patient's profile but not explicitly verified. Use as supporting evidence; never override MANUAL_PROFILE.`);
+  }
+  ladder.push(`  ${r++}. APPLE_HEALTH — passive sensor data from the patient's device. Reliable for trends; lacks clinical context.`);
+  if (hasDocFacts) {
+    ladder.push(`  ${r++}. DOCUMENT_FACTS — extracted by AI from uploaded health documents. May contain OCR errors, outdated values, or interpretation artifacts.`);
+  }
+
+  const noDocsNote = !hasDocFacts && hasManualProfile
+    ? `\n  No uploaded documents are present. Produce a complete, useful summary using available sources alone.`
+    : "";
+
+  const sourceSection = `\nDATA SOURCES — in order of trust for this evaluation:\n${ladder.join("\n")}${noDocsNote}`;
+
+  // Conflict resolution — only emitted when multiple sources are present
+  const conflictLines: string[] = [];
+  if (hasManualProfile && (hasBackfill || hasDocFacts)) {
+    conflictLines.push("If MANUAL_PROFILE and any other source disagree on any fact, always use the MANUAL_PROFILE value. The patient knows their own history better than AI extraction.");
+    conflictLines.push("Never silently drop a MANUAL_PROFILE fact in favor of PROFILE_BACKFILL or DOCUMENT_FACTS.");
+  }
+  if (hasManualProfile && hasDocFacts) {
+    conflictLines.push("Exception: if DOCUMENT_FACTS contains a specific clinical measurement (lab value, vital sign, dated diagnosis) absent from MANUAL_PROFILE, include it as supplementary — it adds rather than contradicts.");
+  }
+  if (hasBackfill) {
+    conflictLines.push("PROFILE_BACKFILL items are AI-suggested, not patient-verified. Include them as supporting evidence. Do not present them with the same confidence as MANUAL_PROFILE.");
+    conflictLines.push("If PROFILE_BACKFILL and DOCUMENT_FACTS overlap on the same item, mention it once using the more detailed version.");
+  }
+  const conflictSection = conflictLines.length > 0
+    ? `\nCONFLICT RESOLUTION:\n  - ${conflictLines.join("\n  - ")}`
+    : "";
+
+  const fieldGuidance = `
+HOW TO POPULATE EACH OUTPUT FIELD:
+
+score_0_to_100 / score_label:
+  Draw from all available sources. MANUAL_PROFILE smoking, alcohol, exercise, current_symptoms, and medical_history are significant direct inputs to the score. APPLE_HEALTH activity and sleep can raise or lower it. Be honest — do not inflate. A person with multiple chronic conditions and sedentary lifestyle should not score above 60.
+
+overview (2–4 sentences, patient-friendly):
+  Synthesize ALL sources into a personal summary of this specific patient. Reference their age and sex if known. Mention their most significant condition, medication, or lifestyle factor. Make it feel specific to them, not a generic template. Do not mention data sources by name.
+
+highlights (positive observations):
+  Draw from MANUAL_PROFILE lifestyle fields (e.g., "never smoked", "exercises regularly"), controlled conditions, healthy labs, and good Apple Health metrics. These should feel genuinely earned, not invented.
+
+risk_flags (concerns and risks):
+  Include clinical concerns from MANUAL_PROFILE medical_history, current_symptoms, family_history, and adverse lifestyle factors (smoking, heavy alcohol, sedentary). Supplement with document-extracted conditions and abnormal labs. Family history from MANUAL_PROFILE belongs here when clinically relevant (e.g., "Family history of heart disease").
+
+missing_info (what would improve this analysis):
+  List only genuinely absent information that would materially change the evaluation. Do NOT list information the patient already provided in MANUAL_PROFILE. Do NOT add generic items like "upload more documents" unless a specific document type would add real value.
+
+suggested_next_steps (personalized action items):
+  Reference this specific patient's conditions, medications, symptoms, and lifestyle. Use story answers from MANUAL_PROFILE to personalize framing — if a patient values family or mentions caregiving responsibilities, frame wellness steps in that context. Never give generic advice that ignores what you know about them.
+
+three_by_five_card (emergency reference card — accuracy is paramount):
+  major_conditions: use MANUAL_PROFILE medical_history as the primary source. Add any high-confidence document-extracted conditions not already listed. Each entry should be brief (condition name + year if known).
+  major_surgeries: use MANUAL_PROFILE surgical_history as the primary source. Supplement from documents.
+  current_meds: use MANUAL_PROFILE medications as the primary source (name + dose + frequency). Include document-extracted meds only if they are absent from the profile.
+  allergies: use MANUAL_PROFILE allergies as the primary source with reaction and severity. Include document-extracted allergies only if absent from the profile and high confidence.
+  implants_devices: from documents if not in profile; may be empty.
+  anticoagulants: extract from medications list (blood thinners like warfarin, apixaban, rivaroxaban, heparin). This is safety-critical for emergency responders.
+  anesthesia_notes: any anesthesia risks or notes from surgical history, medications, or conditions.
+  emergency_contact: use MANUAL_PROFILE emergency contact name and phone if present. Otherwise null.
+  one_line_summary: one sentence capturing the most clinically significant fact for an emergency responder who has 5 seconds to read this card.
+
+full_summary_markdown:
+  Use markdown headers (##) and bullets. Include these sections when data is available:
+  ## Health Overview — score context and brief narrative
+  ## Key Conditions — from MANUAL_PROFILE medical_history + documents, deduped
+  ## Current Medications — from MANUAL_PROFILE medications + documents, deduped
+  ## Allergies — from MANUAL_PROFILE allergies + documents, deduped
+  ## Surgical History — if any
+  ## Family History — if present in MANUAL_PROFILE
+  ## Lifestyle — smoking, alcohol, exercise from MANUAL_PROFILE
+  ## Current Symptoms — if present in MANUAL_PROFILE current_symptoms
+  ## Apple Health Snapshot — if steps/sleep/HR data is present
+  ## Personal Health Context — include story answers verbatim (in quotes) if provided; frame as "In the patient's own words:" Do not interpret or clinicalize story answers.
+  ## Recommended Next Steps — personalized, from suggested_next_steps
+  Omit sections for which there is no data. Be comprehensive but patient-readable. Avoid jargon.`;
+
+  const generalRules = `
+GENERAL RULES:
+  - Output MUST match the schema exactly. No extra keys. No markdown outside full_summary_markdown.
+  - Score 0–100: be honest. Do not inflate.
+  - Do not hallucinate facts not present in any data source.
+  - Include a short, warm disclaimer that this is an informational summary and not a substitute for medical advice.
+  - If a list field (allergies, current_meds, etc.) has nothing to report, use an empty array []. Never omit it.`;
+
+  const system = `You are a health information synthesizer producing a structured health summary for a patient's personal health app.
+${sourceSection}
+${conflictSection}
+${fieldGuidance}
+${generalRules}`.trim();
+
+  // ── User content ───────────────────────────────────────────────────────────
+  // Order mirrors the trust ladder: MANUAL_PROFILE → PROFILE_BACKFILL →
+  // APPLE_HEALTH → DOCUMENT_FACTS. Model attention prioritizes earlier context.
+
+  const profileSection = hasManualProfile
+    ? `\n\nMANUAL_PROFILE:\n${serializeProfileContext(input.manualProfile!)}`
+    : "";
+
+  const backfillSection = hasBackfill
+    ? `\n\nPROFILE_BACKFILL:\n${serializeBackfilledContext(input.profileBackfill!)}`
+    : "";
+
+  const userContent =
+    `USER_ID: ${input.user_id}` +
+    profileSection +
+    backfillSection +
+    `\n\nAPPLE_HEALTH:\n${JSON.stringify(input.appleHealth)}` +
+    `\n\nDOCUMENT_FACTS:\n${JSON.stringify(input.docFacts)}`;
 
   const makeCall = (isRetry = false) => {
     const messages: any[] = [

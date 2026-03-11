@@ -22,6 +22,7 @@ type DocRow = {
   status: string | null;
   processing_error: string | null;
   pdf_path: string | null;
+  source_type: string | null;
 };
 
 type DocAnim = {
@@ -44,6 +45,14 @@ const PROCESSING_MESSAGES = [
   "Almost there…",
 ];
 
+// Shown on manual-input (profile) cards — no file download or timeline involved.
+const PROCESSING_MESSAGES_MANUAL = [
+  "Analyzing your profile…",
+  "Reading health data…",
+  "Evaluating conditions…",
+  "Almost there…",
+];
+
 const STOPPING_MESSAGES = [
   "Safely stopping…",
   "Finishing current step…",
@@ -51,19 +60,19 @@ const STOPPING_MESSAGES = [
   "Almost done stopping…",
 ];
 
-function useProcessingMessage(isStopping: boolean): string {
+function useProcessingMessage(isStopping: boolean, isManual = false): string {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     setIdx(0);
   }, [isStopping]);
   useEffect(() => {
-    const messages = isStopping ? STOPPING_MESSAGES : PROCESSING_MESSAGES;
+    const messages = isStopping ? STOPPING_MESSAGES : isManual ? PROCESSING_MESSAGES_MANUAL : PROCESSING_MESSAGES;
     const t = setInterval(() => {
       setIdx((i) => (i + 1) % messages.length);
     }, 2600);
     return () => clearInterval(t);
-  }, [isStopping]);
-  const messages = isStopping ? STOPPING_MESSAGES : PROCESSING_MESSAGES;
+  }, [isStopping, isManual]);
+  const messages = isStopping ? STOPPING_MESSAGES : isManual ? PROCESSING_MESSAGES_MANUAL : PROCESSING_MESSAGES;
   return messages[idx % messages.length];
 }
 
@@ -170,7 +179,16 @@ const badgeStyles = StyleSheet.create({
 
 // ─── File type icon ────────────────────────────────────────────────────────────
 
-function FileTypeIcon({ path }: { path: string | null }) {
+function FileTypeIcon({ path, sourceType }: { path: string | null; sourceType?: string | null }) {
+  if (sourceType === "manual_input") {
+    return (
+      <View style={[fileIconStyles.wrap, fileIconStyles.profileWrap]}>
+        <AppText style={[fileIconStyles.label, fileIconStyles.profileLabel]}>
+          PRO
+        </AppText>
+      </View>
+    );
+  }
   const isAudio = path?.includes("voice-note") || path?.includes("voice_note") || path?.endsWith(".m4a");
   return (
     <View style={[fileIconStyles.wrap, isAudio ? fileIconStyles.audioWrap : fileIconStyles.pdfWrap]}>
@@ -189,15 +207,17 @@ const fileIconStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pdfWrap:   { backgroundColor: "#FEE2E2" },
-  audioWrap: { backgroundColor: colors.tealSoft },
+  pdfWrap:     { backgroundColor: "#FEE2E2" },
+  audioWrap:   { backgroundColor: colors.tealSoft },
+  profileWrap: { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.tealBorder },
   label: {
     fontSize: 10,
     fontWeight: typescale.weight.black,
     letterSpacing: 0.5,
   },
-  pdfLabel:   { color: "#B91C1C" },
-  audioLabel: { color: colors.teal },
+  pdfLabel:     { color: "#B91C1C" },
+  audioLabel:   { color: colors.teal },
+  profileLabel: { color: colors.teal },
 });
 
 // ─── Section header ────────────────────────────────────────────────────────────
@@ -261,11 +281,15 @@ function ConfirmModal({
 
           <View style={modalStyles.body}>
             <AppText style={modalStyles.title}>
-              {isDelete ? "Remove this file?" : "Stop processing?"}
+              {isDelete ? "Remove this record?" : "Stop processing?"}
             </AppText>
             <AppText style={modalStyles.message}>
               {isDelete
-                ? `"${confirm.doc.title ?? "This file"}" will be permanently removed from your documents.`
+                ? confirm.doc.source_type === "manual_input"
+                  ? "Your profile data is unchanged — only this record is removed. It will reappear next time you save your profile."
+                  : `"${confirm.doc.title ?? "This file"}" will be permanently removed from your documents.`
+                : confirm.doc.source_type === "manual_input"
+                ? "Processing will stop. Your profile record stays so you can process it again later."
                 : "Processing will stop. The file stays so you can delete or reprocess it later."}
             </AppText>
 
@@ -274,7 +298,7 @@ function ConfirmModal({
                 style={({ pressed }) => [modalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
                 onPress={onClose}
               >
-                <AppText style={modalStyles.btnSecondaryText}>Keep file</AppText>
+                <AppText style={modalStyles.btnSecondaryText}>Keep</AppText>
               </Pressable>
 
               <Pressable
@@ -383,7 +407,8 @@ function DocCard({
   onCancel: () => void;
   isStopping?: boolean;
 }) {
-  const processingMsg = useProcessingMessage(!!isStopping);
+  const isManual = doc.source_type === "manual_input";
+  const processingMsg = useProcessingMessage(!!isStopping, isManual);
   // Use a virtual "stopping" status for display when the user has requested stop
   const st = isStopping && doc.status === "processing" ? "stopping" : (doc.status ?? "unknown");
 
@@ -394,11 +419,12 @@ function DocCard({
   });
 
   const isAudio =
-    doc.pdf_path?.includes("voice-note") ||
-    doc.pdf_path?.includes("voice_note") ||
-    doc.pdf_path?.endsWith(".m4a");
+    !isManual &&
+    (doc.pdf_path?.includes("voice-note") ||
+      doc.pdf_path?.includes("voice_note") ||
+      doc.pdf_path?.endsWith(".m4a"));
 
-  const fileType = isAudio ? "Voice note" : "PDF";
+  const fileType = isManual ? "Manual input" : isAudio ? "Voice note" : "PDF";
 
   return (
     <Animated.View
@@ -410,7 +436,7 @@ function DocCard({
       <View style={cardStyles.card}>
         {/* Top row: icon + info + status */}
         <View style={cardStyles.topRow}>
-          <FileTypeIcon path={doc.pdf_path} />
+          <FileTypeIcon path={doc.pdf_path} sourceType={doc.source_type} />
 
           <View style={cardStyles.infoBlock}>
             <AppText style={cardStyles.title} numberOfLines={2}>
@@ -729,7 +755,7 @@ export function ListDocuments({
 
     supabase
       .from("documents")
-      .select("id,title,created_at,status,processing_error,pdf_path")
+      .select("id,title,created_at,status,processing_error,pdf_path,source_type")
       .eq("user_id", userId)
       .neq("status", "processed")
       .order("created_at", { ascending: false })
@@ -835,7 +861,7 @@ export function ListDocuments({
 
       const { data } = await supabase
         .from("documents")
-        .select("id,title,created_at,status,processing_error,pdf_path")
+        .select("id,title,created_at,status,processing_error,pdf_path,source_type")
         .eq("user_id", userId)
         .in("id", processingIds);
 
@@ -928,8 +954,8 @@ export function ListDocuments({
             <AppText style={listStyles.emptySymbol}>📂</AppText>
             <AppText style={listStyles.emptyTitle}>No documents yet</AppText>
             <AppText style={listStyles.emptyBody}>
-              Upload a PDF above or record a voice note to get started.
-            </AppText>
+  Upload a file, record a voice note, or save a change in Medical Profile to get started.
+</AppText>
           </View>
         }
         renderItem={({ item }) => {
