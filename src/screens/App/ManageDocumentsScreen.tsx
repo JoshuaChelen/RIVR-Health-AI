@@ -80,7 +80,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
 
       const ids = (pending ?? []).map((r: any) => String(r.id));
       if (ids.length === 0) {
-        setMsg("No pending uploads. Upload files first.");
+        setMsg("No pending items. Upload a file or save a change in Medical Profile first.");
         return;
       }
 
@@ -102,7 +102,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
         if (jobErr) throw jobErr;
       }
 
-      setMsg(`Started processing ${ids.length} file(s).`);
+      setMsg(`Started processing ${ids.length} item(s).`);
 
       setRefreshKey((k) => k + 1);
     } catch (e: any) {
@@ -139,8 +139,8 @@ export function ManageDocumentsScreen({ navigation }: Props) {
             starting
               ? "Starting…"
               : pendingCount > 0
-              ? `Process ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
-              : "No files to process"
+              ? `Process ${pendingCount} item${pendingCount === 1 ? "" : "s"}`
+              : "Nothing to process"
           }
           onPress={startProcessing}
           disabled={starting || pendingCount === 0}
@@ -150,11 +150,11 @@ export function ManageDocumentsScreen({ navigation }: Props) {
 
         {pendingCount === 0 && !msg ? (
           <AppText variant="caption" style={styles.noFiles}>
-            Upload files above, then tap Process to extract your health data.
+            Upload files or save a change in Medical Profile, then tap Process.
           </AppText>
         ) : pendingCount > 0 ? (
           <AppText variant="caption" style={styles.readyHint}>
-            {pendingCount} file{pendingCount === 1 ? "" : "s"} ready — AI will extract facts, timeline, and summary.
+            {pendingCount} item{pendingCount === 1 ? "" : "s"} ready — tap Process to analyze.
           </AppText>
         ) : null}
       </View>

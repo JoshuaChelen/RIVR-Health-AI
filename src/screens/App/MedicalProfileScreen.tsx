@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { getProfile, upsertProfile, type UserProfile } from "../../lib/profile";
+import { upsertManualInputDocument } from "../../lib/documents";
 import { getCurrentUserId } from "../../lib/auth";
 import {
   makeId, safeList, joinParts,
@@ -44,6 +45,33 @@ const ALCOHOL_OPTS  = ["None", "Occasional", "Moderate", "Heavy", "Prefer not to
 const EXERCISE_OPTS = ["Sedentary", "Light", "Moderate", "Active", "Very Active"];
 const SEVERITY_OPTS = ["Mild", "Moderate", "Severe"];
 const RELATION_OPTS = ["Parent", "Sibling", "Grandparent", "Child", "Other"];
+
+
+function manualProfileSignature(p: UserProfile | null | undefined) {
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  const text = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    return s ? s : null;
+  };
+
+  return JSON.stringify({
+    date_of_birth: p?.date_of_birth ?? null,
+    sex_or_gender: p?.sex_or_gender ?? null,
+    current_symptoms: text(p?.current_symptoms),
+    smoking_status: p?.smoking_status ?? null,
+    alcohol_use: p?.alcohol_use ?? null,
+    exercise_level: p?.exercise_level ?? null,
+    allergies: list(p?.allergies),
+    medications: list(p?.medications),
+    medical_history: list(p?.medical_history),
+    surgical_history: list(p?.surgical_history),
+    family_history: list(p?.family_history),
+    hospitalizations: list(p?.hospitalizations),
+    social_history: list(p?.social_history),
+  });
+}
+
+
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
@@ -203,19 +231,31 @@ export function MedicalProfileScreen(_: Props) {
   }
 
   async function persist(patch: Parameters<typeof upsertProfile>[1]) {
-    setSaveError(null);
-    setSaving(true);
-    try {
-      const userId = await getCurrentUserId();
-      const updated = await upsertProfile(userId, patch);
-      setProfile(updated);
-      setEditingSection(null);
-    } catch (e: any) {
-      setSaveError(e?.message ?? "Save failed.");
-    } finally {
-      setSaving(false);
+  setSaveError(null);
+  setSaving(true);
+  try {
+    const userId = await getCurrentUserId();
+    const beforeSig = manualProfileSignature(profile);
+
+    const updated = await upsertProfile(userId, patch);
+    const afterSig = manualProfileSignature(updated);
+
+    setProfile(updated);
+    setEditingSection(null);
+
+    if (beforeSig !== afterSig) {
+      try {
+        await upsertManualInputDocument(userId);
+      } catch {
+        // Do not fail the profile save if the document row refresh fails.
+      }
     }
+  } catch (e: any) {
+    setSaveError(e?.message ?? "Save failed.");
+  } finally {
+    setSaving(false);
   }
+}
 
   // ─── Lifestyle ─────────────────────────────────────────────────────────────
   const saveLifestyle = () => persist({
@@ -233,7 +273,16 @@ export function MedicalProfileScreen(_: Props) {
     setEditAllergies((prev) => [...prev, { id: makeId(), allergen: f("allergen").trim(), reaction: f("reaction").trim(), severity: f("severity") }]);
     setAddForm({});
   }
-  const saveAllergies = () => persist({ allergies: editAllergies });
+  function saveAllergies() {
+    // Auto-commit any valid in-progress form entry. This also closes the
+    // stale-closure race: if Save fires before the Add state update commits,
+    // addForm still holds the form data and we include it here.
+    const pending = f("allergen").trim();
+    const list = pending
+      ? [...editAllergies, { id: makeId(), allergen: pending, reaction: f("reaction").trim(), severity: f("severity") }]
+      : editAllergies;
+    persist({ allergies: list });
+  }
 
   // ─── Medications ───────────────────────────────────────────────────────────
   function addMedication() {
@@ -241,7 +290,13 @@ export function MedicalProfileScreen(_: Props) {
     setEditMedications((prev) => [...prev, { id: makeId(), name: f("name").trim(), dose: f("dose").trim(), frequency: f("frequency").trim() }]);
     setAddForm({});
   }
-  const saveMedications = () => persist({ medications: editMedications });
+  function saveMedications() {
+    const pending = f("name").trim();
+    const list = pending
+      ? [...editMedications, { id: makeId(), name: pending, dose: f("dose").trim(), frequency: f("frequency").trim() }]
+      : editMedications;
+    persist({ medications: list });
+  }
 
   // ─── Medical history ───────────────────────────────────────────────────────
   function addMedHistory() {
@@ -249,7 +304,13 @@ export function MedicalProfileScreen(_: Props) {
     setEditMedHistory((prev) => [...prev, { id: makeId(), condition: f("condition").trim(), year: f("year").trim(), notes: f("notes").trim() }]);
     setAddForm({});
   }
-  const saveMedHistory = () => persist({ medical_history: editMedHistory });
+  function saveMedHistory() {
+    const pending = f("condition").trim();
+    const list = pending
+      ? [...editMedHistory, { id: makeId(), condition: pending, year: f("year").trim(), notes: f("notes").trim() }]
+      : editMedHistory;
+    persist({ medical_history: list });
+  }
 
   // ─── Surgical history ──────────────────────────────────────────────────────
   function addSurgery() {
@@ -257,7 +318,13 @@ export function MedicalProfileScreen(_: Props) {
     setEditSurgery((prev) => [...prev, { id: makeId(), procedure: f("procedure").trim(), year: f("year").trim(), notes: f("notes").trim() }]);
     setAddForm({});
   }
-  const saveSurgery = () => persist({ surgical_history: editSurgery });
+  function saveSurgery() {
+    const pending = f("procedure").trim();
+    const list = pending
+      ? [...editSurgery, { id: makeId(), procedure: pending, year: f("year").trim(), notes: f("notes").trim() }]
+      : editSurgery;
+    persist({ surgical_history: list });
+  }
 
   // ─── Family history ────────────────────────────────────────────────────────
   function addFamilyHistory() {
@@ -265,7 +332,15 @@ export function MedicalProfileScreen(_: Props) {
     setEditFamilyHistory((prev) => [...prev, { id: makeId(), condition: f("condition").trim(), relation: f("relation"), notes: f("notes").trim() }]);
     setAddForm({});
   }
-  const saveFamilyHistory = () => persist({ family_history: editFamilyHistory });
+  function saveFamilyHistory() {
+    // Both condition and relation are required for a valid family history entry.
+    const pendingCondition = f("condition").trim();
+    const pendingRelation  = f("relation").trim();
+    const list = (pendingCondition && pendingRelation)
+      ? [...editFamilyHistory, { id: makeId(), condition: pendingCondition, relation: pendingRelation, notes: f("notes").trim() }]
+      : editFamilyHistory;
+    persist({ family_history: list });
+  }
 
   // ─── Hospitalizations ──────────────────────────────────────────────────────
   function addHospitalization() {
@@ -273,7 +348,13 @@ export function MedicalProfileScreen(_: Props) {
     setEditHospitalizations((prev) => [...prev, { id: makeId(), reason: f("reason").trim(), year: f("year").trim(), notes: f("notes").trim() }]);
     setAddForm({});
   }
-  const saveHospitalizations = () => persist({ hospitalizations: editHospitalizations });
+  function saveHospitalizations() {
+    const pending = f("reason").trim();
+    const list = pending
+      ? [...editHospitalizations, { id: makeId(), reason: pending, year: f("year").trim(), notes: f("notes").trim() }]
+      : editHospitalizations;
+    persist({ hospitalizations: list });
+  }
 
   // ─── Social history ────────────────────────────────────────────────────────
   function addSocialHistory() {
@@ -281,7 +362,15 @@ export function MedicalProfileScreen(_: Props) {
     setEditSocialHistory((prev) => [...prev, { id: makeId(), category: f("category").trim(), detail: f("detail").trim() }]);
     setAddForm({});
   }
-  const saveSocialHistory = () => persist({ social_history: editSocialHistory });
+  function saveSocialHistory() {
+    // Both category and detail are required for a valid social history entry.
+    const pendingCategory = f("category").trim();
+    const pendingDetail   = f("detail").trim();
+    const list = (pendingCategory && pendingDetail)
+      ? [...editSocialHistory, { id: makeId(), category: pendingCategory, detail: pendingDetail }]
+      : editSocialHistory;
+    persist({ social_history: list });
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
 

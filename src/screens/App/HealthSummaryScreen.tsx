@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
@@ -17,6 +18,7 @@ import {
   getHealthProfile,
   getLatestEvaluation,
 } from "../../lib/aiJobs";
+import { getProfile } from "../../lib/profile";
 
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
 
@@ -27,10 +29,12 @@ function safeJoin(arr: any[]) {
 type Props = NativeStackScreenProps<AppStackParamList, "HealthSummary">;
 
 export default function HealthSummaryScreen({ navigation }: Props) {
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
-  const [evaluation, setEval] = useState<any>(null);
-  const [error, setError]     = useState<string | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [profile, setProfile]         = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [evaluation, setEval]         = useState<any>(null);
+  const [error, setError]             = useState<string | null>(null);
+  
 
   const load = useCallback(async () => {
     setError(null);
@@ -41,12 +45,16 @@ export default function HealthSummaryScreen({ navigation }: Props) {
       return;
     }
     try {
-      const [p, ev] = await Promise.all([
+      const [p, ev, up] = await Promise.all([
         getHealthProfile(userRes.user.id),
         getLatestEvaluation(userRes.user.id),
+        getProfile(userRes.user.id),
       ]);
       setProfile(p);
       setEval(ev?.result ?? null);
+      setUserProfile(up);
+      // Stop polling once the health profile has been updated after the refresh
+      // was queued (i.e., the new evaluation has landed).
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -54,7 +62,9 @@ export default function HealthSummaryScreen({ navigation }: Props) {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => {
+    load();
+    }, [load]));
 
   const score       = profile?.score ?? evaluation?.score_0_to_100;
   const label       = profile?.score_label ?? evaluation?.score_label;
@@ -64,6 +74,36 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const card        = profile?.card_json ?? evaluation?.three_by_five_card ?? null;
 
   const hasContent  = !!(fullSummary || card);
+
+  // ── Staleness: profile updated after the last evaluation ──────────────────
+  const healthUpdatedMs  = profile?.updated_at  ? new Date(profile.updated_at).getTime()  : null;
+  const profileUpdatedMs = userProfile?.updated_at ? new Date(userProfile.updated_at).getTime() : null;
+  // The worker re-touches health_profiles after the AI backfill step to keep its
+  // updated_at ahead of user_profiles.updated_at. The 5-second grace period
+  // absorbs any residual clock skew between those two consecutive DB writes so
+  // a successful processing run never leaves the banner permanently visible.
+  const STALE_GRACE_MS = 5_000;
+  const isStale = !!(
+    hasContent &&
+    healthUpdatedMs &&
+    profileUpdatedMs &&
+    profileUpdatedMs > healthUpdatedMs + STALE_GRACE_MS
+  );
+
+  // ── Source awareness ───────────────────────────────────────────────────────
+  const src = profile?.sources ?? null;
+  const sourceTags: string[] = [];
+  if (src?.manual_profile?.has_data)                                         sourceTags.push("Profile");
+  if (Array.isArray(src?.document_ids) && src.document_ids.length > 0)      sourceTags.push("Records");
+  if (src?.apple_health && (
+    src.apple_health.steps_avg_7d != null ||
+    src.apple_health.sleep_avg_min_7d != null ||
+    src.apple_health.resting_hr_recent != null
+  ))                                                                          sourceTags.push("Apple Health");
+
+    function handleRefresh() {
+    navigation.navigate("ManageDocuments");
+  }
 
   return (
     <Screen>
@@ -84,6 +124,21 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           </View>
         ) : null}
 
+        {/* ── Stale banner ─────────────────────────────────── */}
+        {!loading && isStale ? (
+          <View style={styles.staleBanner}>
+            <AppText style={styles.staleText}>
+                Your profile has changed since this summary was generated.
+              </AppText>
+              <Pressable
+                style={({ pressed }) => [styles.staleBtn, pressed && { opacity: 0.75 }]}
+                onPress={handleRefresh}
+              >
+                <AppText style={styles.staleBtnText}>Go to Documents</AppText>
+              </Pressable>
+          </View>
+        ) : null}
+
         {/* ── Empty state ──────────────────────────────────── */}
         {!loading && !hasContent ? (
           <View style={styles.emptyWrap}>
@@ -92,13 +147,13 @@ export default function HealthSummaryScreen({ navigation }: Props) {
             </View>
             <AppText style={styles.emptyTitle}>No summary yet</AppText>
             <AppText style={styles.emptyBody}>
-              Generate your SHIN Score first. Your full AI health summary and 3×5 essentials will appear here.
+              Complete your health profile or upload medical records, then go to Documents and tap Process.
             </AppText>
             <Pressable
               style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.8 }]}
-              onPress={() => navigation.navigate("ShinScore")}
+              onPress={() => navigation.navigate("ManageDocuments")}
             >
-              <AppText style={styles.emptyBtnText}>Go to SHIN Score</AppText>
+              <AppText style={styles.emptyBtnText}>Open Documents</AppText>
             </Pressable>
           </View>
         ) : null}
@@ -115,6 +170,11 @@ export default function HealthSummaryScreen({ navigation }: Props) {
                 <AppText style={styles.shareNavBtnText}>Share</AppText>
               </Pressable>
             </View>
+            {sourceTags.length > 0 ? (
+              <AppText style={styles.sourceLine}>
+                {"Sources: "}{sourceTags.join(" · ")}
+              </AppText>
+            ) : null}
             <AppText style={styles.fullText}>{String(fullSummary)}</AppText>
             {disclaimer ? (
               <AppText style={styles.disclaimer}>{String(disclaimer)}</AppText>
@@ -200,6 +260,44 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+
+  // Stale banner
+  staleBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    backgroundColor: colors.tealSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.tealBorder,
+  },
+  staleText: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    color: colors.teal,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+  staleBtn: {
+    backgroundColor: colors.teal,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+  },
+  staleBtnText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: "#fff",
+  },
+
+  // Source line
+  sourceLine: {
+    fontSize: typescale.size.xs,
+    color: colors.muted,
+    marginBottom: spacing.xxs,
   },
 
   // Error

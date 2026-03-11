@@ -175,30 +175,52 @@ Deno.serve(async (req) => {
         };
       }
       if (shareTypes.includes("card_3x5") && profileRow) {
-        // Start from AI-derived card_json; fill gaps with manually-entered profile data
+        // health_profiles.card_json is the canonical source: the worker's
+        // mergeCardWithProfile() already merged manual allergies, medications,
+        // and emergency contact into card_json at evaluation time.
+        //
+        // The three gap-fills below are backward-compat safety nets for rows
+        // written before mergeCardWithProfile was introduced. They do NOT run
+        // when the card already has values.
+        //
+        // Important: only truly manual items (non ai_ prefix) are used here.
+        // AI-backfilled items (id starts with "ai_") are already present in
+        // card_json via the model's PROFILE_BACKFILL / DOCUMENT_FACTS output
+        // and must not be re-inserted here as if they were patient-verified.
         const card: Record<string, any> = { ...(profileRow.card_json ?? {}) };
         if (userProfile) {
-          // Emergency contact: use profile if AI extraction left it empty
+          // Emergency contact backward-compat
           if (!card.emergency_contact?.name && userProfile.emergency_contact_name) {
             card.emergency_contact = {
               name:  userProfile.emergency_contact_name,
               phone: userProfile.emergency_contact_phone ?? "",
             };
           }
-          // Allergies: use profile if AI extraction left it empty
-          if ((!card.allergies || card.allergies.length === 0) &&
-              Array.isArray(userProfile.allergies) && userProfile.allergies.length > 0) {
-            card.allergies = userProfile.allergies.map((a: any) =>
-              [a.allergen, a.reaction].filter(Boolean).join(" - ")
-            );
+
+          // Allergies backward-compat: manual items only
+          const manualAllergies = Array.isArray(userProfile.allergies)
+            ? userProfile.allergies.filter(
+                (a: any) => typeof a.id !== "string" || !a.id.startsWith("ai_")
+              )
+            : [];
+          if ((!card.allergies || card.allergies.length === 0) && manualAllergies.length > 0) {
+            card.allergies = manualAllergies
+              .map((a: any) => [a.allergen, a.reaction].filter(Boolean).join(" — "))
+              .filter(Boolean);
           }
-          // Medications: use profile if AI extraction left it empty
-          if ((!card.current_meds || card.current_meds.length === 0) &&
-              Array.isArray(userProfile.medications) && userProfile.medications.length > 0) {
-            card.current_meds = userProfile.medications.map((m: any) =>
-              [m.name, m.dose, m.frequency].filter(Boolean).join(" ")
-            );
+
+          // Medications backward-compat: manual items only
+          const manualMedications = Array.isArray(userProfile.medications)
+            ? userProfile.medications.filter(
+                (m: any) => typeof m.id !== "string" || !m.id.startsWith("ai_")
+              )
+            : [];
+          if ((!card.current_meds || card.current_meds.length === 0) && manualMedications.length > 0) {
+            card.current_meds = manualMedications
+              .map((m: any) => [m.name, m.dose, m.frequency].filter(Boolean).join(" "))
+              .filter(Boolean);
           }
+
           if (patientFullName) card.patient_name = patientFullName;
         }
         snapshots.card_3x5 = card;

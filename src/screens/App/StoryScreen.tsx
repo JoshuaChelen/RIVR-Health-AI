@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { getProfile, upsertProfile, type UserProfile, type StoryAnswers } from "../../lib/profile";
+import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
 import { getCurrentUserId } from "../../lib/auth";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -290,7 +291,8 @@ const qc = StyleSheet.create({
 export function StoryScreen(_: Props) {
   const [profile, setProfile]     = useState<UserProfile | null>(null);
   const [loading, setLoading]     = useState(true);
-  const [editingQ, setEditingQ]   = useState<keyof StoryAnswers | null>(null);
+  const [editingQ, setEditingQ]     = useState<keyof StoryAnswers | null>(null);
+  const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [draft, setDraft]         = useState("");
   const [saving, setSaving]       = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -347,6 +349,7 @@ export function StoryScreen(_: Props) {
       setProfile(updated);
       setEditingQ(null);
       setDraft("");
+      // Fire-and-forget: story answers are rich context for health evaluation.
     } catch (e: any) {
       setSaveError(e?.message ?? "Save failed. Please try again.");
     } finally {
@@ -407,6 +410,15 @@ export function StoryScreen(_: Props) {
             </View>
           </View>
 
+          {/* ── Subtle refresh notice ─────────────────────── */}
+          {refreshingHealth && (
+            <View style={styles.refreshBanner}>
+              <AppText variant="caption" style={styles.refreshText}>
+                Refreshing your health summary…
+              </AppText>
+            </View>
+          )}
+
           {/* ── Completion badge ──────────────────────────── */}
           {allAnswered && (
             <View style={styles.completionBadge}>
@@ -455,6 +467,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingHorizontal: spacing.xl,
   },
+
+  // ── Refresh banner ──
+  refreshBanner: {
+    backgroundColor: colors.tealSoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  refreshText: { color: colors.teal },
 
   // ── Header ──
   header: {
