@@ -3,6 +3,8 @@ import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Audio } from "expo-av";
 
 import { AppText } from "../Primitives/AppText";
+import { PrimaryButton } from "../Primitives/PrimaryButton";
+import { GhostButton } from "../Primitives/GhostButton";
 import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
 
 import { uploadUriToStorage } from "../../../lib/storageUpload";
@@ -102,7 +104,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
     if (!uri) return;
     setBusy(true);
     setIsError(false);
-    setStatus("Uploading…");
+    setStatus(null);
 
     try {
       const { data: auth, error: authErr } = await supabase.auth.getUser();
@@ -127,9 +129,10 @@ export function RecordVoiceNote({ onUploaded }: Props) {
         storagePath,
         mimeType: "audio/mp4",
         sizeBytes,
+        sourceType: "voice_note",
       });
 
-      setStatus("Voice note ready to process.");
+      setStatus("Voice note saved and ready to process.");
       setUri(null);
       setDurationMs(0);
       onUploaded?.();
@@ -146,7 +149,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
   return (
     <View style={styles.card}>
 
-      {/* ── Idle: tap to start recording ─────────────────────────────────── */}
+      {/* ── Idle: tap to start recording ──────────────────────────────────── */}
       {!isRecording && !uri && (
         <Pressable
           onPress={startRecording}
@@ -169,7 +172,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
         </Pressable>
       )}
 
-      {/* ── Recording: tap row or Stop pill to stop ───────────────────────── */}
+      {/* ── Recording: tap to stop ─────────────────────────────────────────── */}
       {isRecording && (
         <Pressable
           onPress={stopRecording}
@@ -192,56 +195,51 @@ export function RecordVoiceNote({ onUploaded }: Props) {
         </Pressable>
       )}
 
-      {/* ── Uploading: non-interactive row shown while busy ───────────────── */}
-      {uri && busy && (
-        <View style={[styles.row, styles.rowDisabled]}>
-          <View style={styles.iconCircle}>
-            <ActivityIndicator color="#fff" size="small" />
-          </View>
-          <View style={styles.textBlock}>
-            <AppText style={styles.rowTitle}>Uploading…</AppText>
-            <AppText style={styles.rowHint}>{mmss(durationMs)}</AppText>
-          </View>
-        </View>
-      )}
-
-      {/* ── Ready: upload or discard the finished recording ──────────────── */}
-      {uri && !busy && (
+      {/* ── Ready / uploading: info row + action buttons ───────────────────── */}
+      {uri && (
         <>
-          <Pressable
-            onPress={upload}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={styles.iconCircle}>
-              <AppText style={styles.iconText}>↑</AppText>
+          {/* Non-interactive info row — shows what was recorded */}
+          <View style={[styles.row, busy && styles.rowDisabled]}>
+            <View style={[styles.iconCircle, busy && styles.iconBusy]}>
+              {busy
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <AppText style={styles.iconText}>♪</AppText>
+              }
             </View>
             <View style={styles.textBlock}>
-              <AppText style={styles.rowTitle}>Upload Voice Note</AppText>
+              <AppText style={styles.rowTitle}>
+                {busy ? "Uploading…" : "Recording ready"}
+              </AppText>
               <AppText style={styles.rowHint}>
-                {mmss(durationMs)} · Ready to upload
+                {mmss(durationMs)}{busy ? "" : " · Tap the button below to save"}
               </AppText>
             </View>
-          </Pressable>
+          </View>
 
           <View style={styles.divider} />
 
-          <Pressable
-            onPress={discard}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={[styles.iconCircle, styles.iconDiscard]}>
-              <AppText style={[styles.iconText, styles.iconTextDiscard]}>×</AppText>
-            </View>
-            <View style={styles.textBlock}>
-              <AppText style={[styles.rowTitle, styles.discardTitle]}>
-                Discard recording
-              </AppText>
-            </View>
-          </Pressable>
+          {/* Primary upload CTA — only interactive when not busy */}
+          <View style={styles.actionArea}>
+            <PrimaryButton
+              label={busy ? "Uploading…" : "Upload Voice Note"}
+              onPress={upload}
+              disabled={busy}
+              tone="teal"
+            />
+
+            {/* Discard — lower visual weight, hidden during upload */}
+            {!busy && (
+              <GhostButton
+                label="Discard recording"
+                onPress={discard}
+                disabled={busy}
+              />
+            )}
+          </View>
         </>
       )}
 
-      {/* ── Status / error ────────────────────────────────────────────────── */}
+      {/* ── Status / error ─────────────────────────────────────────────────── */}
       {status ? (
         <View style={styles.statusRow}>
           <AppText style={[styles.statusText, isError && styles.statusError]}>
@@ -255,7 +253,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
 }
 
 const styles = StyleSheet.create({
-  // ── Card shell — identical spec to UploadFile's cardStyles.card ──────────
+  // ── Card shell ────────────────────────────────────────────────────────────
   card: {
     borderWidth: 1.5,
     borderStyle: "dashed",
@@ -267,7 +265,7 @@ const styles = StyleSheet.create({
     ...shadows.xs,
   },
 
-  // ── Divider — identical to UploadFile ────────────────────────────────────
+  // ── Divider ───────────────────────────────────────────────────────────────
   divider: {
     height: 1,
     backgroundColor: colors.tealBorder,
@@ -275,7 +273,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
   },
 
-  // ── Row — identical to UploadFile ────────────────────────────────────────
+  // ── Info row ──────────────────────────────────────────────────────────────
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -285,7 +283,7 @@ const styles = StyleSheet.create({
   rowPressed:  { opacity: 0.7 },
   rowDisabled: { opacity: 0.5 },
 
-  // ── Icon circle — identical base to UploadFile ────────────────────────────
+  // ── Icon circle ───────────────────────────────────────────────────────────
   iconCircle: {
     width: 38,
     height: 38,
@@ -298,10 +296,9 @@ const styles = StyleSheet.create({
   iconRecording: {
     backgroundColor: colors.warning,
   },
-  iconDiscard: {
-    backgroundColor: colors.bgSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
+  iconBusy: {
+    // Keep teal during upload — ActivityIndicator shows inside
+    backgroundColor: colors.teal,
   },
 
   iconText: {
@@ -310,14 +307,8 @@ const styles = StyleSheet.create({
     fontWeight: typescale.weight.black,
     lineHeight: typescale.size.lg * 1.2,
   },
-  iconTextDiscard: {
-    color: colors.muted,
-    fontSize: typescale.size.xl,
-    fontWeight: typescale.weight.regular,
-    lineHeight: typescale.size.xl * 1.1,
-  },
 
-  // ── Text block — identical to UploadFile ─────────────────────────────────
+  // ── Text block ────────────────────────────────────────────────────────────
   textBlock: {
     flex: 1,
     gap: 2,
@@ -340,12 +331,8 @@ const styles = StyleSheet.create({
     opacity: 1,
     fontWeight: typescale.weight.semibold,
   },
-  discardTitle: {
-    color: colors.muted,
-    fontWeight: typescale.weight.medium,
-  },
 
-  // ── Stop pill shown during recording ─────────────────────────────────────
+  // ── Stop pill ─────────────────────────────────────────────────────────────
   stopPill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -359,7 +346,14 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
 
-  // ── Status text — aligns under text block, same offset as UploadFile ─────
+  // ── Action area: PrimaryButton + GhostButton ──────────────────────────────
+  actionArea: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    gap: spacing.xxs,
+  },
+
+  // ── Status text ───────────────────────────────────────────────────────────
   statusRow: {
     paddingBottom: spacing.xs,
     paddingLeft: 38 + spacing.md,
