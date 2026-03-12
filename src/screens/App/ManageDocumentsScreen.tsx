@@ -121,8 +121,8 @@ export function ManageDocumentsScreen({ navigation }: Props) {
           onPendingCountChange={setPendingCount}
           header={
             <>
-              <RecordVoiceNote onUploaded={() => setRefreshKey((k) => k + 1)} />
               <UploadFile onUploaded={() => setRefreshKey((k) => k + 1)} />
+              <RecordVoiceNote onUploaded={() => setRefreshKey((k) => k + 1)} />
             </>
           }
         />

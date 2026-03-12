@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
 
   // Shared press state
   cardPressed: {
-    opacity: 0.78,
+    opacity: 0.82,
     transform: [{ scale: 0.985 }],
   },
 

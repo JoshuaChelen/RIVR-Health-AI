@@ -2,12 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Audio } from "expo-av";
 
-import { Card } from "../Primitives/Card";
 import { AppText } from "../Primitives/AppText";
-import { PrimaryButton } from "../Primitives/PrimaryButton";
-import { SecondaryButton } from "../Primitives/SecondaryButton";
-import { GhostButton } from "../Primitives/GhostButton";
-import { colors, spacing, radius, typescale } from "../../../theme/tokens";
+import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
 
 import { uploadUriToStorage } from "../../../lib/storageUpload";
 import { insertDocumentRow, safeFilename } from "../../../lib/documents";
@@ -25,12 +21,12 @@ function mmss(ms: number) {
 }
 
 export function RecordVoiceNote({ onUploaded }: Props) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [uri, setUri]             = useState<string | null>(null);
+  const [recording, setRecording]   = useState<Audio.Recording | null>(null);
+  const [uri, setUri]               = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState(0);
-  const [busy, setBusy]           = useState(false);
-  const [status, setStatus]       = useState<string | null>(null);
-  const [isError, setIsError]     = useState(false);
+  const [busy, setBusy]             = useState(false);
+  const [status, setStatus]         = useState<string | null>(null);
+  const [isError, setIsError]       = useState(false);
 
   const timerRef = useRef<any>(null);
 
@@ -148,97 +144,232 @@ export function RecordVoiceNote({ onUploaded }: Props) {
   const isRecording = !!recording;
 
   return (
-    <Card style={styles.card}>
-      {/* Header row */}
-      <View style={styles.headerRow}>
-        <View style={[styles.micIcon, isRecording && styles.micIconActive]}>
-          <AppText style={[styles.micText, isRecording && { color: "#fff" }]}>♪</AppText>
-        </View>
+    <View style={styles.card}>
 
-        <View style={{ flex: 1 }}>
-          <AppText variant="title">Voice Note</AppText>
-          <AppText variant="caption" style={styles.hint}>
-            {isRecording
-              ? `Recording  ${mmss(durationMs)}`
-              : uri
-              ? "Ready to upload"
-              : "Tap record to describe symptoms in your own words"}
-          </AppText>
-        </View>
-
-        {busy ? <ActivityIndicator color={colors.teal} /> : null}
-      </View>
-
-      {status ? (
-        <AppText
-          variant="caption"
-          style={[styles.statusText, isError && { color: colors.danger }]}
-        >
-          {status}
-        </AppText>
-      ) : null}
-
-      {/* Actions */}
-      {!uri ? (
-        <PrimaryButton
-          label={isRecording ? "Stop recording" : "Record"}
-          onPress={isRecording ? stopRecording : startRecording}
+      {/* ── Idle: tap to start recording ─────────────────────────────────── */}
+      {!isRecording && !uri && (
+        <Pressable
+          onPress={startRecording}
           disabled={busy}
-          tone={isRecording ? "orange" : "teal"}
-        />
-      ) : (
-        <View style={styles.uploadRow}>
-          <SecondaryButton
-            label="Upload voice note"
-            onPress={upload}
-            disabled={busy}
-            style={{ flex: 1 }}
-          />
-          <GhostButton label="Discard" onPress={discard} disabled={busy} />
+          style={({ pressed }) => [
+            styles.row,
+            pressed && !busy && styles.rowPressed,
+            busy && styles.rowDisabled,
+          ]}
+        >
+          <View style={styles.iconCircle}>
+            <AppText style={styles.iconText}>♪</AppText>
+          </View>
+          <View style={styles.textBlock}>
+            <AppText style={styles.rowTitle}>Voice Note</AppText>
+            <AppText style={styles.rowHint}>
+              Tap to record symptoms in your own words
+            </AppText>
+          </View>
+        </Pressable>
+      )}
+
+      {/* ── Recording: tap row or Stop pill to stop ───────────────────────── */}
+      {isRecording && (
+        <Pressable
+          onPress={stopRecording}
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+        >
+          <View style={[styles.iconCircle, styles.iconRecording]}>
+            <AppText style={styles.iconText}>●</AppText>
+          </View>
+          <View style={styles.textBlock}>
+            <AppText style={[styles.rowTitle, styles.rowTitleRecording]}>
+              Recording…
+            </AppText>
+            <AppText style={[styles.rowHint, styles.rowHintRecording]}>
+              {mmss(durationMs)}
+            </AppText>
+          </View>
+          <View style={styles.stopPill}>
+            <AppText style={styles.stopPillText}>Stop</AppText>
+          </View>
+        </Pressable>
+      )}
+
+      {/* ── Uploading: non-interactive row shown while busy ───────────────── */}
+      {uri && busy && (
+        <View style={[styles.row, styles.rowDisabled]}>
+          <View style={styles.iconCircle}>
+            <ActivityIndicator color="#fff" size="small" />
+          </View>
+          <View style={styles.textBlock}>
+            <AppText style={styles.rowTitle}>Uploading…</AppText>
+            <AppText style={styles.rowHint}>{mmss(durationMs)}</AppText>
+          </View>
         </View>
       )}
-    </Card>
+
+      {/* ── Ready: upload or discard the finished recording ──────────────── */}
+      {uri && !busy && (
+        <>
+          <Pressable
+            onPress={upload}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View style={styles.iconCircle}>
+              <AppText style={styles.iconText}>↑</AppText>
+            </View>
+            <View style={styles.textBlock}>
+              <AppText style={styles.rowTitle}>Upload Voice Note</AppText>
+              <AppText style={styles.rowHint}>
+                {mmss(durationMs)} · Ready to upload
+              </AppText>
+            </View>
+          </Pressable>
+
+          <View style={styles.divider} />
+
+          <Pressable
+            onPress={discard}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View style={[styles.iconCircle, styles.iconDiscard]}>
+              <AppText style={[styles.iconText, styles.iconTextDiscard]}>×</AppText>
+            </View>
+            <View style={styles.textBlock}>
+              <AppText style={[styles.rowTitle, styles.discardTitle]}>
+                Discard recording
+              </AppText>
+            </View>
+          </Pressable>
+        </>
+      )}
+
+      {/* ── Status / error ────────────────────────────────────────────────── */}
+      {status ? (
+        <View style={styles.statusRow}>
+          <AppText style={[styles.statusText, isError && styles.statusError]}>
+            {status}
+          </AppText>
+        </View>
+      ) : null}
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { gap: spacing.sm },
+  // ── Card shell — identical spec to UploadFile's cardStyles.card ──────────
+  card: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.tealBorder,
+    borderRadius: radius.lg,
+    backgroundColor: colors.tealSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    ...shadows.xs,
+  },
 
-  headerRow: {
+  // ── Divider — identical to UploadFile ────────────────────────────────────
+  divider: {
+    height: 1,
+    backgroundColor: colors.tealBorder,
+    opacity: 0.5,
+    marginHorizontal: spacing.xs,
+  },
+
+  // ── Row — identical to UploadFile ────────────────────────────────────────
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  micIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.sm,
-    backgroundColor: colors.tealSoft,
-    borderWidth: 1,
-    borderColor: colors.tealBorder,
+  rowPressed:  { opacity: 0.7 },
+  rowDisabled: { opacity: 0.5 },
+
+  // ── Icon circle — identical base to UploadFile ────────────────────────────
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: colors.teal,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  micIconActive: {
-    backgroundColor: colors.teal,
-    borderColor: colors.teal,
+  iconRecording: {
+    backgroundColor: colors.warning,
   },
-  micText: {
+  iconDiscard: {
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  iconText: {
+    color: "#fff",
     fontSize: typescale.size.lg,
+    fontWeight: typescale.weight.black,
+    lineHeight: typescale.size.lg * 1.2,
+  },
+  iconTextDiscard: {
+    color: colors.muted,
+    fontSize: typescale.size.xl,
+    fontWeight: typescale.weight.regular,
+    lineHeight: typescale.size.xl * 1.1,
+  },
+
+  // ── Text block — identical to UploadFile ─────────────────────────────────
+  textBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  rowTitle: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold,
     color: colors.teal,
   },
-
-  hint: {
-    marginTop: 2,
+  rowTitleRecording: {
+    color: colors.warning,
+  },
+  rowHint: {
+    fontSize: typescale.size.xs,
+    color: colors.teal,
+    opacity: 0.75,
+  },
+  rowHintRecording: {
+    color: colors.warning,
+    opacity: 1,
+    fontWeight: typescale.weight.semibold,
+  },
+  discardTitle: {
+    color: colors.muted,
+    fontWeight: typescale.weight.medium,
   },
 
+  // ── Stop pill shown during recording ─────────────────────────────────────
+  stopPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.warning,
+    flexShrink: 0,
+  },
+  stopPillText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: "#fff",
+  },
+
+  // ── Status text — aligns under text block, same offset as UploadFile ─────
+  statusRow: {
+    paddingBottom: spacing.xs,
+    paddingLeft: 38 + spacing.md,
+  },
   statusText: {
-    color: colors.textSub,
+    fontSize: typescale.size.xs,
+    color: colors.teal,
+    fontWeight: typescale.weight.medium,
   },
-
-  uploadRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
+  statusError: {
+    color: colors.danger,
   },
 });

@@ -1,216 +1,1129 @@
-import React, { useRef, useState } from "react";
-import { View, StyleSheet, Pressable, Animated } from "react-native";
-import { supabase } from "../../../lib/supabase";
+import React, { useState } from "react";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Modal,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+  SafeAreaView,
+  Platform,
+} from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 
+// expo-print, expo-file-system, and expo-image-manipulator are used on native only.
+// On web, PDF compilation goes through @cantoo/pdf-lib via scanPdf.web.ts.
+import * as Print from "expo-print";
+import * as FileSystem from "expo-file-system/legacy";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+
+import { supabase } from "../../../lib/supabase";
+import {
+  uploadAndInsertDocument,
+  uploadBytesAndInsertDocument,
+} from "../../../lib/documents";
+import { compileScanPagesForWeb } from "../../../lib/scanPdf";
 import { AppText } from "../Primitives/AppText";
 import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
 
-async function insertDocumentRow(params: {
-  userId: string;
-  title: string;
-  pdfPath: string;
-  mimeType?: string | null;
-  sizeBytes?: number | null;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+// width and height are stored from the ImagePicker result so the native
+// prepareNativePage helper can decide whether resizing is needed without
+// an extra image-info round-trip.
+type ScanPage = { id: string; uri: string; mimeType: string; width: number; height: number };
+
+type Props = { onUploaded?: () => void };
+
+const MAX_SCAN_PAGES  = 20;
+// Shared across native (expo-image-manipulator) and web (canvas in scanPdf.web.ts).
+const MAX_SCAN_WIDTH  = 1800;
+const SCAN_COMPRESS   = 0.82;
+
+let _pageIdSeed = 0;
+function newId() { return `sp-${Date.now()}-${++_pageIdSeed}`; }
+
+// On web, expo-image-picker returns blob: URIs created via URL.createObjectURL().
+// These URLs hold the raw image bytes in the browser's blob store until
+// URL.revokeObjectURL() is called. We must revoke them when we are done
+// displaying or processing each page to prevent accumulating hundreds of
+// megabytes of image data in memory.
+//
+// Safe revoke points:
+//   - When a page is removed from the session
+//   - When pages exceed the cap and are discarded in handleAddLibrary
+//   - After a successful upload (pages are no longer displayed)
+//   - When the modal is closed without uploading
+//
+// Note: browsers cache decoded image bitmaps, so images already rendered
+// continue to display after revocation — there is no visual glitch.
+// We never revoke on failure so the user can retry without re-adding pages.
+function revokeScanPageUrls(pages: ScanPage[]): void {
+  if (Platform.OS !== "web") return;
+  for (const page of pages) {
+    // revokeObjectURL silently ignores non-blob URIs (e.g. file://, data:)
+    try { URL.revokeObjectURL(page.uri); } catch { /* ignore */ }
+  }
+}
+
+// Reads a local image URI as a base64 string.
+// On native: expo-file-system (fast, no memory copy via JS bridge).
+// On web:    fetch + FileReader (works for blob: URIs from ImagePicker).
+// Used only on native for the expo-print HTML compilation path.
+async function readUriAsBase64(uri: string): Promise<string> {
+  if (Platform.OS !== "web") {
+    return FileSystem.readAsStringAsync(uri, { encoding: "base64" });
+  }
+  const res = await fetch(uri);
+  if (!res.ok) throw new Error(`Failed to read image (${res.status})`);
+  const blob = await res.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("FileReader failed"));
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("FileReader returned unexpected type"));
+        return;
+      }
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+
+// Prepares one scan page for embedding in the expo-print HTML template.
+//
+// If the image is wider than MAX_SCAN_WIDTH it is resized and re-encoded as
+// JPEG using expo-image-manipulator (runs in native code — no JS-bridge pixel
+// copy). The temp file produced by the manipulator is deleted in the finally
+// block whether the encode succeeds or fails.
+//
+// If the image is already within the width limit (or width is unknown) the
+// original URI is read directly — no extra encoding step.
+//
+// Only called in the native (iOS/Android) path of handleUploadScan.
+async function prepareNativePage(
+  page: ScanPage
+): Promise<{ b64: string; mimeType: string }> {
+  // page.width === 0 means the picker did not report dimensions — safe fallback.
+  if (page.width === 0 || page.width <= MAX_SCAN_WIDTH) {
+    return { b64: await readUriAsBase64(page.uri), mimeType: page.mimeType };
+  }
+
+  const resized = await manipulateAsync(
+    page.uri,
+    [{ resize: { width: MAX_SCAN_WIDTH } }],
+    { compress: SCAN_COMPRESS, format: SaveFormat.JPEG }
+  );
+
+  try {
+    return { b64: await readUriAsBase64(resized.uri), mimeType: "image/jpeg" };
+  } finally {
+    FileSystem.deleteAsync(resized.uri, { idempotent: true }).catch(() => {});
+  }
+}
+
+// ─── Stacked deck preview ─────────────────────────────────────────────────────
+
+const DECK_W = 96;
+const DECK_H = 132; // ≈ A4 portrait ratio
+
+const DECK_OFFSETS = [
+  { rotate: "-7deg",   tx: -11, ty:  9, opacity: 0.65 },
+  { rotate: "-3.5deg", tx:  -5, ty:  4, opacity: 0.82 },
+  { rotate:  "0deg",   tx:   0, ty:  0, opacity: 1    },
+] as const;
+
+function PageDeck({ pages }: { pages: ScanPage[] }) {
+  if (!pages.length) return null;
+  const visible = pages.slice(-3);
+  const offsets = DECK_OFFSETS.slice(3 - visible.length);
+  return (
+    <View style={deckStyles.container}>
+      {visible.map((page, i) => {
+        const { rotate, tx, ty, opacity } = offsets[i];
+        const isFront = i === visible.length - 1;
+        return (
+          <View
+            key={page.id}
+            style={[
+              deckStyles.card,
+              isFront && deckStyles.cardFront,
+              { zIndex: i + 1, opacity, transform: [{ rotate }, { translateX: tx }, { translateY: ty }] },
+            ]}
+          >
+            <Image source={{ uri: page.uri }} style={deckStyles.img} resizeMode="cover" />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const deckStyles = StyleSheet.create({
+  container: {
+    width:  DECK_W + 28,
+    height: DECK_H + 24,
+    alignSelf: "center",
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  card: {
+    position: "absolute",
+    left: 14,
+    top:  12,
+    width:  DECK_W,
+    height: DECK_H,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgSecondary,
+    ...shadows.card,
+  },
+  cardFront: {
+    borderColor: colors.tealBorder,
+    ...shadows.lg,
+  },
+  img: {
+    width:  DECK_W,
+    height: DECK_H,
+  },
+});
+
+
+// ─── Single page thumbnail ─────────────────────────────────────────────────────
+
+const THUMB_W = 68;
+const THUMB_H = 94;
+
+function PageThumb({
+  page,
+  index,
+  total,
+  onRemove,
+  onMoveLeft,
+  onMoveRight,
+}: {
+  page: ScanPage;
+  index: number;
+  total: number;
+  onRemove: () => void;
+  onMoveLeft: () => void;
+  onMoveRight: () => void;
 }) {
-  const { data, error } = await supabase
-    .from("documents")
-    .insert([{
-      user_id:          params.userId,
-      title:            params.title,
-      pdf_path:         params.pdfPath,
-      status:           "uploaded",
-      mime_type:        params.mimeType ?? "application/pdf",
-      size_bytes:       typeof params.sizeBytes === "number" ? params.sizeBytes : null,
-      processing_error: null,
-      processed_at:     null,
-    }])
-    .select()
-    .single();
+  return (
+    <View style={thumbStyles.wrap}>
+      <View style={thumbStyles.frame}>
+        <Image source={{ uri: page.uri }} style={thumbStyles.img} resizeMode="cover" />
 
-  if (error) throw error;
-  return data as { id: string };
+        <Pressable
+          onPress={onRemove}
+          style={({ pressed }) => [thumbStyles.removeBtn, pressed && { opacity: 0.7 }]}
+          hitSlop={8}
+        >
+          <AppText style={thumbStyles.removeBtnText}>×</AppText>
+        </Pressable>
+
+        <View style={thumbStyles.badge}>
+          <AppText style={thumbStyles.badgeText}>{index + 1}</AppText>
+        </View>
+      </View>
+
+      <View style={thumbStyles.arrowRow}>
+        <Pressable
+          onPress={onMoveLeft}
+          disabled={index === 0}
+          style={({ pressed }) => [
+            thumbStyles.arrowBtn,
+            index === 0 && thumbStyles.arrowBtnOff,
+            pressed && index !== 0 && { opacity: 0.6 },
+          ]}
+          hitSlop={6}
+        >
+          <AppText style={thumbStyles.arrowText}>←</AppText>
+        </Pressable>
+
+        <Pressable
+          onPress={onMoveRight}
+          disabled={index === total - 1}
+          style={({ pressed }) => [
+            thumbStyles.arrowBtn,
+            index === total - 1 && thumbStyles.arrowBtnOff,
+            pressed && index !== total - 1 && { opacity: 0.6 },
+          ]}
+          hitSlop={6}
+        >
+          <AppText style={thumbStyles.arrowText}>→</AppText>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
-function safeFilename(name: string) {
-  return name.replace(/[^\w.\-() ]+/g, "_");
+const thumbStyles = StyleSheet.create({
+  wrap: {
+    alignItems: "center",
+    gap: spacing.xxs,
+    marginRight: spacing.sm,
+  },
+  frame: {
+    width:  THUMB_W,
+    height: THUMB_H,
+    borderRadius: radius.xs,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgSecondary,
+  },
+  img: { width: THUMB_W, height: THUMB_H },
+  removeBtn: {
+    position: "absolute",
+    top: 3,
+    right: 3,
+    width:  20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(13,27,42,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeBtnText: { color: "#fff", fontSize: 13, fontWeight: "700", lineHeight: 15 },
+  badge: {
+    position: "absolute",
+    bottom: 3,
+    left: 3,
+    backgroundColor: "rgba(13,27,42,0.6)",
+    borderRadius: radius.xs,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  badgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+  arrowRow: { flexDirection: "row", gap: 4 },
+  arrowBtn: {
+    width: 28,
+    height: 20,
+    borderRadius: radius.xs,
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  arrowBtnOff: { opacity: 0.25 },
+  arrowText: {
+    fontSize: typescale.size.xs,
+    color: colors.textSub,
+    lineHeight: typescale.size.sm,
+  },
+});
+
+
+// ─── Scan session modal ────────────────────────────────────────────────────────
+
+function ScanModal({
+  pages,
+  busy,
+  status,
+  isError,
+  onAddCamera,
+  onAddLibrary,
+  onRemovePage,
+  onMovePage,
+  onUpload,
+  onClose,
+}: {
+  pages: ScanPage[];
+  busy: boolean;
+  status: string | null;
+  isError: boolean;
+  onAddCamera: () => void;
+  onAddLibrary: () => void;
+  onRemovePage: (id: string) => void;
+  onMovePage: (id: string, dir: "left" | "right") => void;
+  onUpload: () => void;
+  onClose: () => void;
+}) {
+  // On web, camera support varies by browser/device. Label accordingly.
+  const cameraLabel = Platform.OS === "web"
+    ? (pages.length === 0 ? "Capture Photo" : "Add Photo")
+    : (pages.length === 0 ? "Take Photo"    : "Add Page");
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={modalStyles.root}>
+        {/* ── Header ── */}
+        <View style={modalStyles.header}>
+          <View style={modalStyles.headerLeft}>
+            <AppText style={modalStyles.title}>Scan Document</AppText>
+            {pages.length > 0 && (
+              <View style={modalStyles.countPill}>
+                <AppText style={modalStyles.countText}>
+                  {pages.length} {pages.length === 1 ? "page" : "pages"}
+                </AppText>
+              </View>
+            )}
+          </View>
+
+          <Pressable
+            onPress={onClose}
+            disabled={busy}
+            style={({ pressed }) => [modalStyles.closeBtn, pressed && { opacity: 0.6 }]}
+            hitSlop={10}
+          >
+            <AppText style={modalStyles.closeBtnText}>×</AppText>
+          </Pressable>
+        </View>
+
+        {/* ── Scrollable body ── */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={modalStyles.body}
+          showsVerticalScrollIndicator={false}
+        >
+          {pages.length > 0 ? (
+            <PageDeck pages={pages} />
+          ) : (
+            <View style={modalStyles.emptyDeck}>
+              <View style={modalStyles.emptyDeckRect} />
+              <AppText style={modalStyles.emptyDeckLabel}>No pages yet</AppText>
+            </View>
+          )}
+
+          {pages.length > 0 && (
+            <AppText style={modalStyles.deckCaption}>
+              {pages.length === 1
+                ? "Add more pages or upload when done."
+                : "Tap ← → to reorder · × to remove a page"}
+            </AppText>
+          )}
+
+          {pages.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={modalStyles.thumbStrip}
+            >
+              {pages.map((page, i) => (
+                <PageThumb
+                  key={page.id}
+                  page={page}
+                  index={i}
+                  total={pages.length}
+                  onRemove={() => onRemovePage(page.id)}
+                  onMoveLeft={() => onMovePage(page.id, "left")}
+                  onMoveRight={() => onMovePage(page.id, "right")}
+                />
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Add page buttons */}
+          <View style={modalStyles.addRow}>
+            <Pressable
+              onPress={onAddCamera}
+              disabled={busy}
+              style={({ pressed }) => [
+                modalStyles.addBtn,
+                pressed && !busy && { opacity: 0.75 },
+                busy && modalStyles.addBtnDisabled,
+              ]}
+            >
+              <AppText style={modalStyles.addBtnIcon}>◎</AppText>
+              <AppText style={modalStyles.addBtnLabel}>{cameraLabel}</AppText>
+            </Pressable>
+
+            <Pressable
+              onPress={onAddLibrary}
+              disabled={busy}
+              style={({ pressed }) => [
+                modalStyles.addBtn,
+                pressed && !busy && { opacity: 0.75 },
+                busy && modalStyles.addBtnDisabled,
+              ]}
+            >
+              <AppText style={modalStyles.addBtnIcon}>⊞</AppText>
+              <AppText style={modalStyles.addBtnLabel}>From Library</AppText>
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        {/* ── Footer ── */}
+        <View style={modalStyles.footer}>
+          {status ? (
+            <AppText style={[modalStyles.statusText, isError && modalStyles.statusError]}>
+              {status}
+            </AppText>
+          ) : null}
+
+          <Pressable
+            onPress={onUpload}
+            disabled={busy || pages.length === 0}
+            style={({ pressed }) => [
+              modalStyles.uploadBtn,
+              (busy || pages.length === 0) && modalStyles.uploadBtnDisabled,
+              pressed && !busy && pages.length > 0 && { opacity: 0.88 },
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" size="small" style={{ marginRight: 6 }} />
+            ) : null}
+            <AppText style={modalStyles.uploadBtnText}>
+              {busy
+                ? (status ?? "Working…")
+                : pages.length === 0
+                ? "Add pages to upload"
+                : `Upload PDF · ${pages.length} page${pages.length === 1 ? "" : "s"}`}
+            </AppText>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
 }
 
-type Props = {
-  onUploaded?: () => void;
-};
+const modalStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  title: {
+    fontSize: typescale.size.lg,
+    fontWeight: typescale.weight.bold,
+    color: colors.text,
+  },
+  countPill: {
+    backgroundColor: colors.tealSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: colors.tealBorder,
+  },
+  countText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: colors.teal,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: { fontSize: 20, color: colors.muted, fontWeight: "600", lineHeight: 22 },
+
+  body: { paddingBottom: spacing.lg },
+
+  emptyDeck: {
+    height: DECK_H + 40,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  emptyDeckRect: {
+    width: DECK_W,
+    height: DECK_H,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+    backgroundColor: colors.bgSecondary,
+  },
+  emptyDeckLabel: { fontSize: typescale.size.sm, color: colors.subtle },
+
+  deckCaption: {
+    fontSize: typescale.size.xs,
+    color: colors.muted,
+    textAlign: "center",
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+
+  thumbStrip: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+
+  addRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  addBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+    ...shadows.xs,
+  },
+  addBtnDisabled: { opacity: 0.45 },
+  addBtnIcon: { fontSize: typescale.size.md, color: colors.textSub },
+  addBtnLabel: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.medium,
+    color: colors.textSub,
+  },
+
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
+  },
+  statusText: {
+    fontSize: typescale.size.xs,
+    color: colors.teal,
+    textAlign: "center",
+    fontWeight: typescale.weight.medium,
+  },
+  statusError: { color: colors.danger },
+  uploadBtn: {
+    height: 52,
+    borderRadius: radius.lg,
+    backgroundColor: colors.teal,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadows.card,
+  },
+  uploadBtnDisabled: { opacity: 0.4 },
+  uploadBtnText: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.bold,
+    color: "#fff",
+  },
+});
+
+
+// ─── Main component ────────────────────────────────────────────────────────────
 
 export function UploadFile({ onUploaded }: Props) {
-  const [busy, setBusy]       = useState(false);
-  const [status, setStatus]   = useState<string | null>(null);
-  const [isError, setIsError] = useState(false);
+  // PDF upload state
+  const [pdfBusy,   setPdfBusy]   = useState(false);
+  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
+  const [pdfError,  setPdfError]  = useState(false);
 
-  const pressAnim = useRef(new Animated.Value(1)).current;
+  // Scan session state
+  const [scanOpen,   setScanOpen]   = useState(false);
+  const [scanPages,  setScanPages]  = useState<ScanPage[]>([]);
+  const [scanBusy,   setScanBusy]   = useState(false);
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const [scanError,  setScanError]  = useState(false);
 
-  const onPressIn = () => {
-    if (busy) return;
-    Animated.spring(pressAnim, { toValue: 0.97, useNativeDriver: true, speed: 30 }).start();
-  };
-  const onPressOut = () => {
-    Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
-  };
+  // ── PDF upload ────────────────────────────────────────────────────────────────
+  // expo-document-picker opens a native file picker on iOS/Android and a
+  // browser file input on web — no platform split needed here.
 
-  const pickAndUpload = async () => {
+  async function handlePdf() {
     const picked = await DocumentPicker.getDocumentAsync({
       type: "application/pdf",
       multiple: true,
       copyToCacheDirectory: true,
     });
-
     if (picked.canceled) return;
 
     const assets = picked.assets ?? [];
     if (!assets.length) return;
 
-    setIsError(false);
+    setPdfBusy(true);
+    setPdfError(false);
+    setPdfStatus("Checking auth…");
 
     try {
-      setBusy(true);
-      setStatus("Checking auth…");
-
       const { data: { user }, error: userErr } = await supabase.auth.getUser();
       if (userErr) throw userErr;
-      if (!user) throw new Error("User not authenticated");
+      if (!user) throw new Error("Not signed in");
 
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         if (!asset?.uri) continue;
-
-        const cleanName = safeFilename(asset.name ?? `document_${i + 1}.pdf`);
-        const uniquePrefix = Date.now();
-        const storageObjectPath = `${user.id}/medical-documents/${uniquePrefix}_${cleanName}`;
-
-        setStatus(`Uploading ${i + 1} of ${assets.length}…`);
-
-        const response = await fetch(asset.uri);
-        const fileBlob = await response.blob();
-
-        const { error: uploadError } = await supabase.storage
-          .from("documents")
-          .upload(storageObjectPath, fileBlob, {
-            contentType: asset.mimeType ?? "application/pdf",
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-
-        setStatus(`Saving ${i + 1} of ${assets.length}…`);
-        await insertDocumentRow({
-          userId:    user.id,
-          title:     cleanName,
-          pdfPath:   storageObjectPath,
-          mimeType:  asset.mimeType ?? "application/pdf",
-          sizeBytes: typeof asset.size === "number" ? asset.size : null,
+        setPdfStatus(`Uploading ${i + 1} of ${assets.length}…`);
+        await uploadAndInsertDocument({
+          userId:     user.id,
+          uri:        asset.uri,
+          fileName:   asset.name ?? `document_${Date.now()}.pdf`,
+          mimeType:   asset.mimeType ?? "application/pdf",
+          sourceType: "pdf",
         });
       }
 
-      setStatus(`${assets.length} file${assets.length === 1 ? "" : "s"} ready to process.`);
+      setPdfStatus(`${assets.length} file${assets.length === 1 ? "" : "s"} ready to process.`);
       onUploaded?.();
     } catch (e: any) {
-      setStatus(e?.message ?? String(e));
-      setIsError(true);
+      setPdfStatus(e?.message ?? String(e));
+      setPdfError(true);
     } finally {
-      setBusy(false);
+      setPdfBusy(false);
     }
-  };
+  }
+
+  // ── Scan helpers ──────────────────────────────────────────────────────────────
+
+  async function takeCameraPhoto(): Promise<ScanPage | null> {
+    // On native, request the permission explicitly so we can show a clear
+    // message if it was denied before. On web, the browser manages its own
+    // camera permission dialog when the camera is launched — requesting ahead
+    // of time is a no-op and may throw in some browsers.
+    if (Platform.OS !== "web") {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Camera access needed",
+          "Allow camera access in your device settings to scan documents."
+        );
+        return null;
+      }
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: "images",
+        // 0.75 keeps the intermediate file small before the native resize step.
+        quality: 0.75,
+        exif: false,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return null;
+      const asset = result.assets[0];
+      return {
+        id: newId(),
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? "image/jpeg",
+        width:  asset.width  ?? 0,
+        height: asset.height ?? 0,
+      };
+    } catch (e: any) {
+      // On web, launchCameraAsync throws if the browser can't access a camera
+      // (e.g. no camera connected on desktop, or permission denied in browser).
+      if (Platform.OS === "web") {
+        Alert.alert(
+          "Camera unavailable",
+          "Your browser could not access a camera. Use \"From Library\" to select images instead."
+        );
+      }
+      return null;
+    }
+  }
+
+  async function pickLibraryPhotos(): Promise<ScanPage[]> {
+    // On native, show a clear denied message. On web, the browser file input
+    // doesn't require a separate permission prompt — skip the request.
+    if (Platform.OS !== "web") {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Photo library access needed",
+          "Allow photo library access in your device settings."
+        );
+        return [];
+      }
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsMultipleSelection: true,
+      // 0.75 keeps intermediate files small; prepareNativePage re-encodes
+      // large images anyway, so there is no meaningful quality benefit to
+      // a higher value here.
+      quality: 0.75,
+      exif: false,
+    });
+    if (result.canceled || !result.assets?.length) return [];
+    return result.assets
+      .filter((a) => !!a.uri)
+      .map((a) => ({
+        id: newId(),
+        uri: a.uri,
+        mimeType: a.mimeType ?? "image/jpeg",
+        width:  a.width  ?? 0,
+        height: a.height ?? 0,
+      }));
+  }
+
+  // On native: auto-launch camera so the first page is captured immediately,
+  //            then open the session modal.
+  // On web:    open the modal directly — the user can choose camera or library
+  //            inside the modal. Auto-launching the browser camera without a
+  //            user gesture inside the modal feels abrupt on desktop.
+  async function handleStartScan() {
+    if (Platform.OS === "web") {
+      setScanPages([]);
+      setScanStatus(null);
+      setScanError(false);
+      setScanOpen(true);
+      return;
+    }
+
+    const page = await takeCameraPhoto();
+    if (!page) return;
+    setScanPages([page]);
+    setScanStatus(null);
+    setScanError(false);
+    setScanOpen(true);
+  }
+
+  async function handleAddCamera() {
+    if (scanPages.length >= MAX_SCAN_PAGES) {
+      Alert.alert(
+        "Page limit reached",
+        `Scans are limited to ${MAX_SCAN_PAGES} pages. Upload this scan first, then start a new one.`
+      );
+      return;
+    }
+    const page = await takeCameraPhoto();
+    if (!page) return;
+    setScanPages((prev) => [...prev, page]);
+  }
+
+  async function handleAddLibrary() {
+    if (scanPages.length >= MAX_SCAN_PAGES) {
+      Alert.alert(
+        "Page limit reached",
+        `Scans are limited to ${MAX_SCAN_PAGES} pages. Upload this scan first, then start a new one.`
+      );
+      return;
+    }
+    const newPages = await pickLibraryPhotos();
+    if (!newPages.length) return;
+    const remaining = MAX_SCAN_PAGES - scanPages.length;
+    const toAdd = newPages.slice(0, remaining);
+    if (newPages.length > remaining) {
+      // Revoke the blob URLs of pages we are not going to use before
+      // discarding them — otherwise they leak in the browser's blob store.
+      revokeScanPageUrls(newPages.slice(remaining));
+      Alert.alert(
+        "Page limit reached",
+        `Added ${toAdd.length} of ${newPages.length} photos. Maximum is ${MAX_SCAN_PAGES} pages per scan.`
+      );
+    }
+    setScanPages((prev) => [...prev, ...toAdd]);
+  }
+
+  function handleRemovePage(id: string) {
+    const removed = scanPages.find((p) => p.id === id);
+    const next = scanPages.filter((p) => p.id !== id);
+    setScanPages(next);
+    if (next.length === 0) setScanOpen(false);
+    // Revoke the removed page's blob URL now that it is no longer displayed.
+    if (removed) revokeScanPageUrls([removed]);
+  }
+
+  function handleMovePage(id: string, dir: "left" | "right") {
+    setScanPages((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx === -1) return prev;
+      if (dir === "left"  && idx === 0)               return prev;
+      if (dir === "right" && idx === prev.length - 1)  return prev;
+      const next = [...prev];
+      const swap = dir === "left" ? idx - 1 : idx + 1;
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      return next;
+    });
+  }
+
+  async function handleUploadScan() {
+    if (!scanPages.length) return;
+
+    setScanBusy(true);
+    setScanError(false);
+    setScanStatus("Reading pages…");
+
+    // Holds the expo-print temp file URI (native only). Cleaned up in finally.
+    let pdfUri: string | null = null;
+
+    try {
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+      if (!user) throw new Error("Not signed in");
+
+      const pageCount = scanPages.length;
+      const fileName  = `scan_${Date.now()}.pdf`;
+      const title     = `Scanned Document (${pageCount} page${pageCount === 1 ? "" : "s"})`;
+
+      if (Platform.OS === "web") {
+        // ── Web path ──────────────────────────────────────────────────────────
+        // pdf-lib (via scanPdf.web.ts) compiles the images into PDF bytes
+        // entirely in-memory. No temp file is written; bytes are uploaded
+        // directly to Supabase Storage.
+        setScanStatus("Compiling PDF…");
+        const pdfBytes = await compileScanPagesForWeb(scanPages);
+
+        setScanStatus("Uploading…");
+        await uploadBytesAndInsertDocument({
+          userId:     user.id,
+          bytes:      pdfBytes,
+          fileName,
+          mimeType:   "application/pdf",
+          sourceType: "scanned_pdf",
+          title,
+        });
+      } else {
+        // ── Native path (iOS + Android) ───────────────────────────────────────
+        // Each page is resized (if > MAX_SCAN_WIDTH) and JPEG-encoded via the
+        // native image manipulator before base64 encoding. Pages are processed
+        // sequentially to keep peak memory low. The resulting base64 strings
+        // and their effective MIME types are passed to expo-print as a single
+        // HTML document which renders to a PDF file.
+        setScanStatus("Preparing pages…");
+        const preparedPages: Array<{ b64: string; mimeType: string }> = [];
+        for (const page of scanPages) {
+          const prepared = await prepareNativePage(page);
+          preparedPages.push(prepared);
+        }
+
+        setScanStatus("Compiling PDF…");
+        const pageHtml = preparedPages
+          .map(
+            ({ b64, mimeType }) =>
+              `<div class="page"><img src="data:${mimeType};base64,${b64}" /></div>`
+          )
+          .join("\n");
+
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: white; }
+  .page {
+    width: 100%;
+    min-height: 100vh;
+    page-break-after: always;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    overflow: hidden;
+  }
+  .page:last-child { page-break-after: avoid; }
+  img { max-width: 100%; max-height: 100vh; object-fit: contain; display: block; }
+</style></head>
+<body>${pageHtml}</body></html>`;
+
+        const result = await Print.printToFileAsync({ html });
+        pdfUri = result.uri;
+
+        setScanStatus("Uploading…");
+        await uploadAndInsertDocument({
+          userId:     user.id,
+          uri:        pdfUri,
+          fileName,
+          mimeType:   "application/pdf",
+          sourceType: "scanned_pdf",
+          title,
+        });
+      }
+
+      // ── Success ──────────────────────────────────────────────────────────────
+      // Revoke blob URLs before clearing state. Images are cached by the
+      // browser so they continue to display during any close animation, but
+      // the underlying memory is freed immediately.
+      revokeScanPageUrls(scanPages);
+      setScanOpen(false);
+      setScanPages([]);
+      setScanStatus(null);
+      onUploaded?.();
+    } catch (e: any) {
+      setScanStatus(e?.message ?? String(e));
+      setScanError(true);
+    } finally {
+      setScanBusy(false);
+      // Delete the expo-print temp file if one was created (native only).
+      // On web there is no temp file — pdfUri stays null.
+      if (pdfUri) {
+        FileSystem.deleteAsync(pdfUri, { idempotent: true }).catch(() => {});
+      }
+    }
+  }
+
+  function handleScanClose() {
+    if (scanBusy) return;
+    // Revoke all blob URLs before clearing state — the user is abandoning
+    // this scan session and the images will no longer be displayed.
+    revokeScanPageUrls(scanPages);
+    setScanOpen(false);
+    setScanPages([]);
+    setScanStatus(null);
+    setScanError(false);
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  // Scan hint varies by platform so the copy matches what the user will see.
+  const scanHint = Platform.OS === "web"
+    ? "Select images — compiled into one PDF for upload"
+    : "Take photos of each page — compiled into one PDF";
 
   return (
-    <Animated.View style={{ transform: [{ scale: pressAnim }] }}>
-      <Pressable
-        onPress={pickAndUpload}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        disabled={busy}
-        style={[styles.zone, busy && styles.zoneBusy]}
-      >
-        {/* Upload icon */}
-        <View style={[styles.iconCircle, busy && styles.iconCircleBusy]}>
-          <AppText style={styles.iconText}>{busy ? "…" : "↑"}</AppText>
-        </View>
+    <>
+      <View style={cardStyles.card}>
+        <ActionRow
+          iconText="↑"
+          title={pdfBusy ? "Uploading…" : "Upload PDF"}
+          hint="Select one or more PDF files from your device"
+          onPress={handlePdf}
+          disabled={pdfBusy}
+        />
 
-        {/* Text */}
-        <View style={styles.textBlock}>
-          <AppText style={styles.zoneTitle}>
-            {busy ? "Uploading…" : "Upload PDF files"}
-          </AppText>
+        {pdfStatus ? (
+          <View style={cardStyles.pdfStatus}>
+            <AppText style={[cardStyles.statusText, pdfError && cardStyles.statusError]}>
+              {pdfStatus}
+            </AppText>
+          </View>
+        ) : null}
 
-          {status ? (
-            <AppText style={[styles.statusText, isError && styles.statusError]}>
-              {status}
-            </AppText>
-          ) : (
-            <AppText style={styles.hint}>
-              Tap to select one or more PDF files
-            </AppText>
-          )}
-        </View>
-      </Pressable>
-    </Animated.View>
+        <View style={cardStyles.divider} />
+
+        <ActionRow
+          iconText="◎"
+          title="Scan Document"
+          hint={scanHint}
+          onPress={handleStartScan}
+          disabled={pdfBusy || scanBusy}
+        />
+      </View>
+
+      {scanOpen && (
+        <ScanModal
+          pages={scanPages}
+          busy={scanBusy}
+          status={scanStatus}
+          isError={scanError}
+          onAddCamera={handleAddCamera}
+          onAddLibrary={handleAddLibrary}
+          onRemovePage={handleRemovePage}
+          onMovePage={handleMovePage}
+          onUpload={handleUploadScan}
+          onClose={handleScanClose}
+        />
+      )}
+    </>
   );
 }
 
-const styles = StyleSheet.create({
-  zone: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
+
+// ─── Action row ───────────────────────────────────────────────────────────────
+
+function ActionRow({
+  iconText,
+  title,
+  hint,
+  onPress,
+  disabled,
+}: {
+  iconText: string;
+  title: string;
+  hint: string;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        cardStyles.row,
+        pressed && !disabled && cardStyles.rowPressed,
+        disabled && cardStyles.rowDisabled,
+      ]}
+    >
+      <View style={cardStyles.iconCircle}>
+        <AppText style={cardStyles.iconText}>{iconText}</AppText>
+      </View>
+      <View style={cardStyles.textBlock}>
+        <AppText style={cardStyles.rowTitle}>{title}</AppText>
+        <AppText style={cardStyles.rowHint}>{hint}</AppText>
+      </View>
+    </Pressable>
+  );
+}
+
+const cardStyles = StyleSheet.create({
+  card: {
     borderWidth: 1.5,
     borderStyle: "dashed",
     borderColor: colors.tealBorder,
     borderRadius: radius.lg,
     backgroundColor: colors.tealSoft,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     ...shadows.xs,
   },
-  zoneBusy: {
-    opacity: 0.65,
+  divider: {
+    height: 1,
+    backgroundColor: colors.tealBorder,
+    opacity: 0.5,
+    marginHorizontal: spacing.xs,
   },
-
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  rowPressed:  { opacity: 0.7 },
+  rowDisabled: { opacity: 0.5 },
   iconCircle: {
-    width: 44,
-    height: 44,
+    width: 38,
+    height: 38,
     borderRadius: radius.pill,
     backgroundColor: colors.teal,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
-  iconCircleBusy: {
-    backgroundColor: colors.tealMid,
-  },
   iconText: {
     color: "#fff",
-    fontSize: typescale.size.xl,
+    fontSize: typescale.size.lg,
     fontWeight: typescale.weight.black,
-    lineHeight: typescale.size.xl * 1.2,
+    lineHeight: typescale.size.lg * 1.2,
   },
-
-  textBlock: {
-    flex: 1,
-    gap: 3,
-  },
-  zoneTitle: {
-    fontSize: typescale.size.base,
+  textBlock: { flex: 1, gap: 2 },
+  rowTitle: {
+    fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
     color: colors.teal,
   },
-  hint: {
+  rowHint: {
     fontSize: typescale.size.xs,
     color: colors.teal,
     opacity: 0.75,
+  },
+  pdfStatus: {
+    paddingBottom: spacing.xs,
+    paddingLeft: 38 + spacing.md,
   },
   statusText: {
     fontSize: typescale.size.xs,
     color: colors.teal,
     fontWeight: typescale.weight.medium,
   },
-  statusError: {
-    color: colors.danger,
-  },
+  statusError: { color: colors.danger },
 });

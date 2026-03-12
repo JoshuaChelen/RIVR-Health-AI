@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { requestCancelJob } from "./aiJobs";
+import { uploadUriToStorage, uploadBytesToStorage } from "./storageUpload";
 
 const STORAGE_BUCKET = "documents";
 
@@ -174,9 +175,10 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
 export async function insertDocumentRow(params: {
   userId: string;
   title: string;
-  storagePath: string;      // can be PDF or audio, we store it in pdf_path for now
+  storagePath: string;      // can be PDF, audio, or image — stored in pdf_path
   mimeType?: string | null;
   sizeBytes?: number | null;
+  sourceType?: string | null;
 }) {
   const { data, error } = await supabase
     .from("documents")
@@ -185,12 +187,13 @@ export async function insertDocumentRow(params: {
         user_id: params.userId,
         title: params.title,
 
-        // NOTE: we reuse pdf_path to store the original file path (PDF or audio)
+        // NOTE: we reuse pdf_path to store the original file path (PDF, audio, or image)
         pdf_path: params.storagePath,
 
         status: "uploaded",
         mime_type: params.mimeType ?? "application/octet-stream",
         size_bytes: typeof params.sizeBytes === "number" ? params.sizeBytes : null,
+        source_type: params.sourceType ?? undefined,
 
         processing_error: null,
         processed_at: null,
@@ -201,4 +204,71 @@ export async function insertDocumentRow(params: {
 
   if (error) throw error;
   return data as { id: string };
+}
+
+/**
+ * Shared upload pipeline: upload a file URI to storage then insert a documents row.
+ * Used by UploadFile for PDF, gallery photo, and camera scan flows.
+ */
+export async function uploadAndInsertDocument(params: {
+  userId: string;
+  uri: string;
+  fileName: string;
+  mimeType: string;
+  sourceType: string;
+  title?: string;
+}): Promise<{ id: string }> {
+  const cleanName = safeFilename(params.fileName);
+  const folder = params.sourceType.startsWith("image") ? "medical-images" : "medical-documents";
+  const storagePath = `${params.userId}/${folder}/${Date.now()}_${cleanName}`;
+
+  const { sizeBytes } = await uploadUriToStorage({
+    bucket: "documents",
+    storagePath,
+    uri: params.uri,
+    contentType: params.mimeType,
+    upsert: false,
+  });
+
+  return insertDocumentRow({
+    userId: params.userId,
+    title: params.title ?? cleanName,
+    storagePath,
+    mimeType: params.mimeType,
+    sizeBytes,
+    sourceType: params.sourceType,
+  });
+}
+
+/**
+ * Upload pre-compiled bytes (e.g. a Uint8Array from pdf-lib on web) to storage
+ * then insert a documents row. No URI or temp file required.
+ */
+export async function uploadBytesAndInsertDocument(params: {
+  userId: string;
+  bytes: Uint8Array;
+  fileName: string;
+  mimeType: string;
+  sourceType: string;
+  title?: string;
+}): Promise<{ id: string }> {
+  const cleanName = safeFilename(params.fileName);
+  const storagePath = `${params.userId}/medical-documents/${Date.now()}_${cleanName}`;
+
+  const { sizeBytes } = await uploadBytesToStorage({
+    bucket: "documents",
+    storagePath,
+    bytes: params.bytes,
+    contentType: params.mimeType,
+    upsert: false,
+  });
+
+  return insertDocumentRow({
+    userId: params.userId,
+    title: params.title ?? cleanName,
+    storagePath,
+    mimeType: params.mimeType,
+    sizeBytes,
+    sourceType: params.sourceType,
+  });
 }
