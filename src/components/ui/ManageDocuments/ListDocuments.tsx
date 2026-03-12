@@ -189,6 +189,20 @@ function FileTypeIcon({ path, sourceType }: { path: string | null; sourceType?: 
       </View>
     );
   }
+  if (sourceType === "scanned_pdf") {
+    return (
+      <View style={[fileIconStyles.wrap, fileIconStyles.scanWrap]}>
+        <AppText style={[fileIconStyles.label, fileIconStyles.scanLabel]}>SCAN</AppText>
+      </View>
+    );
+  }
+  if (sourceType === "image_gallery" || sourceType === "image_camera") {
+    return (
+      <View style={[fileIconStyles.wrap, fileIconStyles.imageWrap]}>
+        <AppText style={[fileIconStyles.label, fileIconStyles.imageLabel]}>IMG</AppText>
+      </View>
+    );
+  }
   const isAudio = path?.includes("voice-note") || path?.includes("voice_note") || path?.endsWith(".m4a");
   return (
     <View style={[fileIconStyles.wrap, isAudio ? fileIconStyles.audioWrap : fileIconStyles.pdfWrap]}>
@@ -210,6 +224,8 @@ const fileIconStyles = StyleSheet.create({
   pdfWrap:     { backgroundColor: "#FEE2E2" },
   audioWrap:   { backgroundColor: colors.tealSoft },
   profileWrap: { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.tealBorder },
+  imageWrap:   { backgroundColor: colors.blueSoft },
+  scanWrap:    { backgroundColor: colors.teal },
   label: {
     fontSize: 10,
     fontWeight: typescale.weight.black,
@@ -218,6 +234,8 @@ const fileIconStyles = StyleSheet.create({
   pdfLabel:     { color: "#B91C1C" },
   audioLabel:   { color: colors.teal },
   profileLabel: { color: colors.teal },
+  imageLabel:   { color: colors.blue },
+  scanLabel:    { color: "#fff" },
 });
 
 // ─── Section header ────────────────────────────────────────────────────────────
@@ -424,7 +442,13 @@ function DocCard({
       doc.pdf_path?.includes("voice_note") ||
       doc.pdf_path?.endsWith(".m4a"));
 
-  const fileType = isManual ? "Manual input" : isAudio ? "Voice note" : "PDF";
+  const fileType =
+    isManual ? "Manual input" :
+    isAudio ? "Voice note" :
+    doc.source_type === "scanned_pdf" ? "Scan" :
+    doc.source_type === "image_gallery" ? "Legacy photo" :
+    doc.source_type === "image_camera" ? "Legacy scan" :
+    "PDF";
 
   return (
     <Animated.View
