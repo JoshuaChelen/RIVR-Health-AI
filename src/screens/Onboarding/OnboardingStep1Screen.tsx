@@ -27,6 +27,7 @@ import { OnboardingProgressBar } from "../../components/ui/Onboarding/Onboarding
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 
 import { colors, radius, spacing, typescale } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep1">;
 
@@ -64,8 +65,8 @@ export function OnboardingStep1Screen({ navigation }: Props) {
             setDob(formatted);
             prevDobRef.current = formatted;
             // Also seed the picker
-            const [, m, d] = profile.date_of_birth.split("-").map(Number);
-            setPickerDate(new Date(parseInt(profile.date_of_birth), m - 1, d));
+            const [y, m, d] = profile.date_of_birth.split("-").map(Number);
+            setPickerDate(new Date(y, m - 1, d));
           }
           setSex(profile.sex_or_gender ?? null);
         }
@@ -148,7 +149,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -217,7 +218,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
                         style={({ pressed }) => [styles.calIcon, pressed && { opacity: 0.6 }]}
                         hitSlop={8}
                       >
-                        <AppText style={styles.calIconText}>📅</AppText>
+                        <Ionicons name="calendar-outline" size={18} color={colors.text} />
                       </Pressable>
                     }
                   />
@@ -387,7 +388,7 @@ function DatePickerModal({
             </Pressable>
             <AppText style={dp.fallbackValue}>{MONTHS[month].slice(0, 3)}</AppText>
             <Pressable onPress={() => adjust("m", -1)} style={dp.arrowBtn}>
-              <AppText style={dp.arrow}>▼</AppText>
+              <Ionicons name="chevron-down" size={18} color={colors.teal} />
             </Pressable>
           </View>
           {/* Day */}
@@ -397,7 +398,7 @@ function DatePickerModal({
             </Pressable>
             <AppText style={dp.fallbackValue}>{String(day).padStart(2, "0")}</AppText>
             <Pressable onPress={() => adjust("d", -1)} style={dp.arrowBtn}>
-              <AppText style={dp.arrow}>▼</AppText>
+              <Ionicons name="chevron-down" size={18} color={colors.teal} />
             </Pressable>
           </View>
           {/* Year */}
@@ -407,7 +408,7 @@ function DatePickerModal({
             </Pressable>
             <AppText style={dp.fallbackValue}>{year}</AppText>
             <Pressable onPress={() => adjust("y", -1)} style={dp.arrowBtn}>
-              <AppText style={dp.arrow}>▼</AppText>
+              <Ionicons name="chevron-down" size={18} color={colors.teal} />
             </Pressable>
           </View>
         </View>
@@ -534,7 +535,7 @@ const styles = StyleSheet.create({
   row:       { flexDirection: "row", gap: spacing.sm },
   pillGroup: { gap: spacing.xs },
   calIcon:   { paddingLeft: 4 },
-  calIconText: { fontSize: 18, lineHeight: 24 },
+  calIconText: { display: "none" },
   hint: {
     marginTop: 5,
     color: colors.subtle,

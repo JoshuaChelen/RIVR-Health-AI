@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "../Primitives/AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, shadows, typescale } from "../../../theme/tokens";
 
 type ActionCardProps = {
@@ -30,7 +31,7 @@ export function ActionCard({
     <View style={[styles.card, containerStyle]}>
       <View style={styles.headerRow}>
         <View style={[styles.iconPill, { backgroundColor: accentColor + "1A" }]}>
-          {icon ?? <AppText style={styles.iconFallback}>★</AppText>}
+          {icon ?? <Ionicons name="sparkles-outline" size={16} color={accentColor} />}
         </View>
 
         {!!badgeText && (
@@ -83,7 +84,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconFallback: { fontSize: 16 },
   badge: {
     backgroundColor: colors.warnSoft,
     borderRadius: radius.pill,

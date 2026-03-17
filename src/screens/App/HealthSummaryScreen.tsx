@@ -1,26 +1,21 @@
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
   View,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-
+import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
+import { getProfile} from "../../lib/profile";
+import { getCurrentUserId } from "../../lib/auth";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
-
-import { supabase } from "../../lib/supabase";
-import {
-  getHealthProfile,
-  getLatestEvaluation,
-} from "../../lib/aiJobs";
-import { getProfile } from "../../lib/profile";
-
-import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 function safeJoin(arr: any[]) {
   return Array.isArray(arr) && arr.length ? arr.join(", ") : "";
@@ -37,38 +32,32 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   
 
   const load = useCallback(async () => {
-    setError(null);
-    const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userRes?.user) {
-      setError("Not signed in.");
-      setLoading(false);
-      return;
-    }
-    try {
-      const [p, ev, up] = await Promise.all([
-        getHealthProfile(userRes.user.id),
-        getLatestEvaluation(userRes.user.id),
-        getProfile(userRes.user.id),
-      ]);
-      setProfile(p);
-      setEval(ev?.result ?? null);
-      setUserProfile(up);
-      // Stop polling once the health profile has been updated after the refresh
-      // was queued (i.e., the new evaluation has landed).
-    } catch (e: any) {
-      setError(String(e?.message || e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  setError(null);
+  setLoading(true);
+
+  try {
+    const userId = await getCurrentUserId();
+
+    const [p, ev, up] = await Promise.all([
+      getHealthProfile(userId),
+      getLatestEvaluation(userId),
+      getProfile(userId),
+    ]);
+
+    setProfile(p);
+    setEval(ev?.result ?? null);
+    setUserProfile(up);
+  } catch (e: any) {
+    setError(e?.message ?? "Failed to load health summary.");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useFocusEffect(useCallback(() => {
     load();
     }, [load]));
 
-  const score       = profile?.score ?? evaluation?.score_0_to_100;
-  const label       = profile?.score_label ?? evaluation?.score_label;
-  const overview    = profile?.summary_json?.overview ?? evaluation?.overview ?? null;
   const disclaimer  = profile?.summary_json?.disclaimer ?? evaluation?.disclaimer ?? null;
   const fullSummary = profile?.summary_json?.full_summary_markdown ?? evaluation?.full_summary_markdown ?? null;
   const card        = profile?.card_json ?? evaluation?.three_by_five_card ?? null;
@@ -106,7 +95,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Error banner ─────────────────────────────────── */}
@@ -143,7 +132,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
         {!loading && !hasContent ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIcon}>
-              <AppText style={styles.emptyIconText}>🧠</AppText>
+              <Ionicons name="pulse-outline" size={22} color={colors.teal} />
             </View>
             <AppText style={styles.emptyTitle}>No summary yet</AppText>
             <AppText style={styles.emptyBody}>
@@ -339,10 +328,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.xs,
-  },
-  emptyIconText: {
-    fontSize: 26,
-    lineHeight: 32,
   },
   emptyTitle: {
     fontSize: typescale.size.lg,

@@ -9,12 +9,13 @@ import {
   StyleProp,
 } from "react-native";
 import { AppText } from "../Primitives/AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, shadows, spacing, typescale } from "../../../theme/tokens";
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
 type CategoryMeta = {
-  iconSymbol: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   iconColor: string;
   iconBg: string;
   pillBg: string;
@@ -23,19 +24,19 @@ type CategoryMeta = {
 };
 
 const DEFAULT_META: CategoryMeta = {
-  iconSymbol: "•",
+  iconName: "ellipse-outline",
   iconColor: colors.orange,
-  iconBg:    colors.orangeSoft,
-  pillBg:    colors.orangeSoft,
-  pillText:  colors.orange,
-  dot:       colors.orange,
+  iconBg: colors.orangeSoft,
+  pillBg: colors.orangeSoft,
+  pillText: colors.orange,
+  dot: colors.orange,
 };
 
 const CATEGORY_MAP: Array<{ test: (c: string) => boolean; meta: CategoryMeta }> = [
   {
     test: (c) => c.includes("med"),
     meta: {
-      iconSymbol: "Rx",
+      iconName: "medkit-outline",
       iconColor:  "#075985",
       iconBg:     colors.blueSoft,
       pillBg:     colors.blueSoft,
@@ -46,7 +47,7 @@ const CATEGORY_MAP: Array<{ test: (c: string) => boolean; meta: CategoryMeta }> 
   {
     test: (c) => c.includes("vital") || c.includes("lab"),
     meta: {
-      iconSymbol: "∿",
+      iconName:   "pulse-outline",
       iconColor:  colors.green,
       iconBg:     colors.greenSoft,
       pillBg:     colors.greenSoft,
@@ -57,7 +58,7 @@ const CATEGORY_MAP: Array<{ test: (c: string) => boolean; meta: CategoryMeta }> 
   {
     test: (c) => c.includes("life") || c.includes("habit"),
     meta: {
-      iconSymbol: "♥",
+      iconName: "heart-outline",
       iconColor:  "#9D174D",
       iconBg:     "#FCE7F3",
       pillBg:     "#FCE7F3",
@@ -68,7 +69,7 @@ const CATEGORY_MAP: Array<{ test: (c: string) => boolean; meta: CategoryMeta }> 
   {
     test: (c) => c.includes("visit") || c.includes("appoint"),
     meta: {
-      iconSymbol: "🩺",
+      iconName: "calendar-outline",
       iconColor:  colors.teal,
       iconBg:     colors.tealSoft,
       pillBg:     colors.tealSoft,
@@ -133,9 +134,7 @@ export function TimelineCard({
         {/* ── Top row: icon + title + date ── */}
         <View style={styles.topRow}>
           <View style={[styles.iconWrap, { backgroundColor: meta.iconBg }]}>
-            <AppText style={[styles.iconText, { color: meta.iconColor }]}>
-              {meta.iconSymbol}
-            </AppText>
+            <Ionicons name={meta.iconName} size={18} color={meta.iconColor} />
           </View>
 
           <View style={styles.titleBlock}>
@@ -216,11 +215,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  iconText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.black,
-    lineHeight: typescale.size.sm * 1.4,
   },
   titleBlock: {
     flex: 1,

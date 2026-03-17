@@ -27,6 +27,7 @@ import {
 } from "../../../lib/documents";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
 import { AppText } from "../Primitives/AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
 
 
@@ -228,7 +229,7 @@ function PageThumb({
           style={({ pressed }) => [thumbStyles.removeBtn, pressed && { opacity: 0.7 }]}
           hitSlop={8}
         >
-          <AppText style={thumbStyles.removeBtnText}>×</AppText>
+          <Ionicons name="close" size={14} color="#fff" />
         </Pressable>
 
         <View style={thumbStyles.badge}>
@@ -247,7 +248,7 @@ function PageThumb({
           ]}
           hitSlop={6}
         >
-          <AppText style={thumbStyles.arrowText}>←</AppText>
+          <Ionicons name="chevron-back" size={14} color={colors.textSub} />
         </Pressable>
 
         <Pressable
@@ -260,7 +261,7 @@ function PageThumb({
           ]}
           hitSlop={6}
         >
-          <AppText style={thumbStyles.arrowText}>→</AppText>
+          <Ionicons name="chevron-forward" size={14} color={colors.textSub} />
         </Pressable>
       </View>
     </View>
@@ -294,7 +295,7 @@ const thumbStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  removeBtnText: { color: "#fff", fontSize: 13, fontWeight: "700", lineHeight: 15 },
+  
   badge: {
     position: "absolute",
     bottom: 3,
@@ -317,11 +318,6 @@ const thumbStyles = StyleSheet.create({
     justifyContent: "center",
   },
   arrowBtnOff: { opacity: 0.25 },
-  arrowText: {
-    fontSize: typescale.size.xs,
-    color: colors.textSub,
-    lineHeight: typescale.size.sm,
-  },
 });
 
 
@@ -377,7 +373,7 @@ function ScanModal({
             style={({ pressed }) => [modalStyles.closeBtn, pressed && { opacity: 0.6 }]}
             hitSlop={10}
           >
-            <AppText style={modalStyles.closeBtnText}>×</AppText>
+            <Ionicons name="close" size={18} color={colors.muted} />
           </Pressable>
         </View>
 
@@ -435,7 +431,7 @@ function ScanModal({
                 busy && modalStyles.addBtnDisabled,
               ]}
             >
-              <AppText style={modalStyles.addBtnIcon}>◎</AppText>
+              <Ionicons name="camera-outline" size={18} color={colors.textSub} />
               <AppText style={modalStyles.addBtnLabel}>{cameraLabel}</AppText>
             </Pressable>
 
@@ -448,7 +444,7 @@ function ScanModal({
                 busy && modalStyles.addBtnDisabled,
               ]}
             >
-              <AppText style={modalStyles.addBtnIcon}>⊞</AppText>
+              <Ionicons name="images-outline" size={18} color={colors.textSub} />
               <AppText style={modalStyles.addBtnLabel}>From Library</AppText>
             </Pressable>
           </View>
@@ -531,8 +527,7 @@ const modalStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  closeBtnText: { fontSize: 20, color: colors.muted, fontWeight: "600", lineHeight: 22 },
-
+  
   body: { paddingBottom: spacing.lg },
 
   emptyDeck: {
@@ -583,7 +578,7 @@ const modalStyles = StyleSheet.create({
     ...shadows.xs,
   },
   addBtnDisabled: { opacity: 0.45 },
-  addBtnIcon: { fontSize: typescale.size.md, color: colors.textSub },
+  
   addBtnLabel: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.medium,
@@ -984,7 +979,7 @@ export function UploadFile({ onUploaded }: Props) {
     <>
       <View style={cardStyles.card}>
         <ActionRow
-          iconText="↑"
+          icon={<Ionicons name="document-text-outline" size={18} color="#fff" />}
           title={pdfBusy ? "Uploading…" : "Upload PDF"}
           hint="Select one or more PDF files from your device"
           onPress={handlePdf}
@@ -1002,7 +997,7 @@ export function UploadFile({ onUploaded }: Props) {
         <View style={cardStyles.divider} />
 
         <ActionRow
-          iconText="◎"
+          icon={<Ionicons name="camera-outline" size={18} color="#fff" />}
           title="Scan Document"
           hint={scanHint}
           onPress={handleStartScan}
@@ -1032,13 +1027,13 @@ export function UploadFile({ onUploaded }: Props) {
 // ─── Action row ───────────────────────────────────────────────────────────────
 
 function ActionRow({
-  iconText,
+  icon,
   title,
   hint,
   onPress,
   disabled,
 }: {
-  iconText: string;
+  icon: React.ReactNode;
   title: string;
   hint: string;
   onPress: () => void;
@@ -1055,7 +1050,7 @@ function ActionRow({
       ]}
     >
       <View style={cardStyles.iconCircle}>
-        <AppText style={cardStyles.iconText}>{iconText}</AppText>
+        {icon}
       </View>
       <View style={cardStyles.textBlock}>
         <AppText style={cardStyles.rowTitle}>{title}</AppText>
@@ -1098,12 +1093,6 @@ const cardStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  iconText: {
-    color: "#fff",
-    fontSize: typescale.size.lg,
-    fontWeight: typescale.weight.black,
-    lineHeight: typescale.size.lg * 1.2,
   },
   textBlock: { flex: 1, gap: 2 },
   rowTitle: {

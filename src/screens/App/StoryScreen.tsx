@@ -12,15 +12,15 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-
-import { getProfile, upsertProfile, type UserProfile, type StoryAnswers } from "../../lib/profile";
+import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
+import { getProfile, upsertProfile, type UserProfile, type StoryAnswers } from "../../lib/profile";
 import { getCurrentUserId } from "../../lib/auth";
-
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 
 import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Story">;
 
@@ -330,32 +330,74 @@ export function StoryScreen(_: Props) {
     setDraft("");
   }
 
-  async function saveAnswer() {
-    setSaveError(null);
-    setSaving(true);
-    try {
-      const userId = await getCurrentUserId();
+async function saveAnswer() {
+  if (!editingQ) return;
 
-      // Merge the single answer into the existing answers object
-      const current = { ...(profile?.story_answers ?? {}) } as StoryAnswers;
-      const trimmed = draft.trim();
-      if (trimmed) {
-        current[editingQ!] = trimmed;
-      } else {
-        delete current[editingQ!];
-      }
+  setSaveError(null);
+  setSaving(true);
 
-      const updated = await upsertProfile(userId, { story_answers: current });
-      setProfile(updated);
-      setEditingQ(null);
-      setDraft("");
-      // Fire-and-forget: story answers are rich context for health evaluation.
-    } catch (e: any) {
-      setSaveError(e?.message ?? "Save failed. Please try again.");
-    } finally {
-      setSaving(false);
+  try {
+    const userId = await getCurrentUserId();
+
+    const current = { ...(profile?.story_answers ?? {}) } as StoryAnswers;
+    const trimmed = draft.trim();
+
+    if (trimmed) {
+      current[editingQ] = trimmed;
+    } else {
+      delete current[editingQ];
     }
+
+    const updated = await upsertProfile(userId, { story_answers: current });
+    setProfile(updated);
+    setEditingQ(null);
+    setDraft("");
+
+    // show banner immediately
+    setRefreshingHealth(true);
+
+    void (async () => {
+      try {
+        const beforeProfile = profile?.updated_at ?? null;
+
+        await triggerProfileEvalAfterSave();
+
+        const startedAt = Date.now();
+        const timeoutMs = 60_000;
+        const intervalMs = 3000;
+
+        while (Date.now() - startedAt < timeoutMs) {
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+
+          const [nextProfile, nextEval] = await Promise.all([
+            getHealthProfile(userId),
+            getLatestEvaluation(userId),
+          ]);
+
+          const nextProfileUpdated = nextProfile?.updated_at ?? null;
+          const hasFreshProfile =
+            nextProfileUpdated &&
+            (!beforeProfile || new Date(nextProfileUpdated).getTime() > new Date(beforeProfile).getTime());
+
+          const hasEval =
+            !!nextEval?.result;
+
+          if (hasFreshProfile || hasEval) {
+            break;
+          }
+        }
+      } catch {
+        // optional: keep silent so story save still succeeds
+      } finally {
+        setRefreshingHealth(false);
+      }
+    })();
+  } catch (e: any) {
+    setSaveError(e?.message ?? "Save failed. Please try again.");
+  } finally {
+    setSaving(false);
   }
+}
 
   // ── Derived state ─────────────────────────────────────────────────────────
   const answers = profile?.story_answers ?? {};
@@ -366,7 +408,7 @@ export function StoryScreen(_: Props) {
 
   if (loading) {
     return (
-      <Screen>
+      <Screen edges={["left", "right", "bottom"]}>
         <View style={styles.center}>
           <ActivityIndicator color={colors.teal} size="large" />
         </View>
@@ -375,7 +417,7 @@ export function StoryScreen(_: Props) {
   }
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -422,9 +464,10 @@ export function StoryScreen(_: Props) {
           {/* ── Completion badge ──────────────────────────── */}
           {allAnswered && (
             <View style={styles.completionBadge}>
-              <AppText style={styles.completionText}>
-                ✓  You've answered every question
-              </AppText>
+              <Ionicons name="checkmark-circle-outline" size={16} color={colors.teal} />
+                <AppText style={styles.completionText}>
+                  You've answered every question
+                </AppText>
             </View>
           )}
 
@@ -531,6 +574,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
   },
   completionText: {
     fontSize: typescale.size.sm,

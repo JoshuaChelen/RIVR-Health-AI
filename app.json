@@ -14,19 +14,13 @@
     },
     "plugins": [
       [
-        "react-native-health",
-        {
-          "healthSharePermission": "Allow Shin to read your health data",
-          "healthUpdatePermission": "Allow Shin to write health data"
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "Allow RIVR to access your photos to upload health documents.",
           "cameraPermission": "Allow RIVR to use your camera to scan health documents."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,

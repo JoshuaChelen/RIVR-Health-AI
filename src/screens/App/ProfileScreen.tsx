@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Keyboard,
   Modal,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
@@ -29,6 +29,7 @@ import { SectionCard } from "../../components/ui/Profile/SectionCard";
 import { safeList } from "../../lib/profileMedical";
 
 import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Profile">;
 type EditSection = "basic" | "personal" | "contact" | "emergency";
@@ -44,20 +45,7 @@ const ALL_FIELDS: (keyof UserProfile)[] = [
   "number_of_children", "emergency_contact_name",
   "emergency_contact_phone", "emergency_contact_relationship",
 ];
-const FIELD_LABELS: Record<string, string> = {
-  first_name: "First name",
-  last_name: "Last name",
-  date_of_birth: "Date of birth",
-  sex_or_gender: "Sex or gender",
-  occupation: "Occupation",
-  marital_status: "Marital status",
-  email: "Email",
-  mobile_phone: "Mobile phone",
-  number_of_children: "No. of children",
-  emergency_contact_name: "Emergency name",
-  emergency_contact_phone: "Emergency phone",
-  emergency_contact_relationship: "Emergency relationship",
-};
+
 
 function isFilled(val: any): boolean {
   if (val === null || val === undefined) return false;
@@ -289,7 +277,7 @@ export function ProfileScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <Screen>
+      <Screen edges={["left", "right", "bottom"]}>
         <View style={styles.center}>
           <ActivityIndicator color={colors.teal} size="large" />
         </View>
@@ -304,7 +292,7 @@ export function ProfileScreen({ navigation }: Props) {
   const completion = profile ? getCompletion(profile) : null;
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
@@ -351,7 +339,8 @@ export function ProfileScreen({ navigation }: Props) {
 
           {completion?.isComplete && (
             <View style={styles.completeBadge}>
-              <AppText style={styles.completeBadgeText}>✓ Profile complete</AppText>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <AppText style={styles.completeBadgeText}>Profile complete</AppText>
             </View>
           )}
 
@@ -362,7 +351,7 @@ export function ProfileScreen({ navigation }: Props) {
           >
             <View style={styles.medAccent} />
             <View style={styles.medIconWrap}>
-              <AppText style={styles.medIcon}>🏥</AppText>
+              <Ionicons name="medkit-outline" size={18} color={colors.teal} />
             </View>
             <View style={styles.medTextBlock}>
               <AppText style={styles.medTitle}>Medical Profile</AppText>
@@ -370,7 +359,7 @@ export function ProfileScreen({ navigation }: Props) {
                 {medicalSummary(profile)}
               </AppText>
             </View>
-            <AppText style={styles.medChevron}>›</AppText>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
 
           {/* ── Story entry ───────────────────────────────── */}
@@ -380,7 +369,7 @@ export function ProfileScreen({ navigation }: Props) {
           >
             <View style={styles.storyAccent} />
             <View style={styles.storyIconWrap}>
-              <AppText style={styles.storyIcon}>✨</AppText>
+              <Ionicons name="sparkles-outline" size={18} color={colors.blue} />
             </View>
             <View style={styles.storyTextBlock}>
               <AppText style={styles.storyTitle}>Your Health Story</AppText>
@@ -388,12 +377,12 @@ export function ProfileScreen({ navigation }: Props) {
                 {storySummary(profile)}
               </AppText>
             </View>
-            <AppText style={styles.storyChevron}>›</AppText>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
 
           {/* ── Section 1: Basic Information ──────────────── */}
           <SectionCard
-            icon="👤"
+            icon={<Ionicons name="person-outline" size={18} color={colors.teal} />}
             title="Basic Information"
             editing={editingSection === "basic"}
             onEdit={() => startEdit("basic")}
@@ -455,7 +444,7 @@ export function ProfileScreen({ navigation }: Props) {
                       style={({ pressed }) => [styles.calIcon, pressed && { opacity: 0.6 }]}
                       hitSlop={8}
                     >
-                      <AppText style={styles.calIconText}>📅</AppText>
+                      <Ionicons name="calendar-outline" size={18} color={colors.text} />
                     </Pressable>
                   }
                 />
@@ -491,7 +480,7 @@ export function ProfileScreen({ navigation }: Props) {
 
           {/* ── Section 2: Personal Details ────────────────── */}
           <SectionCard
-            icon="🏡"
+            icon={<Ionicons name="home-outline" size={18} color={colors.teal} />}
             title="Personal Details"
             editing={editingSection === "personal"}
             onEdit={() => startEdit("personal")}
@@ -541,7 +530,7 @@ export function ProfileScreen({ navigation }: Props) {
 
           {/* ── Section 3: Contact Information ─────────────── */}
           <SectionCard
-            icon="📱"
+            icon={<Ionicons name="phone-portrait-outline" size={18} color={colors.teal} />}
             title="Contact Information"
             editing={editingSection === "contact"}
             onEdit={() => startEdit("contact")}
@@ -582,7 +571,7 @@ export function ProfileScreen({ navigation }: Props) {
 
           {/* ── Section 4: Emergency Contact ───────────────── */}
           <SectionCard
-            icon="🚨"
+            icon={<Ionicons name="warning-outline" size={18} color={colors.teal} />}
             title="Emergency Contact"
             editing={editingSection === "emergency"}
             onEdit={() => startEdit("emergency")}
@@ -698,7 +687,7 @@ const styles = StyleSheet.create({
 
   // ── Header ──
   header: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -760,45 +749,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // ── Nudge card ──
-  nudgeCard: {
-    backgroundColor: colors.tealSoft,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.tealBorder,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  nudgeTitle: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.bold as any,
-    color: colors.teal,
-  },
-  nudgeSub: {
-    fontSize: typescale.size.sm,
-    color: colors.teal,
-    opacity: 0.8,
-  },
-  nudgePills: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  nudgePill: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colors.tealBorder,
-  },
-  nudgePillText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.medium as any,
-    color: colors.teal,
-  },
-
   // ── Complete badge ──
   completeBadge: {
     backgroundColor: colors.successSoft,
@@ -808,6 +758,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
   },
   completeBadgeText: {
     fontSize: typescale.size.sm,
@@ -869,7 +822,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  medIcon: { fontSize: 16, lineHeight: 22 },
+  
   medTextBlock: { flex: 1, gap: 3 },
   medTitle: {
     fontSize: typescale.size.base,
@@ -880,13 +833,6 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.xs,
     color: colors.muted,
   },
-  medChevron: {
-    fontSize: 22,
-    color: colors.teal,
-    lineHeight: 28,
-    flexShrink: 0,
-  },
-
   // ── Story entry card (blue accent) ──
   storyCard: {
     backgroundColor: colors.surface,
@@ -923,7 +869,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  storyIcon: { fontSize: 16, lineHeight: 22 },
+  
   storyTextBlock: { flex: 1, gap: 3 },
   storyTitle: {
     fontSize: typescale.size.base,
@@ -933,12 +879,6 @@ const styles = StyleSheet.create({
   storySub: {
     fontSize: typescale.size.xs,
     color: colors.muted,
-  },
-  storyChevron: {
-    fontSize: 22,
-    color: colors.blue,
-    lineHeight: 28,
-    flexShrink: 0,
   },
 
   // ── Sign out ──
@@ -956,7 +896,7 @@ const styles = StyleSheet.create({
 
   // ── DOB calendar icon ──
   calIcon: { paddingLeft: 4 },
-  calIconText: { fontSize: 18, lineHeight: 24 },
+  
 });
 
 // ─── ProfileDobPickerModal ────────────────────────────────────────────────────
@@ -1050,9 +990,13 @@ function ProfileDobPickerModal({
             const val = field === "m" ? DP_MONTHS[m].slice(0, 3) : field === "d" ? String(d).padStart(2,"0") : String(y);
             return (
               <View key={field} style={dp2.col}>
-                <Pressable onPress={() => adj(field, -1)} style={dp2.arrowBtn}><AppText style={dp2.arrow}>▲</AppText></Pressable>
+                <Pressable onPress={() => adj(field, -1)} style={dp2.arrowBtn}>
+                  <Ionicons name="chevron-up" size={16} color={colors.teal} />
+                </Pressable>
                 <AppText style={dp2.val}>{val}</AppText>
-                <Pressable onPress={() => adj(field, 1)} style={dp2.arrowBtn}><AppText style={dp2.arrow}>▼</AppText></Pressable>
+                <Pressable onPress={() => adj(field, 1)} style={dp2.arrowBtn}>
+                  <Ionicons name="chevron-down" size={16} color={colors.teal} />
+                </Pressable>
               </View>
             );
           })}
@@ -1086,6 +1030,5 @@ const dp2 = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "center", gap: spacing.xl, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl },
   col: { alignItems: "center", gap: spacing.sm, flex: 1 },
   arrowBtn: { padding: spacing.sm },
-  arrow: { fontSize: typescale.size.sm, color: colors.teal },
   val: { fontSize: typescale.size.lg, fontWeight: typescale.weight.bold as any, color: colors.text, minWidth: 60, textAlign: "center" },
 });

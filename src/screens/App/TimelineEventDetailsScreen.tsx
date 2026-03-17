@@ -17,6 +17,8 @@ import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { categoryMeta } from "../../components/ui/Timeline/TimelineCard";
 import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
+
 
 type Props = NativeStackScreenProps<AppStackParamList, "Details">;
 
@@ -191,7 +193,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
   }, [item?.data]);
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -218,9 +220,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
               {/* Icon + edit button row */}
               <View style={styles.headerTopRow}>
                 <View style={[styles.categoryIcon, { backgroundColor: meta.iconBg }]}>
-                  <AppText style={[styles.categoryIconText, { color: meta.iconColor }]}>
-                    {meta.iconSymbol}
-                  </AppText>
+                  <Ionicons name={meta.iconName} size={18} color={meta.iconColor} />
                 </View>
 
                 <View style={styles.headerActions}>
@@ -436,7 +436,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
             {/* ── Pre-Visit Note toggle ─────────────────────────── */}
             <View style={styles.preVisitCard}>
               <View style={styles.preVisitIconWrap}>
-                <AppText style={styles.preVisitIcon}>🩺</AppText>
+                <Ionicons name="medkit-outline" size={18} color={colors.teal} />
               </View>
               <View style={styles.preVisitText}>
                 <AppText style={styles.preVisitTitle}>Pre-Visit Note</AppText>
@@ -502,7 +502,7 @@ function flattenData(obj: any, prefix = ""): DataRow[] {
     if (value == null || value === "") continue;
 
     const label = prefix
-      ? `${prefix} › ${formatKey(key)}`
+      ? `${prefix} > ${formatKey(key)}`
       : formatKey(key);
 
     if (Array.isArray(value)) {
@@ -623,11 +623,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-  },
-  categoryIconText: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.black,
-    lineHeight: typescale.size.base * 1.4,
   },
   headerActions: {
     flexDirection: "row",
@@ -792,10 +787,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  preVisitIcon: {
-    fontSize: 18,
-    lineHeight: 24,
   },
   preVisitText: {
     flex: 1,

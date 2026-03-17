@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Audio } from "expo-av";
 
 import { AppText } from "../Primitives/AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { PrimaryButton } from "../Primitives/PrimaryButton";
 import { GhostButton } from "../Primitives/GhostButton";
 import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
@@ -161,7 +162,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
           ]}
         >
           <View style={styles.iconCircle}>
-            <AppText style={styles.iconText}>♪</AppText>
+            <Ionicons name="mic-outline" size={18} color="#fff" />
           </View>
           <View style={styles.textBlock}>
             <AppText style={styles.rowTitle}>Voice Note</AppText>
@@ -179,7 +180,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
           style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
         >
           <View style={[styles.iconCircle, styles.iconRecording]}>
-            <AppText style={styles.iconText}>●</AppText>
+            <Ionicons name="radio-button-on" size={18} color="#fff" />
           </View>
           <View style={styles.textBlock}>
             <AppText style={[styles.rowTitle, styles.rowTitleRecording]}>
@@ -203,7 +204,7 @@ export function RecordVoiceNote({ onUploaded }: Props) {
             <View style={[styles.iconCircle, busy && styles.iconBusy]}>
               {busy
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <AppText style={styles.iconText}>♪</AppText>
+                : <Ionicons name="mic-outline" size={18} color="#fff" />
               }
             </View>
             <View style={styles.textBlock}>
@@ -300,14 +301,6 @@ const styles = StyleSheet.create({
     // Keep teal during upload — ActivityIndicator shows inside
     backgroundColor: colors.teal,
   },
-
-  iconText: {
-    color: "#fff",
-    fontSize: typescale.size.lg,
-    fontWeight: typescale.weight.black,
-    lineHeight: typescale.size.lg * 1.2,
-  },
-
   // ── Text block ────────────────────────────────────────────────────────────
   textBlock: {
     flex: 1,

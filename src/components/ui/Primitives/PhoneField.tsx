@@ -6,9 +6,10 @@ import {
   Modal,
   FlatList,
   StyleSheet,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText } from "./AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, shadows, spacing, typescale } from "../../../theme/tokens";
 
 // ─── Country list ─────────────────────────────────────────────────────────────
@@ -346,7 +347,7 @@ export function PhoneField({
         >
           <AppText style={pf.prefixFlag}>{country.flag}</AppText>
           <AppText style={pf.prefixDial}>{country.dial}</AppText>
-          <AppText style={pf.prefixChevron}>▾</AppText>
+          <Ionicons name="chevron-down" size={14} color={colors.muted} />
         </Pressable>
 
         <View style={pf.divider} />
@@ -392,8 +393,10 @@ export function PhoneField({
                 <AppText style={pf.countryName} numberOfLines={1}>{item.name}</AppText>
                 <AppText style={pf.countryDial}>{item.dial}</AppText>
                 {item.code === country.code && (
-                  <AppText style={pf.checkmark}>✓</AppText>
-                )}
+                  <View style={{ marginLeft: spacing.xs }}>
+                    <Ionicons name="checkmark" size={16} color={colors.teal} />
+                  </View>
+                    )}
               </Pressable>
             )}
             ItemSeparatorComponent={() => <View style={pf.separator} />}
@@ -445,12 +448,6 @@ const pf = StyleSheet.create({
     fontWeight: typescale.weight.semibold as any,
     color: colors.text,
   },
-  prefixChevron: {
-    fontSize: 9,
-    color: colors.muted,
-    lineHeight: 14,
-  },
-
   divider: {
     width: 1,
     height: 28,
@@ -523,12 +520,6 @@ const pf = StyleSheet.create({
     fontSize: typescale.size.sm,
     color: colors.muted,
     flexShrink: 0,
-  },
-  checkmark: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.bold as any,
-    color: colors.teal,
-    marginLeft: spacing.xs,
   },
   separator: {
     height: 1,

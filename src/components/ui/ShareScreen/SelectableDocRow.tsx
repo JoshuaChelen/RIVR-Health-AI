@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "../Primitives/AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, typescale } from "../../../theme/tokens";
 
 type Props = {
@@ -27,7 +28,7 @@ export function SelectableDocRow({ title, subtitle, selected, onToggle }: Props)
 
       <View style={[styles.box, selected ? styles.boxSelected : styles.boxUnselected]}>
         {selected ? (
-          <AppText style={styles.checkmark}>✓</AppText>
+          <Ionicons name="checkmark" size={14} color="#fff" />
         ) : null}
       </View>
     </Pressable>
@@ -68,10 +69,5 @@ const styles = StyleSheet.create({
   boxUnselected: {
     backgroundColor: "transparent",
     borderColor: colors.border,
-  },
-  checkmark: {
-    color: "#fff",
-    fontWeight: typescale.weight.bold,
-    fontSize: typescale.size.xs,
   },
 });
