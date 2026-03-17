@@ -22,6 +22,7 @@ import {
 } from "../../lib/aiJobs";
 
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ export function ShinScoreScreen({ navigation }: Props) {
   const [evaluation, setEval]   = useState<any>(null);
   const [error, setError]       = useState<string | null>(null);
   const [ringKey, setRingKey]   = useState(0);
-  const pollRef                 = useRef<any>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Remount the ring on every screen focus so animation always replays
   useFocusEffect(
@@ -73,19 +74,53 @@ export function ShinScoreScreen({ navigation }: Props) {
     navigation.navigate("ManageDocuments");
   }, [navigation]);
 
-  useEffect(() => {
-    load();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [load]);
 
-  useEffect(() => {
-    const isRunning = job && (job.status === "queued" || job.status === "running");
-    if (!isRunning && pollRef.current) {
+useFocusEffect(
+  useCallback(() => {
+    setRingKey((k) => k + 1);
+    load();
+  }, [load])
+);
+
+useEffect(() => {
+  load();
+
+  return () => {
+    if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
-      setRunning(false);
     }
-  }, [job?.status]);
+  };
+}, [load]);
+
+useEffect(() => {
+  const isRunning = !!(job && (job.status === "queued" || job.status === "running"));
+
+  if (!isRunning) {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setRunning(false);
+    return;
+  }
+
+  setRunning(true);
+
+  if (!pollRef.current) {
+    pollRef.current = setInterval(() => {
+      load();
+    }, 4000);
+  }
+
+  return () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+}, [job?.status, load]);
+
 
   const score    = profile?.score ?? evaluation?.score_0_to_100;
   const label    = profile?.score_label ?? evaluation?.score_label;
@@ -102,10 +137,10 @@ export function ShinScoreScreen({ navigation }: Props) {
         </Pressable>
       ),
     });
-  }, [navigation, start, running, score]);
+  }, [navigation, start, running]);
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}> 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Error banner ─────────────────────────────────── */}
@@ -164,7 +199,7 @@ export function ShinScoreScreen({ navigation }: Props) {
               /* Empty state */
               <View style={styles.emptyWrap}>
                 <View style={styles.emptyRing}>
-                  <AppText style={styles.emptyRingIcon}>✦</AppText>
+                  <Ionicons name="sparkles-outline" size={22} color={colors.teal} />
                 </View>
                 <AppText style={styles.emptyTitle}>No score yet</AppText>
                 <AppText style={styles.emptyBody}>
@@ -195,13 +230,13 @@ export function ShinScoreScreen({ navigation }: Props) {
             onPress={() => navigation.navigate("HealthSummary")}
           >
             <View style={styles.summaryLinkIconWrap}>
-              <AppText style={styles.summaryLinkIcon}>🧠</AppText>
+              <Ionicons name="pulse-outline" size={18} color={colors.teal} />
             </View>
             <View style={styles.summaryLinkText}>
               <AppText style={styles.summaryLinkTitle}>AI Health Summary</AppText>
               <AppText style={styles.summaryLinkSub}>Full summary and 3×5 essentials</AppText>
             </View>
-            <AppText style={styles.summaryLinkChevron}>›</AppText>
+            <Ionicons name="chevron-forward" size={18} color={colors.teal} />
           </Pressable>
         ) : null}
 
@@ -363,11 +398,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.xs,
   },
-  emptyRingIcon: {
-    fontSize: 28,
-    color: colors.teal,
-    lineHeight: 34,
-  },
   emptyTitle: {
     fontSize: typescale.size.lg,
     fontWeight: typescale.weight.bold,
@@ -392,16 +422,6 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
     color: "#fff",
-  },
-  uploadLink: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  uploadLinkText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium,
-    color: colors.teal,
-    textAlign: "center",
   },
 
   // Running state (no score yet)
@@ -448,10 +468,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  summaryLinkIcon: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
   summaryLinkText: {
     flex: 1,
     gap: 3,
@@ -464,10 +480,5 @@ const styles = StyleSheet.create({
   summaryLinkSub: {
     fontSize: typescale.size.xs,
     color: colors.muted,
-  },
-  summaryLinkChevron: {
-    fontSize: 22,
-    color: colors.teal,
-    lineHeight: 28,
   },
 });

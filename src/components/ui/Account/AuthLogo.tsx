@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
-import Svg, { Path, Circle } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { colors, shadows } from "../../../theme/tokens";
 
 type Props = {

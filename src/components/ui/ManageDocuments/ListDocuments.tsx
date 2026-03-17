@@ -11,6 +11,7 @@ import {
 import { supabase } from "../../../lib/supabase";
 import { deleteDocument, cancelProcessing } from "../../../lib/documents";
 import { AppText } from "../Primitives/AppText";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing, typescale, shadows } from "../../../theme/tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -975,7 +976,7 @@ export function ListDocuments({
         }
         ListEmptyComponent={
           <View style={listStyles.empty}>
-            <AppText style={listStyles.emptySymbol}>📂</AppText>
+            <Ionicons name="folder-open-outline" size={36} color={colors.muted} />
             <AppText style={listStyles.emptyTitle}>No documents yet</AppText>
             <AppText style={listStyles.emptyBody}>
   Upload a file, record a voice note, or save a change in Medical Profile to get started.
@@ -1030,10 +1031,6 @@ const listStyles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     alignItems: "center",
     gap: spacing.sm,
-  },
-  emptySymbol: {
-    fontSize: 36,
-    lineHeight: 44,
   },
   emptyTitle: {
     fontSize: typescale.size.base,

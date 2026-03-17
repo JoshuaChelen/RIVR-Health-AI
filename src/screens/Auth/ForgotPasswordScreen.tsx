@@ -75,7 +75,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <Pressable style={StyleSheet.absoluteFillObject} onPress={Keyboard.dismiss} />
 
       <KeyboardAvoidingView

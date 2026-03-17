@@ -7,7 +7,7 @@ import { ErrorBanner } from "../Primitives/ErrorBanner";
 import { colors, radius, spacing, typescale } from "../../../theme/tokens";
 
 export type SectionCardProps = {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   editing: boolean;
   onEdit: () => void;
@@ -27,8 +27,8 @@ export function SectionCard({
     <Card style={sc.card}>
       <View style={sc.header}>
         <View style={sc.titleRow}>
-          <AppText style={sc.icon}>{icon}</AppText>
-          <AppText style={sc.title}>{title}</AppText>
+         <View style={sc.iconWrap}>{icon}</View>
+         <AppText style={sc.title}>{title}</AppText>
         </View>
         {editing ? (
           <Pressable
@@ -84,9 +84,11 @@ export const sc = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
-  icon: {
-    fontSize: 16,
-    lineHeight: 22,
+  iconWrap: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: typescale.size.base,

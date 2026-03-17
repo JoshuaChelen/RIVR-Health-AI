@@ -12,7 +12,6 @@ import type { OnboardingStackParamList } from "../../navigation/onboardingTypes"
 
 import { getProfile, upsertProfile } from "../../lib/profile";
 import { getCurrentUserId } from "../../lib/auth";
-import { formatPhoneInput } from "../../lib/profileUtils";
 import { useOnboarding } from "../../context/OnboardingContext";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -90,7 +89,7 @@ export function OnboardingStep3Screen({ navigation }: Props) {
   contactRel.trim();
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}

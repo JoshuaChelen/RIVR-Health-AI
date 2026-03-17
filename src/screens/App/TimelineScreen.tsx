@@ -16,6 +16,7 @@ import { TimelineCard, categoryMeta } from "../../components/ui/Timeline/Timelin
 import { MonthDivider } from "../../components/ui/Timeline/MonthDivider";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
 
@@ -135,7 +136,9 @@ export function TimelineScreen({ navigation }: Props) {
       {/* ── Empty state ───────────────────────────────────── */}
       {!loading && !err && rows.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <AppText style={styles.emptySymbol}>📋</AppText>
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="clipboard-outline" size={24} color={colors.teal} />
+          </View>
           <AppText style={styles.emptyTitle}>Your timeline is empty</AppText>
           <AppText style={styles.emptyBody}>
             Upload medical documents and process them.{"\n"}Your health history will appear here.
@@ -197,7 +200,7 @@ export function TimelineScreen({ navigation }: Props) {
         {/* Header */}
         <View style={styles.preVisitHeader}>
           <View style={styles.preVisitIconWrap}>
-            <AppText style={styles.preVisitIcon}>🩺</AppText>
+            <Ionicons name="medkit-outline" size={20} color={colors.teal} />
           </View>
           <View style={{ flex: 1 }}>
             <AppText style={styles.preVisitTitle}>Pre-Visit Note</AppText>
@@ -244,7 +247,7 @@ export function TimelineScreen({ navigation }: Props) {
           <AppText style={styles.preVisitBtnText}>
             {includedEvents.length > 0 ? "View Pre-Visit Note" : "Open Pre-Visit Note"}
           </AppText>
-          <AppText style={styles.preVisitBtnChevron}>›</AppText>
+          <Ionicons name="chevron-forward" size={18} color={colors.teal} />
         </Pressable>
       </View>
     </ScrollView>
@@ -322,9 +325,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  emptySymbol: {
-    fontSize: 44,
-    lineHeight: 54,
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.tealSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
   },
   emptyTitle: {
     fontSize: typescale.size.lg,
@@ -418,10 +426,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  preVisitIcon: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
   preVisitTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
@@ -509,10 +513,5 @@ const styles = StyleSheet.create({
     fontWeight: typescale.weight.bold,
     fontSize: typescale.size.base,
     textAlign: "center",
-  },
-  preVisitBtnChevron: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 20,
-    lineHeight: 26,
   },
 });

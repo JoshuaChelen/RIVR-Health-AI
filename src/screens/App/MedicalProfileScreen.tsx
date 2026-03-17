@@ -26,9 +26,9 @@ import {
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { TextField } from "../../components/ui/Primitives/TextField";
-import { GhostButton } from "../../components/ui/Primitives/GhostButton";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { colors, radius, spacing, typescale } from "../../theme/tokens";
 
@@ -103,7 +103,7 @@ function ItemRow({ primary, secondary, onDelete }: {
       </View>
       {onDelete ? (
         <Pressable onPress={onDelete} style={({ pressed }) => [ir.del, pressed && { opacity: 0.6 }]} hitSlop={8}>
-          <AppText style={ir.delText}>✕</AppText>
+          <Ionicons name="close" size={12} color={colors.danger} />
         </Pressable>
       ) : null}
     </View>
@@ -115,7 +115,7 @@ const ir = StyleSheet.create({
   primary: { fontSize: typescale.size.base, fontWeight: typescale.weight.medium as any, color: colors.text },
   secondary: { fontSize: typescale.size.xs, color: colors.muted },
   del: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.dangerSoft, alignItems: "center", justifyContent: "center" },
-  delText: { fontSize: 11, fontWeight: typescale.weight.bold as any, color: colors.danger },
+  
 });
 
 function ListDivider() {
@@ -376,7 +376,7 @@ export function MedicalProfileScreen(_: Props) {
 
   if (loading) {
     return (
-      <Screen>
+      <Screen edges={["left", "right", "bottom"]}>
         <View style={styles.center}>
           <ActivityIndicator color={colors.teal} size="large" />
         </View>
@@ -387,7 +387,7 @@ export function MedicalProfileScreen(_: Props) {
   const editing = editingSection;
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -399,7 +399,7 @@ export function MedicalProfileScreen(_: Props) {
               LIFESTYLE
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="🏃" title="Lifestyle"
+             icon={<Ionicons name="walk-outline" size={18} color={colors.teal} />} title="Lifestyle"
             editing={editing === "lifestyle"}
             onEdit={() => startEdit("lifestyle")}
             onCancel={cancelEdit}
@@ -437,7 +437,7 @@ export function MedicalProfileScreen(_: Props) {
               CURRENT SYMPTOMS
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="📝" title="Current Symptoms"
+            icon={<Ionicons name="create-outline" size={18} color={colors.teal} />} title="Current Symptoms"
             editing={editing === "symptoms"}
             onEdit={() => startEdit("symptoms")}
             onCancel={cancelEdit}
@@ -474,7 +474,7 @@ export function MedicalProfileScreen(_: Props) {
               ALLERGIES
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="⚠️" title="Allergies"
+            icon={<Ionicons name="warning-outline" size={18} color={colors.teal} />} title="Allergies"
             editing={editing === "allergies"}
             onEdit={() => startEdit("allergies")}
             onCancel={cancelEdit}
@@ -524,7 +524,7 @@ export function MedicalProfileScreen(_: Props) {
               MEDICATIONS
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="💊" title="Medications"
+            icon={<Ionicons name="medical-outline" size={18} color={colors.teal} />} title="Medications"
             editing={editing === "medications"}
             onEdit={() => startEdit("medications")}
             onCancel={cancelEdit}
@@ -577,7 +577,7 @@ export function MedicalProfileScreen(_: Props) {
               MEDICAL HISTORY
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="🏥" title="Medical History"
+            icon={<Ionicons name="pulse-outline" size={18} color={colors.teal} />} title="Medical History"
             editing={editing === "medHistory"}
             onEdit={() => startEdit("medHistory")}
             onCancel={cancelEdit}
@@ -630,7 +630,7 @@ export function MedicalProfileScreen(_: Props) {
               SURGICAL HISTORY
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="🩹" title="Surgical History"
+            icon={<Ionicons name="bandage-outline" size={18} color={colors.teal} />} title="Surgical History"
             editing={editing === "surgery"}
             onEdit={() => startEdit("surgery")}
             onCancel={cancelEdit}
@@ -683,7 +683,7 @@ export function MedicalProfileScreen(_: Props) {
               FAMILY HISTORY
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="👨‍👩‍👧" title="Family History"
+            icon={<Ionicons name="people-outline" size={18} color={colors.teal} />} title="Family History"
             editing={editing === "familyHistory"}
             onEdit={() => startEdit("familyHistory")}
             onCancel={cancelEdit}
@@ -733,7 +733,7 @@ export function MedicalProfileScreen(_: Props) {
               HOSPITALIZATIONS
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="🏨" title="Hospitalizations"
+            icon={<Ionicons name="business-outline" size={18} color={colors.teal} />} title="Hospitalizations"
             editing={editing === "hospitalizations"}
             onEdit={() => startEdit("hospitalizations")}
             onCancel={cancelEdit}
@@ -786,7 +786,7 @@ export function MedicalProfileScreen(_: Props) {
               SOCIAL HISTORY
           ════════════════════════════════════════════════════ */}
           <SectionCard
-            icon="🌿" title="Social History"
+            icon={<Ionicons name="leaf-outline" size={18} color={colors.teal} />} title="Social History"
             editing={editing === "socialHistory"}
             onEdit={() => startEdit("socialHistory")}
             onCancel={cancelEdit}

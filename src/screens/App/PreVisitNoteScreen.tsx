@@ -16,6 +16,7 @@ import { supabase } from "../../lib/supabase";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "PreVisitNote">;
 
@@ -270,7 +271,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
   const hasEvents = rows.length > 0;
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -304,7 +305,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
           <View style={styles.docBody}>
             <View style={styles.docTopRow}>
               <View style={styles.docIconWrap}>
-                <AppText style={styles.docIcon}>🩺</AppText>
+                <Ionicons name="medkit-outline" size={18} color={colors.teal} />
               </View>
               <View style={{ flex: 1 }}>
                 <AppText style={styles.docTitle}>Pre-Visit Note</AppText>
@@ -344,7 +345,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
             </>
           ) : (
             <View style={styles.emptyWrap}>
-              <AppText style={styles.emptySymbol}>📋</AppText>
+              <Ionicons name="document-text-outline" size={40} color={colors.muted} />
               <AppText style={styles.emptyTitle}>No events selected</AppText>
               <AppText style={styles.emptyBody}>
                 Go to the Timeline and toggle{"\n"}
@@ -450,10 +451,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  docIcon: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
   docTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
@@ -500,10 +497,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     alignItems: "center",
     gap: spacing.sm,
-  },
-  emptySymbol: {
-    fontSize: 40,
-    lineHeight: 50,
   },
   emptyTitle: {
     fontSize: typescale.size.lg,

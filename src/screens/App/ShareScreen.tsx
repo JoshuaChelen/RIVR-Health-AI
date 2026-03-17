@@ -14,6 +14,7 @@ import { supabase } from "../../lib/supabase";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { colors, spacing, radius, shadows, typescale } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ type ShareType = "full_summary" | "card_3x5" | "pre_visit_note" | "full_timeline
 
 type OptionDef = {
   type: ShareType;
-  icon: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   title: string;
   description: string;
   accent: string;
@@ -33,7 +34,7 @@ type OptionDef = {
 const SHARE_OPTIONS: OptionDef[] = [
   {
     type: "full_summary",
-    icon: "✦",
+    iconName: "sparkles-outline",
     title: "Full Summary",
     description:
       "Your AI-generated health analysis with SHIN score, overview, and complete findings.",
@@ -42,8 +43,8 @@ const SHARE_OPTIONS: OptionDef[] = [
   },
   {
     type: "card_3x5",
-    icon: "📋",
-    title: "3×5 Card",
+    iconName: "reader-outline",
+    title: "3x5 Card",
     description:
       "Critical health facts — blood type, medications, allergies — for quick provider reference.",
     accent: colors.blue,
@@ -51,7 +52,7 @@ const SHARE_OPTIONS: OptionDef[] = [
   },
   {
     type: "pre_visit_note",
-    icon: "🩺",
+    iconName: "medkit-outline",
     title: "Pre-Visit Note",
     description:
       "Selected timeline events formatted as a structured note for your upcoming appointment.",
@@ -60,7 +61,7 @@ const SHARE_OPTIONS: OptionDef[] = [
   },
   {
     type: "full_timeline",
-    icon: "📅",
+    iconName: "calendar-outline",
     title: "Full Health Timeline",
     description:
       "Your complete medical history chronologically — all events, grouped by date, for provider review.",
@@ -142,7 +143,7 @@ export function ShareScreen() {
   const canGenerate = selected.size > 0;
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -150,7 +151,7 @@ export function ShareScreen() {
         {/* ── Page header ─────────────────────────────────────── */}
         <View style={styles.header}>
           <View style={styles.headerIconWrap}>
-            <AppText style={styles.headerIcon}>🔗</AppText>
+            <Ionicons name="share-social-outline" size={18} color={colors.teal} />
           </View>
           <View style={styles.headerText}>
             <AppText variant="h1" style={styles.title}>Share Health Records</AppText>
@@ -182,16 +183,18 @@ export function ShareScreen() {
         {/* ── Link settings row ───────────────────────────────── */}
         <View style={styles.settingsRow}>
           <View style={styles.settingChip}>
-            <AppText style={styles.settingChipText}>⏱  Expires in 1 min</AppText>
+            <Ionicons name="timer-outline" size={14} color={colors.textSub} />
+            <AppText style={styles.settingChipText}>Expires in 1 min</AppText>
           </View>
           <View style={styles.settingChip}>
-            <AppText style={styles.settingChipText}>👁  Max 2 views</AppText>
+            <Ionicons name="eye-outline" size={14} color={colors.textSub} />
+            <AppText style={styles.settingChipText}>Max 2 views</AppText>
           </View>
         </View>
 
         {/* ── Security note ───────────────────────────────────── */}
         <View style={styles.securityNote}>
-          <AppText style={styles.securityDot}>🔒</AppText>
+          <Ionicons name="lock-closed-outline" size={14} color={colors.textSub} />
           <AppText style={styles.securityText}>
             Links are token-protected and expire automatically. Shared data is
             a read-only snapshot, not your live profile.
@@ -255,7 +258,7 @@ export function ShareScreen() {
                 pressed && { opacity: 0.6 },
               ]}
             >
-              <AppText style={styles.modalCloseBtnText}>✕</AppText>
+              <Ionicons name="close" size={18} color={colors.muted} />
             </Pressable>
           </View>
 
@@ -277,7 +280,7 @@ export function ShareScreen() {
             /* ── Error state ── */
             <View style={styles.modalCenter}>
               <View style={styles.errorCard}>
-                <AppText style={styles.errorIcon}>⚠️</AppText>
+                <Ionicons name="warning-outline" size={36} color={colors.danger} />
                 <AppText style={styles.errorTitle}>Failed to create link</AppText>
                 <AppText style={styles.errorBody}>{shareError}</AppText>
                 <Pressable
@@ -334,9 +337,16 @@ export function ShareScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <AppText style={styles.copyBtnText}>
-                  {copied ? "✓  Copied to clipboard" : "Copy Link"}
-                </AppText>
+                <View style={styles.copyBtnContent}>
+                  {copied ? (
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                  ) : (
+                    <Ionicons name="copy-outline" size={16} color="#fff" />
+                  )}
+                  <AppText style={styles.copyBtnText}>
+                    {copied ? "Copied to clipboard" : "Copy Link"}
+                  </AppText>
+                </View>
               </Pressable>
 
               {/* What's included */}
@@ -352,7 +362,7 @@ export function ShareScreen() {
                           { backgroundColor: opt.accentSoft },
                         ]}
                       >
-                        <AppText style={styles.includedIcon}>{opt.icon}</AppText>
+                        <Ionicons name={opt.iconName} size={14} color={opt.accent} />
                       </View>
                       <AppText style={styles.includedText}>{opt.title}</AppText>
                     </View>
@@ -408,7 +418,7 @@ function OptionCard({
               },
             ]}
           >
-            <AppText style={oc.icon}>{opt.icon}</AppText>
+            <Ionicons name={opt.iconName} size={18} color={opt.accent} />
           </View>
 
           <View style={oc.textBlock}>
@@ -430,7 +440,7 @@ function OptionCard({
             ]}
           >
             {isSelected ? (
-              <AppText style={oc.checkMark}>✓</AppText>
+              <Ionicons name="checkmark" size={14} color="#fff" />
             ) : null}
           </View>
         </View>
@@ -475,10 +485,6 @@ const oc = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  icon: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
   textBlock: {
     flex: 1,
     gap: 3,
@@ -503,12 +509,6 @@ const oc = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
     backgroundColor: "transparent",
-  },
-  checkMark: {
-    fontSize: 12,
-    fontWeight: typescale.weight.bold,
-    color: "#fff",
-    lineHeight: 16,
   },
 });
 
@@ -540,10 +540,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.tealBorder,
   },
-  headerIcon: {
-    fontSize: 22,
-    lineHeight: 28,
-  },
   headerText: {
     flex: 1,
     gap: 4,
@@ -569,6 +565,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.teal,
   },
+  copyBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   sectionLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
@@ -584,6 +585,9 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   settingChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: colors.bgSecondary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
@@ -607,11 +611,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  securityDot: {
-    fontSize: 13,
-    lineHeight: 18,
-    flexShrink: 0,
   },
   securityText: {
     flex: 1,
@@ -700,11 +699,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 2,
   },
-  modalCloseBtnText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.bold,
-    color: colors.muted,
-  },
 
   modalCenter: {
     flex: 1,
@@ -748,10 +742,6 @@ const styles = StyleSheet.create({
     borderColor: "#FECACA",
     padding: spacing.xxl,
     width: "100%",
-  },
-  errorIcon: {
-    fontSize: 36,
-    lineHeight: 44,
   },
   errorTitle: {
     fontSize: typescale.size.base,
@@ -887,10 +877,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-  },
-  includedIcon: {
-    fontSize: 14,
-    lineHeight: 20,
   },
   includedText: {
     fontSize: typescale.size.sm,

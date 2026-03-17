@@ -70,13 +70,6 @@ export function OnboardingStep2Screen({ navigation }: Props) {
     })();
   }, []);
 
-  const anyFilled = !!(
-    email.trim() ||
-    phoneNumber.trim() ||
-    occupation.trim() ||
-    marital
-  );
-
   // No fields are required — user can skip freely
   const canContinue = !loadingProfile;
 
@@ -110,7 +103,7 @@ export function OnboardingStep2Screen({ navigation }: Props) {
   }
 
   return (
-    <Screen>
+    <Screen edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -268,10 +261,6 @@ const styles = StyleSheet.create({
   },
   fields:    { gap: spacing.md },
   pillGroup: { gap: spacing.xs },
-  hint: {
-    marginTop: 5,
-    color: colors.subtle,
-  },
   actions: {
     flexDirection: "row",
     gap: spacing.sm,

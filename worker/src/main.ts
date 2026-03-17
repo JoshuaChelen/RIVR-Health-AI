@@ -64,10 +64,15 @@ async function checkCancelled(jobId: string, ac: AbortController): Promise<void>
 
 async function claimJob() {
   const workerId = `${os.hostname()}:${process.pid}`;
-  const { data, error } = await supabaseAdmin.rpc("claim_ai_job", { p_worker_id: workerId });
-  if (error) throw error;
-  if (!data || data.length === 0) return null;
-  return data[0];
+  try {
+    const { data, error } = await supabaseAdmin.rpc("claim_ai_job", { p_worker_id: workerId });
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+    return data[0];
+  } catch (e: any) {
+    console.error("[worker] claimJob failed", e?.message || e);
+    throw e;
+  }
 }
 
 async function logEvent(jobId: string, level: "debug" | "info" | "warn" | "error", message: string, data?: any) {
@@ -89,8 +94,13 @@ async function setStage(jobId: string, stage: string, progress?: any) {
 }
 
 async function markJob(jobId: string, patch: any) {
-  const { error } = await supabaseAdmin.from("ai_jobs").update(patch).eq("id", jobId);
-  if (error) throw error;
+  try {
+    const { error } = await supabaseAdmin.from("ai_jobs").update(patch).eq("id", jobId);
+    if (error) throw error;
+  } catch (e: any) {
+    console.error("[worker] markJob failed", { jobId, patch, error: e?.message || e });
+    throw e;
+  }
 }
 
 async function uploadJson(path: string, obj: any) {
@@ -111,10 +121,15 @@ function throwIfAborted(signal: AbortSignal): void {
 }
 
 async function downloadFile(storagePath: string): Promise<Buffer> {
-  const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(storagePath);
-  if (error || !data) throw error || new Error("download failed");
-  const ab = await data.arrayBuffer();
-  return Buffer.from(ab);
+  try {
+    const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(storagePath);
+    if (error || !data) throw error || new Error("download failed");
+    const ab = await data.arrayBuffer();
+    return Buffer.from(ab);
+  } catch (e: any) {
+    console.error("[worker] downloadFile failed", { storagePath, error: e?.message || e });
+    throw e;
+  }
 }
 
 async function updateDocument(docId: string, userId: string, patch: any) {

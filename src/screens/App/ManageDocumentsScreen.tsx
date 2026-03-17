@@ -113,7 +113,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen style={styles.screen}>
+    <Screen edges={["left", "right", "bottom"]} style={styles.screen}>
       {/* List */}
       <View style={styles.list}>
         <ListDocuments

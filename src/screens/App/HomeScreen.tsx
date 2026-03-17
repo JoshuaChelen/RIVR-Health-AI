@@ -17,6 +17,7 @@ import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { ScoreRing } from "../../components/ui/Home/ScoreRing";
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 import exportSummary from "../../lib/health/export.summary.json";
 
@@ -46,7 +47,7 @@ export function HomeScreen({ navigation }: Props) {
   const [scoreLoading, setScoreLoading] = useState(true);
   const [score, setScore]   = useState<number | null>(null);
   const [label, setLabel]   = useState<string | null>(null);
-  const [overview, setOverview] = useState<string | null>(null);
+  
   const [profileInitials, setProfileInitials] = useState<string | null>(null);
 
   useFocusEffect(
@@ -75,12 +76,9 @@ export function HomeScreen({ navigation }: Props) {
             healthProfile?.score ?? evalResult?.score_0_to_100 ?? null;
           const resolvedLabel =
             healthProfile?.score_label ?? evalResult?.score_label ?? null;
-          const resolvedOverview =
-            healthProfile?.summary_json?.overview ?? evalResult?.overview ?? null;
 
           setScore(typeof resolvedScore === "number" ? resolvedScore : null);
           setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
-          setOverview(typeof resolvedOverview === "string" ? resolvedOverview : null);
 
           if (userProfile?.first_name) {
             const first = userProfile.first_name[0]?.toUpperCase() ?? "";
@@ -173,7 +171,7 @@ export function HomeScreen({ navigation }: Props) {
             ) : (
               <View style={styles.emptyScore}>
                 <View style={styles.emptyScoreRing}>
-                  <AppText style={styles.emptyScoreIcon}>✦</AppText>
+                  <Ionicons name="sparkles-outline" size={22} color={colors.teal} />
                 </View>
                 <AppText style={styles.emptyScoreTitle}>No score yet</AppText>
                 <AppText style={styles.emptyScoreBody}>
@@ -191,38 +189,72 @@ export function HomeScreen({ navigation }: Props) {
         >
           <View style={styles.summaryAccent} />
           <View style={styles.summaryIconWrap}>
-            <AppText style={styles.summaryIcon}>✦</AppText>
+            <Ionicons name="sparkles-outline" size={18} color={colors.teal} />
           </View>
           <View style={styles.summaryTextBlock}>
             <AppText style={styles.summaryTitle}>AI Health Summary</AppText>
             <AppText style={styles.summarySub}>View your AI-generated health insights</AppText>
           </View>
-          <AppText style={styles.summaryChevron}>›</AppText>
+          <Ionicons name="chevron-forward" size={18} color={colors.teal} />
         </Pressable>
 
         {/* ── Actions + metrics grid ─────────────────────────── */}
         <SectionHeader title="Actions" />
-        <View style={styles.actionsRow}>
-          <QuickAction label="Documents" symbol="📄" onPress={() => navigation.navigate("ManageDocuments")} />
-          <QuickAction label="Timeline"  symbol="📅" onPress={() => navigation.navigate("Timeline")} />
-          <QuickAction label="Pre-Visit" symbol="🩺" onPress={() => navigation.navigate("PreVisitNote")} />
-          <QuickAction label="Share"     symbol="🔗" onPress={() => navigation.navigate("Share")} />
-        </View>
+<View style={styles.actionsRow}>
+  <QuickAction
+    label="Documents"
+    icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />}
+    onPress={() => navigation.navigate("ManageDocuments")}
+  />
+  <QuickAction
+    label="Timeline"
+    icon={<Ionicons name="calendar-outline" size={20} color={colors.text} />}
+    onPress={() => navigation.navigate("Timeline")}
+  />
+  <QuickAction
+    label="Pre-Visit"
+    icon={<Ionicons name="medkit-outline" size={20} color={colors.text} />}
+    onPress={() => navigation.navigate("PreVisitNote")}
+  />
+  <QuickAction
+    label="Share"
+    icon={<Ionicons name="share-social-outline" size={20} color={colors.text} />}
+    onPress={() => navigation.navigate("Share")}
+  />
+</View>
 
-        <SectionHeader title="Today's health" />
-        <View style={styles.metricsGrid}>
-          <MetricTile symbol="❤️" label="Heart rate" value={hrText}   sub="latest" tone="orange" />
-          <MetricTile symbol="💤" label="Sleep"      value={sleepText} sub="7d avg" tone="blue"   />
-          <MetricTile symbol="👟" label="Steps"      value={stepsText} sub="7d avg" tone="green"  />
-          <MetricTile
-            symbol="🧠"
-            label="SHIN Score"
-            value={score != null ? `${score}/100` : "—"}
-            sub={label ?? "not generated"}
-            tone="teal"
-            onPress={() => navigation.navigate("ShinScore")}
-          />
-        </View>
+<SectionHeader title="Today's health" />
+<View style={styles.metricsGrid}>
+  <MetricTile
+    icon={<Ionicons name="heart-outline" size={20} color={colors.text} />}
+    label="Heart rate"
+    value={hrText}
+    sub="latest"
+    tone="orange"
+  />
+  <MetricTile
+    icon={<Ionicons name="moon-outline" size={20} color={colors.text} />}
+    label="Sleep"
+    value={sleepText}
+    sub="7d avg"
+    tone="blue"
+  />
+  <MetricTile
+    icon={<Ionicons name="walk-outline" size={20} color={colors.text} />}
+    label="Steps"
+    value={stepsText}
+    sub="7d avg"
+    tone="green"
+  />
+  <MetricTile
+    icon={<Ionicons name="pulse-outline" size={20} color={colors.text} />}
+    label="SHIN Score"
+    value={score != null ? `${score}/100` : "—"}
+    sub={label ?? "not generated"}
+    tone="teal"
+    onPress={() => navigation.navigate("ShinScore")}
+  />
+</View>
 
         {/* ── Sign out ──────────────────────────────────────── */}
         <Pressable
@@ -270,11 +302,11 @@ const sh = StyleSheet.create({
 });
 
 function QuickAction({
-  symbol,
+  icon,
   label,
   onPress,
 }: {
-  symbol: string;
+  icon: React.ReactNode;
   label: string;
   onPress: () => void;
 }) {
@@ -283,21 +315,21 @@ function QuickAction({
       style={({ pressed }) => [styles.quickBtn, pressed && styles.quickPressed]}
       onPress={onPress}
     >
-      <AppText style={styles.quickSymbol}>{symbol}</AppText>
+      <View style={styles.quickIconWrap}>{icon}</View>
       <AppText style={styles.quickLabel}>{label}</AppText>
     </Pressable>
   );
 }
 
 function MetricTile({
-  symbol,
+  icon,
   label,
   value,
   sub,
   tone,
   onPress,
 }: {
-  symbol: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   sub: string;
@@ -328,12 +360,18 @@ function MetricTile({
       disabled={!onPress}
     >
       <View style={styles.metricTop}>
-        <AppText style={styles.metricSymbol}>{symbol}</AppText>
+        <View style={styles.metricIconWrap}>{icon}</View>
         <View style={[styles.metricDot, { backgroundColor: dotMap[tone] }]} />
       </View>
-      <AppText style={styles.metricValue} numberOfLines={1} ellipsizeMode="tail">{value}</AppText>
-      <AppText style={styles.metricLabel} numberOfLines={1} ellipsizeMode="tail">{label}</AppText>
-      <AppText style={styles.metricSub} numberOfLines={1} ellipsizeMode="tail">{sub}</AppText>
+      <AppText style={styles.metricValue} numberOfLines={1} ellipsizeMode="tail">
+        {value}
+      </AppText>
+      <AppText style={styles.metricLabel} numberOfLines={1} ellipsizeMode="tail">
+        {label}
+      </AppText>
+      <AppText style={styles.metricSub} numberOfLines={1} ellipsizeMode="tail">
+        {sub}
+      </AppText>
     </Pressable>
   );
 }
@@ -471,11 +509,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.xs,
   },
-  emptyScoreIcon: {
-    fontSize: 26,
-    color: colors.teal,
-    lineHeight: 32,
-  },
   emptyScoreTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
@@ -525,11 +558,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  summaryIcon: {
-    fontSize: 15,
-    color: colors.teal,
-    lineHeight: 20,
-  },
   summaryTextBlock: {
     flex: 1,
     gap: 3,
@@ -543,13 +571,6 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.xs,
     color: colors.muted,
   },
-  summaryChevron: {
-    fontSize: 22,
-    color: colors.teal,
-    lineHeight: 28,
-    flexShrink: 0,
-  },
-
   // Quick actions
   actionsRow: {
     flexDirection: "row",
@@ -571,9 +592,11 @@ const styles = StyleSheet.create({
     opacity: 0.75,
     transform: [{ scale: 0.96 }],
   },
-  quickSymbol: {
-    fontSize: 20,
-    lineHeight: 26,
+  quickIconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   quickLabel: {
     fontSize: typescale.size.xs,
@@ -602,9 +625,11 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: spacing.xs,
   },
-  metricSymbol: {
-    fontSize: 20,
-    lineHeight: 26,
+  metricIconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   metricDot: {
     width: 7,
