@@ -7,6 +7,7 @@ import { getProfile } from "./src/lib/profile";
 import { OnboardingContext } from "./src/context/OnboardingContext";
 
 import { AppNavigator } from "./src/navigation/AppNavigator";
+import { AppleHealthProvider } from "./src/context/AppleHealthContext";
 import { AuthNavigator } from "./src/navigation/AuthNavigator";
 import { OnboardingNavigator } from "./src/navigation/OnboardingNavigator";
 import { navRef } from "./src/navigation/navRef";
@@ -83,7 +84,9 @@ export default function App() {
   return (
     <NavigationContainer ref={navRef}>
       {showApp && onboardingComplete ? (
-        <AppNavigator />
+        <AppleHealthProvider>
+          <AppNavigator />
+        </AppleHealthProvider>
       ) : showApp && !onboardingComplete ? (
         <OnboardingContext.Provider value={{ onComplete: () => setOnboardingComplete(true) }}>
           <OnboardingNavigator />

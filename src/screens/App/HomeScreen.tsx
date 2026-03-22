@@ -19,9 +19,16 @@ import { ScoreRing } from "../../components/ui/Home/ScoreRing";
 import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-import exportSummary from "../../lib/health/export.summary.json";
+import { useAppleHealth } from "../../context/AppleHealthContext";
+import type { AppleHealthContextValue } from "../../context/AppleHealthContext";
+import {
+  buildRecommendations,
+  PRIORITY_ACCENT,
+  type RecommendationItem,
+} from "../../lib/recommendations";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
+type MetricKey = "sleep" | "steps" | "heartRate";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,12 +50,11 @@ function todayLabel(): string {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function HomeScreen({ navigation }: Props) {
-  // Health summary score — sourced from health_profiles → health_evaluations fallback
   const [scoreLoading, setScoreLoading] = useState(true);
-  const [score, setScore]   = useState<number | null>(null);
-  const [label, setLabel]   = useState<string | null>(null);
-  
+  const [score, setScore] = useState<number | null>(null);
+  const [label, setLabel] = useState<string | null>(null);
   const [profileInitials, setProfileInitials] = useState<string | null>(null);
+  const [aiRecommendations, setAiRecommendations] = useState<RecommendationItem[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,9 +75,7 @@ export function HomeScreen({ navigation }: Props) {
 
           if (!active) return;
 
-          // Mirror exactly what HealthSummaryScreen does to derive the score
           const evalResult = evalRow?.result ?? null;
-
           const resolvedScore =
             healthProfile?.score ?? evalResult?.score_0_to_100 ?? null;
           const resolvedLabel =
@@ -80,9 +84,15 @@ export function HomeScreen({ navigation }: Props) {
           setScore(typeof resolvedScore === "number" ? resolvedScore : null);
           setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
 
+          const recs = buildRecommendations(
+            healthProfile?.summary_json ?? null,
+            evalResult,
+          );
+          setAiRecommendations(recs.slice(0, 3));
+
           if (userProfile?.first_name) {
             const first = userProfile.first_name[0]?.toUpperCase() ?? "";
-            const last  = userProfile.last_name?.[0]?.toUpperCase() ?? "";
+            const last = userProfile.last_name?.[0]?.toUpperCase() ?? "";
             setProfileInitials(first + last);
           }
         } catch {
@@ -92,26 +102,20 @@ export function HomeScreen({ navigation }: Props) {
         }
       })();
 
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }, [])
   );
 
-  const hrText =
-    exportSummary.heartRate.latestBpm != null
-      ? `${exportSummary.heartRate.latestBpm} bpm`
-      : "—";
+  const health = useAppleHealth();
 
-  const sleepText =
-    exportSummary.sleep.avg7dMinutes != null
-      ? `${Math.floor(exportSummary.sleep.avg7dMinutes / 60)}h ${String(
-          exportSummary.sleep.avg7dMinutes % 60
-        ).padStart(2, "0")}m`
-      : "—";
-
-  const stepsText =
-    exportSummary.steps.avg7dPerDay != null
-      ? `${exportSummary.steps.avg7dPerDay.toLocaleString()}`
-      : "—";
+  const navigateToAppleHealth = useCallback(
+    (metric?: MetricKey) => {
+      navigation.navigate("AppleHealth", { initialMetric: metric });
+    },
+    [navigation]
+  );
 
   return (
     <Screen>
@@ -123,10 +127,15 @@ export function HomeScreen({ navigation }: Props) {
         <View style={styles.greeting}>
           <View style={styles.greetLeft}>
             <AppText style={styles.greetDate}>{todayLabel()}</AppText>
-            <AppText variant="h1" style={styles.greetTitle}>{timeGreeting()}</AppText>
+            <AppText variant="h1" style={styles.greetTitle}>
+              {timeGreeting()}
+            </AppText>
           </View>
           <Pressable
-            style={({ pressed }) => [styles.profileAvatar, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [
+              styles.profileAvatar,
+              pressed && { opacity: 0.7 },
+            ]}
             onPress={() => navigation.navigate("Profile")}
           >
             <AppText style={styles.profileAvatarText}>
@@ -137,7 +146,10 @@ export function HomeScreen({ navigation }: Props) {
 
         {/* ── SHIN Score ring card ───────────────────────────── */}
         <Pressable
-          style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
+          style={({ pressed }) => [
+            styles.heroCard,
+            pressed && styles.heroPressed,
+          ]}
           onPress={() => navigation.navigate("ShinScore")}
         >
           <View style={styles.heroHeader}>
@@ -147,13 +159,21 @@ export function HomeScreen({ navigation }: Props) {
             </View>
             {scoreLoading ? null : score != null ? (
               <View style={styles.labelPill}>
-                <AppText style={styles.labelPillText} numberOfLines={1} ellipsizeMode="tail">
+                <AppText
+                  style={styles.labelPillText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {label ?? "View details"}
                 </AppText>
               </View>
             ) : (
               <View style={[styles.labelPill, styles.labelPillMuted]}>
-                <AppText style={styles.labelPillTextMuted} numberOfLines={1} ellipsizeMode="tail">
+                <AppText
+                  style={styles.labelPillTextMuted}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   Not generated
                 </AppText>
               </View>
@@ -164,18 +184,25 @@ export function HomeScreen({ navigation }: Props) {
             {scoreLoading ? (
               <View style={styles.ringPlaceholder}>
                 <ActivityIndicator color={colors.teal} size="large" />
-                <AppText style={styles.ringPlaceholderText}>Loading score…</AppText>
+                <AppText style={styles.ringPlaceholderText}>
+                  Loading score…
+                </AppText>
               </View>
             ) : score != null ? (
               <ScoreRing value={score} />
             ) : (
               <View style={styles.emptyScore}>
                 <View style={styles.emptyScoreRing}>
-                  <Ionicons name="sparkles-outline" size={22} color={colors.teal} />
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={22}
+                    color={colors.teal}
+                  />
                 </View>
                 <AppText style={styles.emptyScoreTitle}>No score yet</AppText>
                 <AppText style={styles.emptyScoreBody}>
-                  Fill in your profile or upload records,{"\n"}then generate your SHIN Score.
+                  Fill in your profile or upload records,{"\n"}then generate
+                  your SHIN Score.
                 </AppText>
               </View>
             )}
@@ -184,7 +211,10 @@ export function HomeScreen({ navigation }: Props) {
 
         {/* ── AI Health Summary card ─────────────────────────── */}
         <Pressable
-          style={({ pressed }) => [styles.summaryCard, pressed && styles.summaryPressed]}
+          style={({ pressed }) => [
+            styles.summaryCard,
+            pressed && styles.summaryPressed,
+          ]}
           onPress={() => navigation.navigate("HealthSummary")}
         >
           <View style={styles.summaryAccent} />
@@ -193,73 +223,35 @@ export function HomeScreen({ navigation }: Props) {
           </View>
           <View style={styles.summaryTextBlock}>
             <AppText style={styles.summaryTitle}>AI Health Summary</AppText>
-            <AppText style={styles.summarySub}>View your AI-generated health insights</AppText>
+            <AppText style={styles.summarySub}>
+              Full summary, essentials &amp; health story
+            </AppText>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.teal} />
         </Pressable>
 
-        {/* ── Actions + metrics grid ─────────────────────────── */}
-        <SectionHeader title="Actions" />
-<View style={styles.actionsRow}>
-  <QuickAction
-    label="Documents"
-    icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />}
-    onPress={() => navigation.navigate("ManageDocuments")}
-  />
-  <QuickAction
-    label="Timeline"
-    icon={<Ionicons name="calendar-outline" size={20} color={colors.text} />}
-    onPress={() => navigation.navigate("Timeline")}
-  />
-  <QuickAction
-    label="Pre-Visit"
-    icon={<Ionicons name="medkit-outline" size={20} color={colors.text} />}
-    onPress={() => navigation.navigate("PreVisitNote")}
-  />
-  <QuickAction
-    label="Share"
-    icon={<Ionicons name="share-social-outline" size={20} color={colors.text} />}
-    onPress={() => navigation.navigate("Share")}
-  />
-</View>
-
-<SectionHeader title="Today's health" />
-<View style={styles.metricsGrid}>
-  <MetricTile
-    icon={<Ionicons name="heart-outline" size={20} color={colors.text} />}
-    label="Heart rate"
-    value={hrText}
-    sub="latest"
-    tone="orange"
-  />
-  <MetricTile
-    icon={<Ionicons name="moon-outline" size={20} color={colors.text} />}
-    label="Sleep"
-    value={sleepText}
-    sub="7d avg"
-    tone="blue"
-  />
-  <MetricTile
-    icon={<Ionicons name="walk-outline" size={20} color={colors.text} />}
-    label="Steps"
-    value={stepsText}
-    sub="7d avg"
-    tone="green"
-  />
-  <MetricTile
-    icon={<Ionicons name="pulse-outline" size={20} color={colors.text} />}
-    label="SHIN Score"
-    value={score != null ? `${score}/100` : "—"}
-    sub={label ?? "not generated"}
-    tone="teal"
-    onPress={() => navigation.navigate("ShinScore")}
-  />
-</View>
+        {/* ── Dual card row: AI Suggestions + Apple Health ──── */}
+        <View style={styles.dualCardRow}>
+          <AiSuggestionsCard
+            onPress={() => navigation.navigate("AIInsights")}
+            recommendations={aiRecommendations}
+            loading={scoreLoading}
+          />
+          <AppleHealthMiniCard
+            health={health}
+            onPress={navigateToAppleHealth}
+          />
+        </View>
 
         {/* ── Sign out ──────────────────────────────────────── */}
         <Pressable
-          style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.5 }]}
-          onPress={async () => { await supabase.auth.signOut(); }}
+          style={({ pressed }) => [
+            styles.signOut,
+            pressed && { opacity: 0.5 },
+          ]}
+          onPress={async () => {
+            await supabase.auth.signOut();
+          }}
         >
           <AppText style={styles.signOutText}>Sign out</AppText>
         </Pressable>
@@ -268,111 +260,303 @@ export function HomeScreen({ navigation }: Props) {
   );
 }
 
-// ─── Shared components ────────────────────────────────────────────────────────
+// ─── HomeFeatureCard — shared shell for the dual card row ────────────────────
+//
+// Enforces a consistent card structure across all sibling cards:
+//   top accent border → header row → body (flex:1) → footer CTA
+//
+// accentColor drives the top border; iconBg drives the icon circle background.
+// headerAccessory is an optional element inserted between the title and chevron
+// (e.g. the live-data green dot on the Apple Health connected card).
+// body fills remaining space so the footer always aligns with its sibling.
 
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={sh.row}>
-      <View style={sh.accent} />
-      <AppText style={sh.title}>{title}</AppText>
-    </View>
-  );
-}
-
-const sh = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xs,
-  },
-  accent: {
-    width: 3,
-    height: 14,
-    borderRadius: 2,
-    backgroundColor: colors.teal,
-  },
-  title: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-});
-
-function QuickAction({
+function HomeFeatureCard({
+  accentColor,
+  iconBg,
   icon,
-  label,
+  title,
+  titleColor,
+  headerAccessory,
+  footerLabel,
+  footerColor = colors.teal,
   onPress,
+  children,
 }: {
+  accentColor: string;
+  iconBg: string;
   icon: React.ReactNode;
-  label: string;
+  title: string;
+  titleColor?: string;
+  headerAccessory?: React.ReactNode;
+  footerLabel: string;
+  footerColor?: string;
   onPress: () => void;
+  children: React.ReactNode;
 }) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.quickBtn, pressed && styles.quickPressed]}
-      onPress={onPress}
-    >
-      <View style={styles.quickIconWrap}>{icon}</View>
-      <AppText style={styles.quickLabel}>{label}</AppText>
-    </Pressable>
-  );
-}
-
-function MetricTile({
-  icon,
-  label,
-  value,
-  sub,
-  tone,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub: string;
-  tone: "teal" | "blue" | "green" | "orange";
-  onPress?: () => void;
-}) {
-  const softMap: Record<string, string> = {
-    teal:   colors.tealSoft,
-    blue:   colors.blueSoft,
-    green:  colors.greenSoft,
-    orange: colors.orangeSoft,
-  };
-  const dotMap: Record<string, string> = {
-    teal:   colors.teal,
-    blue:   colors.blue,
-    green:  colors.green,
-    orange: colors.orange,
-  };
-
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.metricTile,
-        { backgroundColor: softMap[tone] },
-        pressed && styles.cardPressed,
+        fcard.card,
+        { borderTopColor: accentColor },
+        pressed && fcard.pressed,
       ]}
       onPress={onPress}
-      disabled={!onPress}
     >
-      <View style={styles.metricTop}>
-        <View style={styles.metricIconWrap}>{icon}</View>
-        <View style={[styles.metricDot, { backgroundColor: dotMap[tone] }]} />
+      {/* ── Header ─────────────────────────────────── */}
+      <View style={fcard.header}>
+        <View style={[fcard.iconWrap, { backgroundColor: iconBg }]}>
+          {icon}
+        </View>
+        <AppText
+          style={[fcard.title, titleColor ? { color: titleColor } : undefined]}
+        >
+          {title}
+        </AppText>
+        {headerAccessory}
+        <Ionicons name="chevron-forward" size={13} color={colors.subtle} />
       </View>
-      <AppText style={styles.metricValue} numberOfLines={1} ellipsizeMode="tail">
-        {value}
-      </AppText>
-      <AppText style={styles.metricLabel} numberOfLines={1} ellipsizeMode="tail">
-        {label}
-      </AppText>
-      <AppText style={styles.metricSub} numberOfLines={1} ellipsizeMode="tail">
-        {sub}
-      </AppText>
+
+      {/* ── Body — flex:1 keeps footer pinned to bottom ── */}
+      <View style={fcard.body}>{children}</View>
+
+      {/* ── Footer CTA ─────────────────────────────── */}
+      <View style={fcard.footer}>
+        <AppText style={[fcard.footerText, { color: footerColor }]}>
+          {footerLabel}
+        </AppText>
+        <Ionicons name="arrow-forward" size={11} color={footerColor} />
+      </View>
     </Pressable>
+  );
+}
+
+// ─── Feature card shell styles ────────────────────────────────────────────────
+
+const fcard = StyleSheet.create({
+  card: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderTopWidth: 3,
+    // borderTopColor applied inline via accentColor prop
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.97 }],
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  iconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: colors.text,
+    letterSpacing: 0.2,
+  },
+  // Grows to fill space between header and footer, keeping footer at bottom
+  // when sibling card is taller and stretches this card's height.
+  body: {
+    flex: 1,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xxs,
+    paddingTop: spacing.xxs,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  footerText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    // color applied inline via footerColor prop
+  },
+});
+
+// ─── AI Suggestions card ──────────────────────────────────────────────────────
+
+function AiSuggestionsCard({
+  onPress,
+  recommendations,
+  loading,
+}: {
+  onPress: () => void;
+  recommendations: RecommendationItem[];
+  loading: boolean;
+}) {
+  let body: React.ReactNode;
+
+  if (loading) {
+    body = (
+      <View style={styles.aiLoading}>
+        <ActivityIndicator size="small" color={colors.teal} />
+      </View>
+    );
+  } else if (recommendations.length > 0) {
+    body = (
+      <View style={styles.suggestionList}>
+        {recommendations.map((item, i) => (
+          <View
+            key={item.id}
+            style={[
+              styles.suggestionRow,
+              i < recommendations.length - 1 && styles.suggestionBorder,
+            ]}
+          >
+            <View
+              style={[
+                styles.suggestionDot,
+                { backgroundColor: PRIORITY_ACCENT[item.priority] },
+              ]}
+            />
+            <AppText style={styles.suggestionText} numberOfLines={2}>
+              {item.title}
+            </AppText>
+          </View>
+        ))}
+      </View>
+    );
+  } else {
+    body = (
+      <View style={styles.aiEmpty}>
+        <Ionicons name="sparkles-outline" size={16} color={colors.subtle} />
+        <AppText style={styles.aiEmptyText}>
+          Generate AI insights to see personalised recommendations
+        </AppText>
+      </View>
+    );
+  }
+
+  return (
+    <HomeFeatureCard
+      accentColor={colors.teal}
+      iconBg={colors.tealSoft}
+      icon={<Ionicons name="sparkles-outline" size={13} color={colors.teal} />}
+      title="AI Suggestions"
+      footerLabel="View all suggestions"
+      onPress={onPress}
+    >
+      {body}
+    </HomeFeatureCard>
+  );
+}
+
+// ─── Apple Health mini card ───────────────────────────────────────────────────
+
+function AppleHealthMiniCard({
+  health,
+  onPress,
+}: {
+  health: AppleHealthContextValue;
+  onPress: (metric?: MetricKey) => void;
+}) {
+  const { status, heartRate, sleepAvgText, stepsAvg7d, sleepAvgMin } = health;
+  const isConnected = status === "linked";
+
+  // ── Not connected ──────────────────────────────────────────────────────────
+  if (!isConnected) {
+    return (
+      <HomeFeatureCard
+        accentColor={colors.border}
+        iconBg={colors.bgSecondary}
+        icon={<Ionicons name="heart-outline" size={13} color={colors.subtle} />}
+        title="Apple Health"
+        titleColor={colors.muted}
+        footerLabel="Connect"
+        footerColor={colors.teal}
+        onPress={() => onPress()}
+      >
+        <View style={styles.ahMiniEmpty}>
+          <View style={styles.ahMiniEmptyIcon}>
+            <Ionicons name="link-outline" size={20} color={colors.subtle} />
+          </View>
+          <AppText style={styles.ahMiniEmptyLabel}>Not connected</AppText>
+          <AppText style={styles.ahMiniEmptySub}>
+            Connect to view live vitals
+          </AppText>
+        </View>
+      </HomeFeatureCard>
+    );
+  }
+
+  // ── Connected ──────────────────────────────────────────────────────────────
+  const hrVal = heartRate != null ? `${heartRate}` : "—";
+  const sleepVal = sleepAvgMin != null ? sleepAvgText : "—";
+  const stepsVal = stepsAvg7d != null ? stepsAvg7d.toLocaleString() : "—";
+
+  return (
+    <HomeFeatureCard
+      accentColor={colors.teal}
+      iconBg={colors.tealSoft}
+      icon={<Ionicons name="heart-outline" size={13} color={colors.teal} />}
+      title="Apple Health"
+      footerLabel="View health data"
+      onPress={() => onPress()}
+    >
+      <View style={styles.ahMiniPills}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.ahMiniPill,
+            styles.ahMiniPillSleep,
+            pressed && styles.ahMiniPillPressed,
+          ]}
+          onPress={() => onPress("sleep")}
+        >
+          <Ionicons name="moon-outline" size={12} color={colors.blue} />
+          <AppText style={styles.ahMiniPillMetric}>Sleep</AppText>
+          <AppText style={styles.ahMiniPillValue}>{sleepVal}</AppText>
+          <Ionicons name="chevron-forward" size={10} color={colors.subtle} />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.ahMiniPill,
+            styles.ahMiniPillSteps,
+            pressed && styles.ahMiniPillPressed,
+          ]}
+          onPress={() => onPress("steps")}
+        >
+          <Ionicons name="walk-outline" size={12} color={colors.green} />
+          <AppText style={styles.ahMiniPillMetric}>Steps</AppText>
+          <AppText style={styles.ahMiniPillValue}>{stepsVal}</AppText>
+          <Ionicons name="chevron-forward" size={10} color={colors.subtle} />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.ahMiniPill,
+            styles.ahMiniPillHR,
+            pressed && styles.ahMiniPillPressed,
+          ]}
+          onPress={() => onPress("heartRate")}
+        >
+          <Ionicons name="heart-outline" size={12} color={colors.orange} />
+          <AppText style={styles.ahMiniPillMetric}>Heart Rate</AppText>
+          <View style={styles.ahMiniPillValueWrap}>
+            <AppText style={styles.ahMiniPillValue}>{hrVal}</AppText>
+            {heartRate != null && (
+              <AppText style={styles.ahMiniPillUnit}> bpm</AppText>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={10} color={colors.subtle} />
+        </Pressable>
+      </View>
+    </HomeFeatureCard>
   );
 }
 
@@ -571,93 +755,152 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.xs,
     color: colors.muted,
   },
-  // Quick actions
-  actionsRow: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xs,
-  },
-  quickBtn: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.xxs,
-    ...shadows.xs,
-  },
-  quickPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.96 }],
-  },
-  quickIconWrap: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickLabel: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
-    textAlign: "center",
-  },
 
-  // Metrics grid
-  metricsGrid: {
+  // Dual card row
+  dualCardRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     paddingHorizontal: spacing.xl,
     gap: spacing.sm,
   },
-  metricTile: {
-    width: "47%",
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.xxs,
-    ...shadows.xs,
+
+  // AI Suggestions
+  suggestionList: {
+    gap: 0,
+    flex: 1,
   },
-  metricTop: {
+  suggestionRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: spacing.xs,
+    gap: spacing.xs,
+    paddingVertical: 7,
   },
-  metricIconWrap: {
-    width: 24,
-    height: 24,
+  suggestionBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    color: colors.textSub,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // Apple Health mini — not connected
+  ahMiniEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  // Dashed border signals "needs action" — mirrors the empty score ring
+  ahMiniEmptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  metricDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginTop: 4,
+  ahMiniEmptyLabel: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: colors.muted,
+    textAlign: "center",
   },
-  metricValue: {
-    fontSize: typescale.size.lg,
+  ahMiniEmptySub: {
+    fontSize: typescale.size.xs,
+    color: colors.subtle,
+    textAlign: "center",
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // Apple Health mini — connected
+  ahMiniLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
+  },
+
+  // Connected pills
+  ahMiniPills: {
+    gap: spacing.xs,
+  },
+  ahMiniPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
+    gap: spacing.xs,
+    minHeight: 36,
+  },
+  ahMiniPillSleep: {
+    backgroundColor: colors.blueSoft,
+  },
+  ahMiniPillSteps: {
+    backgroundColor: colors.greenSoft,
+  },
+  ahMiniPillHR: {
+    backgroundColor: colors.orangeSoft,
+  },
+  ahMiniPillPressed: {
+    opacity: 0.6,
+  },
+  ahMiniPillMetric: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.medium,
+    color: colors.textSub,
+  },
+  ahMiniPillValueWrap: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  ahMiniPillValue: {
+    fontSize: typescale.size.sm,
     fontWeight: typescale.weight.bold,
     color: colors.text,
-    lineHeight: typescale.size.lg * typescale.lineHeight.tight,
   },
-  metricLabel: {
+  ahMiniPillUnit: {
     fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
-    marginTop: 1,
-  },
-  metricSub: {
-    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.medium,
     color: colors.muted,
   },
 
-  // Shared press state
-  cardPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.985 }],
+  // AI Suggestions — loading state
+  aiLoading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+  },
+
+  // AI Suggestions — empty/fallback state
+  aiEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  aiEmptyText: {
+    fontSize: typescale.size.xs,
+    color: colors.subtle,
+    textAlign: "center",
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // Priority-colored bullet dot
+  suggestionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 5,
+    flexShrink: 0,
   },
 
   // Sign out

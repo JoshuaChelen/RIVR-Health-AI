@@ -63,14 +63,39 @@ export const DocumentFactsSchema = z.object({
 export type DocumentFacts = z.infer<typeof DocumentFactsSchema>;
 
 
+export const RecommendationSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  details: z.string().optional(),
+  full_title: z.string().optional(),
+  full_body: z.string().optional(),
+  category: z.enum([
+    "follow_up",
+    "missing_info",
+    "monitoring",
+    "lifestyle",
+    "safety",
+    "medication",
+    "preventive",
+  ]),
+  priority: z.enum(["high", "medium", "low"]),
+  source: z.string(),
+  action_label: z.string().optional(),
+  action_type: z.string().optional(),
+});
+
+export type Recommendation = z.infer<typeof RecommendationSchema>;
+
 export const HealthEvaluationSchema = z.object({
   score_0_to_100: z.number().int().min(0).max(100),
-  score_label: z.string(),     
-  overview: z.string(),                  
+  score_label: z.string(),
+  overview: z.string(),
   highlights: z.array(z.string()),
   risk_flags: z.array(z.string()),
   missing_info: z.array(z.string()),
   suggested_next_steps: z.array(z.string()),
+  recommendations: z.array(RecommendationSchema).optional(),
 
   three_by_five_card: z.object({
     blood_type: z.string().nullable(),

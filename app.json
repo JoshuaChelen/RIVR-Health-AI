@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,7 +20,8 @@
           "cameraPermission": "Allow RIVR to use your camera to scan health documents."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "react-native-health"
     ],
     "ios": {
       "supportsTablet": true,

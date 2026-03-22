@@ -237,7 +237,46 @@ export async function evaluateUserHealth(input: {
 HOW TO POPULATE EACH OUTPUT FIELD:
 
 score_0_to_100 / score_label:
-  Draw from all available sources. MANUAL_PROFILE smoking, alcohol, exercise, current_symptoms, and medical_history are significant direct inputs to the score. APPLE_HEALTH activity and sleep can raise or lower it. Be honest — do not inflate. A person with multiple chronic conditions and sedentary lifestyle should not score above 60.
+  This score is a metric of the patient's CURRENT HEALTH PROFILE, not a profile-completion score.
+
+  It should reflect:
+  - known disease burden and how serious it appears
+  - current symptoms and functional impact
+  - cardiometabolic and lifestyle risk factors
+  - known protective behaviors (exercise, non-smoking, good sleep, etc.)
+  - available Apple Health trends
+  - known labs and vitals when present
+
+  It should NOT primarily reflect:
+  - how many documents were uploaded
+  - how complete the profile is
+  - whether some information is missing
+
+  IMPORTANT:
+  Missing information should lower confidence in the score, but should NOT substantially lower the health score itself unless the missing information is itself clinically concerning.
+
+  Score from known evidence:
+  - known positive evidence can raise the score
+  - known negative evidence can lower the score
+  - unknowns should usually remain neutral
+
+  Use this scale:
+  - 90–100: exceptionally favorable known health profile, strong health-supporting behaviors, and no major known uncontrolled risks
+  - 75–89: generally healthy overall, with some manageable risks or mild chronic issues
+  - 60–74: mixed profile, meaningful risk factors or chronic conditions, but not severe overall compromise
+  - 40–59: significant health burden, poor control, or multiple substantial risk factors
+  - 0–39: severe health burden, major instability, or serious functional/safety concerns
+
+  A person with multiple chronic conditions and sedentary lifestyle should not score above 60.
+  A person with sparse data but no clear negative evidence should not automatically receive a low score; reflect uncertainty elsewhere, not by turning this into a profile-completion score.
+
+score_label:
+  Match the score with a patient-friendly label:
+  - 90–100 → Excellent
+  - 75–89 → Strong
+  - 60–74 → Fair
+  - 40–59 → Concerning
+  - 0–39 → High Risk
 
 overview (2–4 sentences, patient-friendly):
   Synthesize ALL sources into a personal summary of this specific patient. Reference their age and sex if known. Mention their most significant condition, medication, or lifestyle factor. Make it feel specific to them, not a generic template. Do not mention data sources by name.
@@ -266,19 +305,157 @@ three_by_five_card (emergency reference card — accuracy is paramount):
   one_line_summary: one sentence capturing the most clinically significant fact for an emergency responder who has 5 seconds to read this card.
 
 full_summary_markdown:
-  Use markdown headers (##) and bullets. Include these sections when data is available:
-  ## Health Overview — score context and brief narrative
-  ## Key Conditions — from MANUAL_PROFILE medical_history + documents, deduped
-  ## Current Medications — from MANUAL_PROFILE medications + documents, deduped
-  ## Allergies — from MANUAL_PROFILE allergies + documents, deduped
-  ## Surgical History — if any
-  ## Family History — if present in MANUAL_PROFILE
-  ## Lifestyle — smoking, alcohol, exercise from MANUAL_PROFILE
-  ## Current Symptoms — if present in MANUAL_PROFILE current_symptoms
-  ## Apple Health Snapshot — if steps/sleep/HR data is present
-  ## Personal Health Context — include story answers verbatim (in quotes) if provided; frame as "In the patient's own words:" Do not interpret or clinicalize story answers.
-  ## Recommended Next Steps — personalized, from suggested_next_steps
-  Omit sections for which there is no data. Be comprehensive but patient-readable. Avoid jargon.`;
+  Write this as a patient-friendly narrative summary in paragraph form, not as bullets and not as many separate sections.
+
+  Format rules:
+  - Do NOT use markdown headers.
+  - Do NOT use bullet points unless absolutely unavoidable.
+  - Prefer 3–6 well-written paragraphs.
+  - Each paragraph should connect ideas and explain what the overall picture means.
+  - The writing should feel like a real explanation, not a checklist or data dump.
+
+  Content goals:
+  - Start with the big picture of the patient's health based on the available data.
+  - Explain what seems to be going well.
+  - Explain the main health concerns, conditions, symptoms, or risk patterns that matter most.
+  - Explain how lifestyle, Apple Health trends, medications, symptoms, and history fit together when relevant.
+  - When information is missing, mention how that limits the picture, but do not let the summary become a profile-completion report.
+  - If the patient's own story/context is present, weave it in naturally with a phrase like: "In the patient's own words..."
+  - End with a short plain-language explanation of what deserves attention next.
+
+  Style rules:
+  - Be warm, clear, and medically responsible.
+  - Avoid jargon when possible.
+  - Do not just list diagnoses, medications, allergies, or symptoms.
+  - Synthesize the information and explain what it suggests about the patient's overall health.
+  - Focus on meaning, patterns, and implications, not just raw facts.
+  - Do not repeat the same facts already covered elsewhere unless they help explain the overall picture.
+  - If data is sparse, say that clearly and briefly, while still giving the most useful overall interpretation possible.
+
+  Good summary behavior:
+  - "Overall, the available information suggests..."
+  - "Taken together, these findings point to..."
+  - "The main issues that stand out are..."
+  - "This likely matters because..."
+  - "A key limitation in understanding the full picture is..."
+
+  Bad summary behavior:
+  - separate mini sections
+  - bullet lists of conditions
+  - repeating "the patient has..." over and over
+  - turning the whole summary into missing-info reminders
+
+  The final result should read like a thoughtful narrative explanation of what is going on with the patient's health, not a structured notes page.
+
+recommendations (3–6 structured items — populate AFTER completing the other fields):
+  Create a small set of useful, action-first recommendations for this patient.
+
+  Core goal:
+  Recommendations should help the user understand what they should DO next, what important information is MISSING, and what meaningful FOLLOW-UP is needed.
+  Do NOT use this section to simply restate facts the user already knows.
+
+  Source priority:
+  1. missing_info
+  2. suggested_next_steps
+  3. risk_flags only when a clear action follows from them
+
+  Quality gate:
+  Every recommendation must answer at least one of these:
+  - What should the patient do next?
+  - What important information is missing?
+  - What follow-up is needed?
+
+  Suppress these:
+  - generic lifestyle advice not clearly grounded in this patient's data
+  - passive observations that only restate known facts
+  - vague administrative language like "Confirmation of..." or "Assessment of..."
+  - non-urgent safety items that do not lead to a specific action
+  - filler recommendations added just to increase the count
+
+  Diversity goal:
+  If the data allows, aim for 2–3 different useful recommendation types rather than flooding the list with only one category.
+  Missing info should appear first when important, but do NOT let the full list become repetitive if there are also strong follow-up actions.
+
+  id: unique string — "rec_01", "rec_02", etc.
+
+  title:
+    ≤ 55 characters.
+    A compact, scannable preview label for the collapsed card.
+    Start with a clear action verb when possible.
+    Do NOT end with "..." or "…".
+    Do NOT truncate mid-thought.
+    Example: "Add allergy records" not "Confirmation of allergies (penicillin and pean..."
+
+  full_title:
+    The complete user-facing title with no truncation and no ellipsis.
+    This is shown in expanded mode. Write it as a full, clean action phrase.
+    May be longer than `title` — no character limit.
+    Do NOT end with "..." or "…".
+    Example: "Add your full allergy list including penicillin and peanut reactions"
+
+  body:
+    1 short sentence only.
+    A compact preview sentence shown in the collapsed card below the title.
+    Keep it brief and readable at a glance.
+
+  full_body:
+    1–3 full sentences.
+    This is the complete expanded explanation shown when the user taps "See more".
+    Explain what information is missing, why it matters, and what the patient should do.
+    If based on missing_info, name the exact missing field or record clearly.
+    Do NOT use "..." or "…" here.
+    Do NOT cut off mid-thought.
+
+  details:
+    Same as full_body, or a slightly richer version if useful.
+    Omit if it would be identical to full_body.
+
+  category: choose the most accurate:
+    missing_info   → specific missing information or missing records that would materially improve the analysis
+    follow_up      → meaningful next step, provider contact, test, appointment, or review
+    monitoring     → concrete tracking or recheck plan for a known issue
+    medication     → medication review, dose clarification, refill, adherence, or side-effect follow-up
+    safety         → truly urgent concern or dangerous information gap only
+    lifestyle      → only when specific, personalized, and clearly actionable
+    preventive     → useful screening or prevention action when truly relevant
+
+  priority:
+    high   → urgent action, significant clinical concern, or highly important missing information
+    medium → useful and specific next step or information gap
+    low    → lower-impact optimization or preventive action
+
+  source:
+    short snake_case descriptor of the motivating issue, such as:
+    "missing_recent_labs", "medication_dose_unknown", "sleep_data_gap", "bp_follow_up_needed"
+
+  action_label (optional):
+    Use only when there is a clear in-app destination.
+    Prefer these exact labels:
+    "Add Data"       → when uploading or adding health records/documents is the best next step
+    "Connect Health" → when Apple Health would close the data gap
+    "View Health"    → when the recommendation points to Apple Health trends already available
+
+  action_type (optional):
+    If action_label is set, it must be one of:
+    navigate_documents | navigate_apple_health
+
+  CTA routing rules:
+  - If the recommendation is about missing records, labs, reports, imaging, visit summaries, medication records, or health documents, use:
+    action_label: "Add Data"
+    action_type: "navigate_documents"
+  - If the recommendation is about missing sleep, steps, heart rate, activity, wearable, or Apple Health data, use:
+    action_label: "Connect Health"
+    action_type: "navigate_apple_health"
+  - If the item is about scheduling, discussing, or following up with a clinician and there is no meaningful in-app destination, omit the CTA entirely.
+
+  Sorting rules:
+  - Show the most useful items first.
+  - Prefer this category order when similarly valuable:
+    missing_info → follow_up → monitoring → medication → safety → lifestyle → preventive
+  - Within a category, higher priority comes first.
+  - Deduplicate aggressively.
+  - Maximum 6 items.
+  - Do not pad the list with weak recommendations.`;
 
   const generalRules = `
 GENERAL RULES:
