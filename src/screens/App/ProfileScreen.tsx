@@ -135,7 +135,12 @@ export function ProfileScreen({ navigation }: Props) {
     phoneCountry: COUNTRIES[0] as Country,
     phoneNumber: "",
   });
-  const [emergencyDraft, setEmergencyDraft] = useState({ name: "", phone: "", rel: "" });
+  const [emergencyDraft, setEmergencyDraft] = useState({
+    name: "",
+    phoneCountry: COUNTRIES[0] as Country,
+    phoneNumber: "",
+    rel: "",
+  });
 
   // ── Load ────────────────────────────────────────────────────
   useFocusEffect(
@@ -193,10 +198,12 @@ export function ProfileScreen({ navigation }: Props) {
         break;
       }
       case "emergency":
+        const { country, number } = parseStoredPhone(profile?.emergency_contact_phone ?? "");
         setEmergencyDraft({
-          name:  profile?.emergency_contact_name ?? "",
-          phone: profile?.emergency_contact_phone ?? "",
-          rel:   profile?.emergency_contact_relationship ?? "",
+          name: profile?.emergency_contact_name ?? "",
+          phoneCountry: country,
+          phoneNumber: number,
+          rel: profile?.emergency_contact_relationship ?? "",
         });
         break;
     }
@@ -265,13 +272,17 @@ export function ProfileScreen({ navigation }: Props) {
     });
   }
 
-  async function saveEmergency() {
-    await saveSection({
-      emergency_contact_name:         emergencyDraft.name.trim() || null,
-      emergency_contact_phone:        emergencyDraft.phone.trim() || null,
-      emergency_contact_relationship: emergencyDraft.rel.trim() || null,
-    });
-  }
+async function saveEmergency() {
+  const fullPhone = emergencyDraft.phoneNumber.trim()
+    ? `${emergencyDraft.phoneCountry.dial} ${emergencyDraft.phoneNumber.trim()}`
+    : null;
+
+  await saveSection({
+    emergency_contact_name: emergencyDraft.name.trim() || null,
+    emergency_contact_phone: fullPhone,
+    emergency_contact_relationship: emergencyDraft.rel.trim() || null,
+  });
+}
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -590,12 +601,17 @@ export function ProfileScreen({ navigation }: Props) {
                   autoCapitalize="words"
                   autoCorrect={false}
                 />
-                <TextField
+                <PhoneField
                   label="Contact phone"
-                  placeholder="+1 (555) 000-0000"
-                  value={emergencyDraft.phone}
-                  onChangeText={(v) => setEmergencyDraft((d) => ({ ...d, phone: v }))}
-                  keyboardType="phone-pad"
+                  country={emergencyDraft.phoneCountry}
+                  number={emergencyDraft.phoneNumber}
+                  onCountryChange={(c) =>
+                    setEmergencyDraft((d) => ({ ...d, phoneCountry: c }))
+                  }
+                  onNumberChange={(n) =>
+                    setEmergencyDraft((d) => ({ ...d, phoneNumber: n }))
+                  }
+                  editable={!saving}
                 />
                 <TextField
                   label="Relationship"

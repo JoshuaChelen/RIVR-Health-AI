@@ -145,19 +145,6 @@ export function AppleHealthProvider({
 
       const snap = await getAppleHealthSnapshot();
 
-      console.log("[AppleHealth] raw snapshot:", {
-        heartRate: snap.heartRate,
-        sleepAvgMin: snap.sleepAvgMin,
-        stepsAvg7d: snap.stepsAvg7d,
-        distanceAvg7dMiles: snap.walkingRunningDistanceAvg7dMiles,
-        activeEnergyAvg7dKcal: snap.activeEnergyAvg7dKcal,
-        stepsTrendCount: snap.stepsTrend7d.length,
-        sleepTrendCount: snap.sleepTrend7d.length,
-        heartRateTrendCount: snap.heartRateTrend.length,
-        stepsTrend: snap.stepsTrend7d,
-        sleepTrend: snap.sleepTrend7d,
-        heartRateTrend: snap.heartRateTrend,
-      });
 
       setHeartRate(snap.heartRate);
       setSleepAvgMin(snap.sleepAvgMin);
@@ -175,7 +162,6 @@ export function AppleHealthProvider({
         snap.walkingRunningDistanceAvg7dMiles !== null ||
         snap.activeEnergyAvg7dKcal !== null;
 
-      console.log("[AppleHealth] hasAnyData:", hasAnyData);
 
       // Always mark as linked once HealthKit is authorized and responsive.
       // errorText below communicates when samples are absent.
@@ -195,7 +181,6 @@ export function AppleHealthProvider({
       const userId = auth.user?.id;
       if (userId) {
         const syncResult = await syncAppleHealthToTimeline(userId, snap);
-        console.log("[AppleHealth] sync result:", syncResult);
         if (!syncResult.ok) {
           setErrorText(
             syncResult.error ?? "Data read OK, but timeline sync failed."
@@ -205,7 +190,6 @@ export function AppleHealthProvider({
 
       setLastSync(new Date());
     } catch (e: any) {
-      console.log("[AppleHealth] refresh error:", e?.message ?? e);
       // A read error should not bounce the user back to the "Connect" flow
       // if they were already linked. Only go to unlinked when we haven't
       // established a linked state yet.
@@ -242,7 +226,6 @@ export function AppleHealthProvider({
       }
 
       // Authorization granted — mark as linked so refresh() proceeds.
-      console.log("[AppleHealth] link success — HealthKit authorized");
       profileLinkedRef.current = true;
 
       const { data: auth } = await supabase.auth.getUser();

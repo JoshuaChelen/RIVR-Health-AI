@@ -185,8 +185,6 @@ async function main() {
   };
 
   fs.writeFileSync(OUTPUT, JSON.stringify(out, null, 2), "utf8");
-  console.log("Wrote:", OUTPUT);
-  console.log("Counts:", out.debug.counts);
 }
 
 main().catch((e) => {

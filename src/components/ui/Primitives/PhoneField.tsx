@@ -8,9 +8,21 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SvgXml } from "react-native-svg";
 import { AppText } from "./AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, shadows, spacing, typescale } from "../../../theme/tokens";
+
+// Renders an SVG country flag by ISO alpha-2 code (e.g. "US", "GB").
+// Uses react-native-svg — no emoji, no font dependency, works reliably on iOS.
+import * as FlagStrings from "country-flag-icons/string/3x2";
+
+function FlagIcon({ code, size }: { code: string; size: number }) {
+  const xml = (FlagStrings as Record<string, string>)[code];
+  if (!xml) return null;
+  // Flags are 3:2 ratio, so width = size * 1.5
+  return <SvgXml xml={xml} width={size * 1.5} height={size} />;
+}
 
 // ─── Country list ─────────────────────────────────────────────────────────────
 
@@ -345,7 +357,7 @@ export function PhoneField({
           onPress={() => editable && setShowPicker(true)}
           disabled={!editable}
         >
-          <AppText style={pf.prefixFlag}>{country.flag}</AppText>
+          <FlagIcon code={country.code} size={18} />
           <AppText style={pf.prefixDial}>{country.dial}</AppText>
           <Ionicons name="chevron-down" size={14} color={colors.muted} />
         </Pressable>
@@ -389,7 +401,7 @@ export function PhoneField({
                 ]}
                 onPress={() => handleCountrySelect(item)}
               >
-                <AppText style={pf.countryFlag}>{item.flag}</AppText>
+                <FlagIcon code={item.code} size={22} />
                 <AppText style={pf.countryName} numberOfLines={1}>{item.name}</AppText>
                 <AppText style={pf.countryDial}>{item.dial}</AppText>
                 {item.code === country.code && (

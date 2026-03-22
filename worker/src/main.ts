@@ -838,6 +838,24 @@ async function processJob(job: any) {
 
     const manuallyEnteredFields = [...getManuallyEnteredFields(manualCtx)];
 
+    const manualProfileSig = rawProfile
+      ? JSON.stringify({
+          date_of_birth: rawProfile?.date_of_birth ?? null,
+          sex_or_gender: rawProfile?.sex_or_gender ?? null,
+          current_symptoms: String(rawProfile?.current_symptoms ?? "").trim() || null,
+          smoking_status: rawProfile?.smoking_status ?? null,
+          alcohol_use: rawProfile?.alcohol_use ?? null,
+          exercise_level: rawProfile?.exercise_level ?? null,
+          allergies: Array.isArray(rawProfile?.allergies) ? rawProfile.allergies : [],
+          medications: Array.isArray(rawProfile?.medications) ? rawProfile.medications : [],
+          medical_history: Array.isArray(rawProfile?.medical_history) ? rawProfile.medical_history : [],
+          surgical_history: Array.isArray(rawProfile?.surgical_history) ? rawProfile.surgical_history : [],
+          family_history: Array.isArray(rawProfile?.family_history) ? rawProfile.family_history : [],
+          hospitalizations: Array.isArray(rawProfile?.hospitalizations) ? rawProfile.hospitalizations : [],
+          social_history: Array.isArray(rawProfile?.social_history) ? rawProfile.social_history : [],
+        })
+      : null;
+
     const profileRow = {
       user_id: userId,
       score: evaluation.score_0_to_100,
@@ -865,6 +883,7 @@ async function processJob(job: any) {
           has_data: !!rawProfile,
           has_clinical_data: manualCtx._has_clinical_data,
           manually_entered_fields: manuallyEnteredFields,
+          signature: manualProfileSig,
         },
         evaluation_storage_path: evalPath,
         evaluation_id: evalRow?.id ?? null,

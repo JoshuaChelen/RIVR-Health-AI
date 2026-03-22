@@ -348,8 +348,7 @@ export function AppleHealthScreen({ route }: Props) {
         {/* ── 4. Footer ─────────────────────────────────────── */}
         <AppText style={styles.footer}>
           RIVR reads heart rate, sleep, steps, distance, and active energy — and
-          never writes to Apple Health. Manage permissions anytime in iPhone
-          Settings → Privacy & Security → Health.
+          never writes to Apple Health.
         </AppText>
       </ScrollView>
     </Screen>
@@ -702,10 +701,6 @@ function ActionsCard({
         onPress={onDisconnect}
         disabled={refreshing}
       />
-      <AppText style={ac.disconnectNote}>
-        To fully revoke access, open iPhone Settings → Privacy & Security →
-        Health → RIVR.
-      </AppText>
     </View>
   );
 }

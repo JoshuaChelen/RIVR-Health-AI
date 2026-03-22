@@ -1,6 +1,8 @@
 import React from "react";
+import { Pressable } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "./appTypes";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { HomeScreen } from "../screens/App/HomeScreen";
 import { ProfileScreen } from "../screens/App/ProfileScreen";
@@ -24,17 +26,48 @@ export function AppNavigator() {
   return (
     <Stack.Navigator
       initialRouteName="Home"
-      screenOptions={{
+      screenOptions={({ navigation }) => ({
         headerStyle:       { backgroundColor: colors.bg },
         headerShadowVisible: false,
         headerTitleStyle:  {
-          fontSize:   typescale.size.md,
-          fontWeight: typescale.weight.bold,
-          color:      colors.text,
+          fontSize:      typescale.size.md,
+          fontWeight:    typescale.weight.semibold,
+          color:         colors.text,
+          letterSpacing: -0.2,
         },
-        headerTintColor:   colors.teal,
-        contentStyle:      { backgroundColor: colors.bg },
-      }}
+        headerTintColor:          colors.teal,
+        contentStyle:             { backgroundColor: colors.bg },
+        headerBackVisible:        false,
+        headerBackTitleVisible:   false,
+        headerBackButtonMenuEnabled: false,
+        headerLeft: ({ canGoBack }) =>
+          canGoBack ? (
+            <Pressable
+              onPress={() => navigation.goBack()}
+              hitSlop={8}
+              style={({ pressed }) => [
+                {
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "transparent",
+                  borderWidth: 0,
+                  borderColor: colors.border,
+                },
+                pressed && { opacity: 0.75 },
+              ]}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color={colors.teal}
+                style={{ marginLeft: -1 }}
+              />
+            </Pressable>
+          ) : null,
+      })}
     >
       <Stack.Screen
         name="Home"

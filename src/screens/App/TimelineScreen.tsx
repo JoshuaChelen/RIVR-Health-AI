@@ -47,15 +47,20 @@ export function TimelineScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const { data, error } = await supabase
-        .from("timeline_events")
-        .select(
-          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit"
-        )
-        .order("occurred_at", { ascending: false });
+        const { data, error } = await supabase
+      .from("timeline_events")
+      .select(
+        "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit"
+      )
+      .neq("source", "apple_health")
+      .order("occurred_at", { ascending: false });
 
-      if (error) throw error;
-      setEvents((data ?? []) as TimelineEventRow[]);
+    if (error) throw error;
+    setEvents(
+      ((data ?? []) as TimelineEventRow[]).filter(
+        (e) => e.source !== "apple_health"
+      )
+    );
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load timeline.");
     } finally {
@@ -173,7 +178,15 @@ export function TimelineScreen({ navigation }: Props) {
               <View key={row.key} style={styles.spineRow}>
                 {/* Left spine: dot + optional connecting line */}
                 <View style={styles.spineGutter}>
-                  <View style={[styles.spineDot, { backgroundColor: meta.dot }]} />
+                  <View
+                    style={[
+                      styles.spineMarker,
+                      { backgroundColor: `${meta.dot}14`, borderColor: `${meta.dot}40` },
+                    ]}
+                  >
+                    <View style={[styles.spineMarkerInner, { backgroundColor: meta.dot }]} />
+                  </View>
+
                   {!row.isLastInGroup ? <View style={styles.spineLine} /> : null}
                 </View>
 
@@ -282,9 +295,10 @@ function formatEventDate(ymd: string, precision: DatePrecision) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const GUTTER_WIDTH  = 28;
-const DOT_SIZE      = 10;
-const DOT_MARGIN_TOP = 14;  // aligns dot with the card icon center
+const GUTTER_WIDTH   = 32;
+const MARKER_SIZE    = 16;
+const MARKER_INNER   = 6;
+const DOT_MARGIN_TOP = 11;
 
 const styles = StyleSheet.create({
   scroll: {
@@ -383,17 +397,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: DOT_MARGIN_TOP,
   },
-  spineDot: {
-    width: DOT_SIZE,
-    height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
+
+  spineMarker: {
+    width: MARKER_SIZE,
+    height: MARKER_SIZE,
+    borderRadius: MARKER_SIZE / 2,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
+
+  spineMarkerInner: {
+    width: MARKER_INNER,
+    height: MARKER_INNER,
+    borderRadius: MARKER_INNER / 2,
+  },
+
   spineLine: {
     flex: 1,
     width: 2,
     backgroundColor: colors.borderLight,
-    marginTop: 4,
+    marginTop: 6,
     borderRadius: 1,
   },
   card: {

@@ -24,7 +24,7 @@ type CategoryMeta = {
 };
 
 const DEFAULT_META: CategoryMeta = {
-  iconName: "ellipse-outline",
+  iconName: "fitness-outline",
   iconColor: colors.orange,
   iconBg: colors.orangeSoft,
   pillBg: colors.orangeSoft,
@@ -64,6 +64,23 @@ const CATEGORY_MAP: Array<{ test: (c: string) => boolean; meta: CategoryMeta }> 
       pillBg:     "#FCE7F3",
       pillText:   "#9D174D",
       dot:        "#BE185D",
+    },
+  },
+  {
+    test: (c) =>
+      c.includes("activity") ||
+      c.includes("step") ||
+      c.includes("walk") ||
+      c.includes("run") ||
+      c.includes("energy") ||
+      c.includes("exercise"),
+    meta: {
+      iconName: "fitness-outline",
+      iconColor: colors.orange,
+      iconBg: colors.orangeSoft,
+      pillBg: colors.orangeSoft,
+      pillText: colors.orange,
+      dot: colors.orange,
     },
   },
   {

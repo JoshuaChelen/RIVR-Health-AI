@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -12,7 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-
+import { supabase } from "../../lib/supabase";
 import { getProfile, upsertProfile, type UserProfile } from "../../lib/profile";
 import { upsertManualInputDocument } from "../../lib/documents";
 import { getCurrentUserId } from "../../lib/auth";
@@ -151,7 +151,7 @@ const ab = StyleSheet.create({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-export function MedicalProfileScreen(_: Props) {
+export function MedicalProfileScreen({ navigation }: Props) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingSection, setEditingSection] = useState<MedSection | null>(null);
@@ -256,6 +256,72 @@ export function MedicalProfileScreen(_: Props) {
     setSaving(false);
   }
 }
+
+
+const didHandleExitRef = useRef(false);
+
+const enqueueManualProfileIfPending = useCallback(async () => {
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw userErr;
+  if (!user) return;
+
+  const { data: manualDoc, error: docErr } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("source_type", "manual_input")
+    .eq("status", "uploaded")
+    .maybeSingle();
+
+  if (docErr) throw docErr;
+  if (!manualDoc?.id) return;
+
+  const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
+  if (sessErr) throw sessErr;
+
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Not signed in");
+
+  const { error: jobErr } = await supabase.functions.invoke(
+    "enqueue-document-processing",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      body: { documentIds: [manualDoc.id] },
+    }
+  );
+
+  if (jobErr) throw jobErr;
+}, []);
+
+useFocusEffect(
+  useCallback(() => {
+    didHandleExitRef.current = false;
+    return undefined;
+  }, [])
+);
+
+useEffect(() => {
+  const unsub = navigation.addListener("beforeRemove", (e) => {
+    if (didHandleExitRef.current) return;
+
+    e.preventDefault();
+    didHandleExitRef.current = true;
+
+    const action = e.data.action;
+
+    (async () => {
+      try {
+        await enqueueManualProfileIfPending();
+      } catch {
+        // Do not block navigation if enqueue fails
+      } finally {
+        navigation.dispatch(action);
+      }
+    })();
+  });
+
+  return unsub;
+}, [navigation, enqueueManualProfileIfPending]);
 
   // ─── Lifestyle ─────────────────────────────────────────────────────────────
   const saveLifestyle = () => persist({

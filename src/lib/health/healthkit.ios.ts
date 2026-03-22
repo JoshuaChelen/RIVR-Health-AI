@@ -46,6 +46,26 @@ function hasHealthKitModule(): boolean {
   );
 }
 
+function extractNumericValues(input: unknown): number[] {
+  if (input == null) return [];
+
+  if (Array.isArray(input)) {
+    return input.flatMap((item) => extractNumericValues(item));
+  }
+
+  if (typeof input === "object") {
+    const maybeValue = (input as { value?: unknown }).value;
+    if (maybeValue != null) {
+      const n = Number(maybeValue);
+      return Number.isFinite(n) ? [n] : [];
+    }
+    return [];
+  }
+
+  const n = Number(input);
+  return Number.isFinite(n) ? [n] : [];
+}
+
 function daysAgo(count: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - count);
@@ -195,21 +215,34 @@ export async function getWalkingRunningDistanceAvg7dMiles(): Promise<number | nu
   const endDate = new Date().toISOString();
 
   return await new Promise((resolve) => {
-    AppleHealthKit.getDistanceWalkingRunning(
+    AppleHealthKit.getDailyDistanceWalkingRunningSamples(
       {
         startDate,
         endDate,
         unit: AppleHealthKit.Constants.Units.mile,
+        ascending: true,
+        includeManuallyAdded: true,
       },
-      (err: any, value: any) => {
-        if (err) return resolve(null);
-        const total = Number(value);
-        if (!Number.isFinite(total)) return resolve(null);
-        resolve(Number((total / 7).toFixed(2)));
+      (err: any, results: any) => {
+        if (err) {
+          return resolve(null);
+        }
+
+        const values = extractNumericValues(results);
+        if (!values.length) {
+          return resolve(null);
+        }
+
+        const totalMiles = values.reduce((sum, n) => sum + n, 0);
+        const avgMilesPerDay = totalMiles / 7;
+
+        resolve(Number(avgMilesPerDay.toFixed(2)));
       }
     );
   });
 }
+
+
 
 export async function getActiveEnergyAvg7dKcal(): Promise<number | null> {
   if (!hasHealthKitModule()) return null;
@@ -223,16 +256,28 @@ export async function getActiveEnergyAvg7dKcal(): Promise<number | null> {
         startDate,
         endDate,
         unit: AppleHealthKit.Constants.Units.kilocalorie,
+        ascending: true,
+        includeManuallyAdded: true,
       },
-      (err: any, value: any) => {
-        if (err) return resolve(null);
-        const total = Number(value);
-        if (!Number.isFinite(total)) return resolve(null);
-        resolve(Math.round(total / 7));
+      (err: any, results: any) => {
+        if (err) {
+          return resolve(null);
+        }
+
+        const values = extractNumericValues(results);
+        if (!values.length) {
+          return resolve(null);
+        }
+
+        const totalKcal = values.reduce((sum, n) => sum + n, 0);
+        const avgKcalPerDay = totalKcal / 7;
+
+        resolve(Math.round(avgKcalPerDay));
       }
     );
   });
 }
+
 
 export async function getStepsTrend7Days(): Promise<DailyDataPoint[]> {
   if (!hasHealthKitModule()) return [];
@@ -344,6 +389,7 @@ export async function getAppleHealthSnapshot(): Promise<AppleHealthSnapshot> {
     getSleepTrend7Days(),
     getHeartRateTrend(),
   ]);
+
 
   return {
     fetchedAt,

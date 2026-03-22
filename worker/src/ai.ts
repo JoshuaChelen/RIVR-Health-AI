@@ -331,6 +331,10 @@ full_summary_markdown:
   - Focus on meaning, patterns, and implications, not just raw facts.
   - Do not repeat the same facts already covered elsewhere unless they help explain the overall picture.
   - If data is sparse, say that clearly and briefly, while still giving the most useful overall interpretation possible.
+    - Do NOT include disclaimer language in this field.
+    - Do NOT say "this summary is informational", "not a substitute for medical advice", "follow up with your clinician", or similar boilerplate unless it is part of a concrete patient-specific next step.
+    - The final paragraph must end with a useful, patient-specific conclusion, not a legal or safety disclaimer.
+    - Any disclaimer belongs ONLY in the separate disclaimer field.
 
   Good summary behavior:
   - "Overall, the available information suggests..."
@@ -389,7 +393,7 @@ recommendations (3–6 structured items — populate AFTER completing the other 
   full_title:
     The complete user-facing title with no truncation and no ellipsis.
     This is shown in expanded mode. Write it as a full, clean action phrase.
-    May be longer than `title` — no character limit.
+    May be longer than "title" — no character limit.
     Do NOT end with "..." or "…".
     Example: "Add your full allergy list including penicillin and peanut reactions"
 
@@ -455,14 +459,22 @@ recommendations (3–6 structured items — populate AFTER completing the other 
   - Within a category, higher priority comes first.
   - Deduplicate aggressively.
   - Maximum 6 items.
-  - Do not pad the list with weak recommendations.`;
+  - Do not pad the list with weak recommendations.
 
+  disclaimer:
+    Write exactly one short sentence.
+    Keep it neutral and brief.
+    This field is separate from the summary.
+    Do NOT repeat or paraphrase this disclaimer in overview, full_summary_markdown, suggested_next_steps, or recommendations.
+  `;
   const generalRules = `
 GENERAL RULES:
   - Output MUST match the schema exactly. No extra keys. No markdown outside full_summary_markdown.
   - Score 0–100: be honest. Do not inflate.
   - Do not hallucinate facts not present in any data source.
-  - Include a short, warm disclaimer that this is an informational summary and not a substitute for medical advice.
+  - Put any disclaimer text ONLY in the separate disclaimer field.
+  - Never include disclaimer, liability, or "not a substitute for medical advice" language in full_summary_markdown, overview, suggested_next_steps, or recommendations.
+  - full_summary_markdown must end with patient-specific next steps, not a disclaimer.
   - If a list field (allergies, current_meds, etc.) has nothing to report, use an empty array []. Never omit it.`;
 
   const system = `You are a health information synthesizer producing a structured health summary for a patient's personal health app.
