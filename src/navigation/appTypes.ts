@@ -8,7 +8,9 @@ export type AppStackParamList = {
   PreVisitNote: undefined;
   ShinScore: undefined;
   HealthSummary: undefined;
+  AIInsights: undefined;
   Profile: undefined;
   MedicalProfile: undefined;
   Story: undefined;
+  AppleHealth: { initialMetric?: "sleep" | "steps" | "heartRate" } | undefined;
 };

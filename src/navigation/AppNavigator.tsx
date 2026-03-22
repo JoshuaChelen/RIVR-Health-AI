@@ -12,7 +12,9 @@ import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
 import { TimelineEventDetailsScreen } from "../screens/App/TimelineEventDetailsScreen";
 import { PreVisitNoteScreen } from "../screens/App/PreVisitNoteScreen";
 import HealthSummaryScreen from "../screens/App/HealthSummaryScreen";
+import { AIInsightsScreen } from "../screens/App/AIInsightsScreen";
 import { ShinScoreScreen } from "../screens/App/ShinScoreScreen";
+import { AppleHealthScreen } from "../screens/App/AppleHealthScreen";
 
 import { colors, typescale } from "../theme/tokens";
 
@@ -65,6 +67,11 @@ export function AppNavigator() {
         options={{ title: "AI Health Summary" }}
       />
       <Stack.Screen
+        name="AIInsights"
+        component={AIInsightsScreen}
+        options={{ title: "AI Recommendations" }}
+      />
+      <Stack.Screen
         name="PreVisitNote"
         component={PreVisitNoteScreen}
         options={{ title: "Pre-Visit Note" }}
@@ -88,6 +95,11 @@ export function AppNavigator() {
         name="Story"
         component={StoryScreen}
         options={{ title: "Your Health Story" }}
+      />
+      <Stack.Screen
+        name="AppleHealth"
+        component={AppleHealthScreen}
+        options={{ title: "Apple Health" }}
       />
     </Stack.Navigator>
   );

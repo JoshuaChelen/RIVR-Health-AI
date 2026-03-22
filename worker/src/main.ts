@@ -848,6 +848,7 @@ async function processJob(job: any) {
         risk_flags: evaluation.risk_flags,
         missing_info: evaluation.missing_info,
         suggested_next_steps: evaluation.suggested_next_steps,
+        recommendations: evaluation.recommendations ?? [],
         full_summary_markdown: evaluation.full_summary_markdown,
         disclaimer: evaluation.disclaimer,
       },
