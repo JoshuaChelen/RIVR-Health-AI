@@ -26,6 +26,7 @@ import {
   PRIORITY_ACCENT,
   type RecommendationItem,
 } from "../../lib/recommendations";
+import { SectionHeader } from "../../components/ui/Timeline/SectionHeader";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 type MetricKey = "sleep" | "steps" | "heartRate";
@@ -230,6 +231,30 @@ export function HomeScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={18} color={colors.teal} />
         </Pressable>
 
+        {/* ── Actions + metrics grid ─────────────────────────── */}
+          <View style={styles.actionsRow}>
+            <QuickAction
+              label="Documents"
+              icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />}
+              onPress={() => navigation.navigate("ManageDocuments")}
+            />
+            <QuickAction
+              label="Timeline"
+              icon={<Ionicons name="calendar-outline" size={20} color={colors.text} />}
+              onPress={() => navigation.navigate("Timeline")}
+            />
+            <QuickAction
+              label="Pre-Visit"
+              icon={<Ionicons name="medkit-outline" size={20} color={colors.text} />}
+              onPress={() => navigation.navigate("PreVisitNote")}
+            />
+            <QuickAction
+              label="Share"
+              icon={<Ionicons name="share-social-outline" size={20} color={colors.text} />}
+              onPress={() => navigation.navigate("Share")}
+            />
+          </View>
+
         {/* ── Dual card row: AI Suggestions + Apple Health ──── */}
         <View style={styles.dualCardRow}>
           <AiSuggestionsCard
@@ -269,6 +294,27 @@ export function HomeScreen({ navigation }: Props) {
 // headerAccessory is an optional element inserted between the title and chevron
 // (e.g. the live-data green dot on the Apple Health connected card).
 // body fills remaining space so the footer always aligns with its sibling.
+
+function QuickAction({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.quickBtn, pressed && styles.quickPressed]}
+      onPress={onPress}
+    >
+      <View style={styles.quickIconWrap}>{icon}</View>
+      <AppText style={styles.quickLabel}>{label}</AppText>
+    </Pressable>
+  );
+}
+
 
 function HomeFeatureCard({
   accentColor,
@@ -914,5 +960,37 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.medium,
     color: colors.subtle,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xs,
+  },
+  quickBtn: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.xxs,
+    ...shadows.xs,
+  },
+  quickPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
+  },
+  quickIconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: colors.textSub,
+    textAlign: "center",
   },
 });

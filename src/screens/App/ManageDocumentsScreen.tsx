@@ -166,18 +166,18 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
 
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical:   2,
+    borderRadius:      radius.pill,
+    borderWidth:       StyleSheet.hairlineWidth,
   },
   badgeActive: {
     backgroundColor: colors.tealSoft,
-    borderColor: colors.tealBorder,
+    borderColor:     colors.tealBorder,
   },
   badgeIdle: {
-    backgroundColor: colors.bgSecondary,
-    borderColor: colors.border,
+    backgroundColor: "transparent",
+    borderColor:     colors.border,
   },
 
   list: { flex: 1 },

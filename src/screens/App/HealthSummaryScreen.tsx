@@ -19,6 +19,31 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
 
+function manualProfileSignature(p: any) {
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  const text = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    return s ? s : null;
+  };
+
+  return JSON.stringify({
+    date_of_birth: p?.date_of_birth ?? null,
+    sex_or_gender: p?.sex_or_gender ?? null,
+    current_symptoms: text(p?.current_symptoms),
+    smoking_status: p?.smoking_status ?? null,
+    alcohol_use: p?.alcohol_use ?? null,
+    exercise_level: p?.exercise_level ?? null,
+    allergies: list(p?.allergies),
+    medications: list(p?.medications),
+    medical_history: list(p?.medical_history),
+    surgical_history: list(p?.surgical_history),
+    family_history: list(p?.family_history),
+    hospitalizations: list(p?.hospitalizations),
+    social_history: list(p?.social_history),
+  });
+}
+
+
 function safeJoin(arr: any[]) {
   return Array.isArray(arr) && arr.length ? arr.join(", ") : "";
 }
@@ -66,12 +91,17 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const hasContent = !!(fullSummary || card);
 
   // ── Staleness ───────────────────────────────────────────────────────────────
-  const healthUpdatedMs  = profile?.updated_at    ? new Date(profile.updated_at).getTime()    : null;
-  const profileUpdatedMs = userProfile?.updated_at ? new Date(userProfile.updated_at).getTime() : null;
-  const STALE_GRACE_MS   = 5_000;
+  const savedManualProfileSig =
+    profile?.sources?.manual_profile?.signature ?? null;
+
+  const currentManualProfileSig =
+    userProfile ? manualProfileSignature(userProfile) : null;
+
   const isStale = !!(
-    hasContent && healthUpdatedMs && profileUpdatedMs &&
-    profileUpdatedMs > healthUpdatedMs + STALE_GRACE_MS
+    hasContent &&
+    savedManualProfileSig &&
+    currentManualProfileSig &&
+    savedManualProfileSig !== currentManualProfileSig
   );
 
   // ── Source tags ─────────────────────────────────────────────────────────────
