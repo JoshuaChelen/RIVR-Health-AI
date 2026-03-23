@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
+import * as Linking from "expo-linking";
 
 import { supabase } from "./src/lib/supabase";
 import { getProfile } from "./src/lib/profile";
@@ -12,6 +13,16 @@ import { AuthNavigator } from "./src/navigation/AuthNavigator";
 import { OnboardingNavigator } from "./src/navigation/OnboardingNavigator";
 import { navRef } from "./src/navigation/navRef";
 import { colors } from "./src/theme/tokens";
+
+const linking = {
+  prefixes: ["rivrhealth://"],
+  config: {
+    screens: {
+      Login: "auth/confirmed",
+      UpdatePassword: "auth/reset",
+    },
+  },
+};
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -82,7 +93,7 @@ export default function App() {
   const showApp = session && !isRecoveryFlow;
 
   return (
-    <NavigationContainer ref={navRef}>
+    <NavigationContainer ref={navRef} linking={linking}>
       {showApp && onboardingComplete ? (
         <AppleHealthProvider>
           <AppNavigator />

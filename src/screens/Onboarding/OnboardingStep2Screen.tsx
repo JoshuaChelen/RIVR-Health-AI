@@ -103,7 +103,7 @@ export function OnboardingStep2Screen({ navigation }: Props) {
   }
 
   return (
-    <Screen edges={["left", "right", "bottom"]}>
+    <Screen edges={["top", "left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
