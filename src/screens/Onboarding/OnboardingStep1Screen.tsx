@@ -149,7 +149,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Screen edges={["left", "right", "bottom"]}>
+    <Screen edges={["top", "left", "right", "bottom"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -384,27 +384,29 @@ function DatePickerModal({
           {/* Month */}
           <View style={dp.fallbackCol}>
             <Pressable onPress={() => adjust("m", 1)} style={dp.arrowBtn}>
-              <AppText style={dp.arrow}>▲</AppText>
+              <Ionicons name="chevron-up" size={18} color={colors.teal} />
             </Pressable>
             <AppText style={dp.fallbackValue}>{MONTHS[month].slice(0, 3)}</AppText>
             <Pressable onPress={() => adjust("m", -1)} style={dp.arrowBtn}>
               <Ionicons name="chevron-down" size={18} color={colors.teal} />
             </Pressable>
           </View>
+
           {/* Day */}
           <View style={dp.fallbackCol}>
             <Pressable onPress={() => adjust("d", 1)} style={dp.arrowBtn}>
-              <AppText style={dp.arrow}>▲</AppText>
+              <Ionicons name="chevron-up" size={18} color={colors.teal} />
             </Pressable>
             <AppText style={dp.fallbackValue}>{String(day).padStart(2, "0")}</AppText>
             <Pressable onPress={() => adjust("d", -1)} style={dp.arrowBtn}>
               <Ionicons name="chevron-down" size={18} color={colors.teal} />
             </Pressable>
           </View>
+
           {/* Year */}
           <View style={dp.fallbackCol}>
             <Pressable onPress={() => adjust("y", 1)} style={dp.arrowBtn}>
-              <AppText style={dp.arrow}>▲</AppText>
+              <Ionicons name="chevron-up" size={18} color={colors.teal} />
             </Pressable>
             <AppText style={dp.fallbackValue}>{year}</AppText>
             <Pressable onPress={() => adjust("y", -1)} style={dp.arrowBtn}>

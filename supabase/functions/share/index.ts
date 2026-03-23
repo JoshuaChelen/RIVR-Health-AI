@@ -175,7 +175,7 @@ if (req.method === "GET") {
 
       const { data: pkg, error: pkgErr } = await admin
         .from("share_packages")
-        .select("id, owner_id, file_type, expires_at, revoked, max_views, views_count, pin_hash, payload_json")
+        .select("id, owner_id, file_type, expires_at, revoked, max_views, views_count, pin_hash, payload_json, artifacts_deleted_at")
         .eq("token_hash", tokenHash)
         .single();
 
@@ -194,6 +194,37 @@ if (req.method === "GET") {
       }
 
       if (new Date(pkg.expires_at).getTime() <= Date.now()) {
+        if (
+          pkg.file_type === "health_profile" &&
+          !(pkg as any).artifacts_deleted_at
+        ) {
+          const pdfs = (pkg.payload_json as any)?.pdfs ?? {};
+          const paths = Object.values(pdfs).filter(
+            (v): v is string => typeof v === "string" && v.length > 0
+          );
+
+          if (paths.length > 0) {
+            const { error: removeErr } = await admin
+              .storage
+              .from("share-artifacts")
+              .remove(paths);
+
+            if (removeErr) {
+              console.error("Expired share cleanup failed:", removeErr.message);
+            } else {
+              await admin
+                .from("share_packages")
+                .update({ artifacts_deleted_at: new Date().toISOString() })
+                .eq("id", pkg.id);
+            }
+          } else {
+            await admin
+              .from("share_packages")
+              .update({ artifacts_deleted_at: new Date().toISOString() })
+              .eq("id", pkg.id);
+          }
+        }
+
         return new Response(JSON.stringify({ error: "This share link expired" }), {
           status: 410,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
