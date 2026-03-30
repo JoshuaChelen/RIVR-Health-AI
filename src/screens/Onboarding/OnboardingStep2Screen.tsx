@@ -12,6 +12,7 @@ import type { OnboardingStackParamList } from "../../navigation/onboardingTypes"
 
 import { getProfile, upsertProfile } from "../../lib/profile";
 import { getCurrentUser } from "../../lib/auth";
+import { captureException } from "../../lib/sentry";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -25,13 +26,15 @@ import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 
-import { colors, radius, spacing, typescale } from "../../theme/tokens";
+import { radius, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep2">;
 
 const MARITAL_OPTIONS = ["Single", "Married", "Partnered", "Divorced", "Widowed"];
 
 export function OnboardingStep2Screen({ navigation }: Props) {
+  const styles = useStyles();
   const [email, setEmail]         = useState("");
   const [phoneCountry, setPhoneCountry] = useState<Country>(COUNTRIES[0]);
   const [phoneNumber, setPhoneNumber]   = useState("");
@@ -62,8 +65,8 @@ export function OnboardingStep2Screen({ navigation }: Props) {
             ? String(profile.number_of_children)
             : ""
         );
-      } catch {
-        // ignore
+      } catch (e) {
+        captureException(e);
       } finally {
         setLoadingProfile(false);
       }
@@ -96,6 +99,7 @@ export function OnboardingStep2Screen({ navigation }: Props) {
       });
       navigation.navigate("OnboardingStep3");
     } catch (e: any) {
+      captureException(e);
       setError(e?.message ?? "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
@@ -160,6 +164,7 @@ export function OnboardingStep2Screen({ navigation }: Props) {
                   autoCapitalize="words"
                   returnKeyType="next"
                   editable={!saving}
+                  maxLength={200}
                 />
 
                 <View style={styles.pillGroup}>
@@ -217,7 +222,7 @@ export function OnboardingStep2Screen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -234,12 +239,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typescale.size.xxl,
     fontWeight: typescale.weight.bold as any,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: typescale.size.base,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
   },
   card: {
@@ -249,7 +254,7 @@ const styles = StyleSheet.create({
   },
   optionalBadge: {
     alignSelf: "flex-start",
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -257,7 +262,7 @@ const styles = StyleSheet.create({
   optionalText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
+    color: c.teal,
   },
   fields:    { gap: spacing.md },
   pillGroup: { gap: spacing.xs },
@@ -268,8 +273,8 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: "center",
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
   },
-});
+}));

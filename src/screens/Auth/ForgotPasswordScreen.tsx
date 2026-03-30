@@ -13,6 +13,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { supabase } from "../../lib/supabase";
+import { captureException } from "../../lib/sentry";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -21,11 +22,13 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/Primitives/SecondaryButton";
 import { EmailInput } from "../../components/ui/Account/EmailInput";
-import { colors, spacing, radius, typescale } from "../../theme/tokens";
+import { spacing, radius, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "ForgotPassword">;
 
 export function ForgotPasswordScreen({ navigation }: Props) {
+  const styles = useStyles();
   const [email, setEmail] = useState("");
   const [busy, setBusy]   = useState(false);
   const [msg, setMsg]     = useState<string | null>(null);
@@ -48,7 +51,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
         Animated.timing(formOpacity, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.timing(formSlide,   { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
-      Animated.timing(footerOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.timing(footerOpacity, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -68,6 +71,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
       if (error) throw error;
       setMsg("If that email exists, you will receive a reset link shortly.");
     } catch (e: any) {
+      captureException(e);
       setErr(e?.message ?? "Failed to send reset link.");
     } finally {
       setBusy(false);
@@ -145,7 +149,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -167,12 +171,12 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: typescale.size.xxl,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.5,
   },
   tagline: {
     fontSize: typescale.size.base,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.sm,
@@ -185,7 +189,7 @@ const styles = StyleSheet.create({
   },
 
   errorBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -194,12 +198,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
   },
 
   successBanner: {
-    backgroundColor: colors.successSoft,
+    backgroundColor: c.successSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -208,15 +212,15 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: typescale.size.sm,
-    color: colors.success,
+    color: c.success,
     fontWeight: typescale.weight.medium,
   },
 
   footer: {
     textAlign: "center",
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
   },
-});
+}));

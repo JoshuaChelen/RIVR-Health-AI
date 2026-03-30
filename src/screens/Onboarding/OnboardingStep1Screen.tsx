@@ -16,6 +16,7 @@ import type { OnboardingStackParamList } from "../../navigation/onboardingTypes"
 import { getProfile, upsertProfile } from "../../lib/profile";
 import { getCurrentUser } from "../../lib/auth";
 import { parseDob, dobIsoToInput, formatDobAsTyped } from "../../lib/profileUtils";
+import { captureException } from "../../lib/sentry";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -26,7 +27,9 @@ import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 
-import { colors, radius, spacing, typescale } from "../../theme/tokens";
+import { radius, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep1">;
@@ -36,6 +39,8 @@ const SEX_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function OnboardingStep1Screen({ navigation }: Props) {
+  const { styles, dp } = useStyles();
+  const { colors } = useTheme();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName]   = useState("");
   const [dob, setDob]             = useState("");
@@ -70,8 +75,8 @@ export function OnboardingStep1Screen({ navigation }: Props) {
           }
           setSex(profile.sex_or_gender ?? null);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        captureException(e);
       } finally {
         setLoadingProfile(false);
       }
@@ -140,6 +145,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
       });
       navigation.navigate("OnboardingStep2");
     } catch (e: any) {
+      captureException(e);
       setError(e?.message ?? "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
@@ -185,6 +191,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
                       autoCorrect={false}
                       returnKeyType="next"
                       editable={!saving}
+                      maxLength={100}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -197,6 +204,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
                       autoCorrect={false}
                       returnKeyType="next"
                       editable={!saving}
+                      maxLength={100}
                     />
                   </View>
                 </View>
@@ -217,6 +225,9 @@ export function OnboardingStep1Screen({ navigation }: Props) {
                         onPress={openDatePicker}
                         style={({ pressed }) => [styles.calIcon, pressed && { opacity: 0.6 }]}
                         hitSlop={8}
+                        accessible
+                        accessibilityRole="button"
+                        accessibilityLabel="Open date picker"
                       >
                         <Ionicons name="calendar-outline" size={18} color={colors.text} />
                       </Pressable>
@@ -296,6 +307,8 @@ function DatePickerModal({
   onConfirm: (d: Date) => void;
   onCancel: () => void;
 }) {
+  const { dp } = useStyles();
+  const { colors } = useTheme();
   const [local, setLocal] = useState(date);
   // Keep local in sync when parent resets the date
   useEffect(() => { setLocal(date); }, [date]);
@@ -419,140 +432,142 @@ function DatePickerModal({
   );
 }
 
-const dp = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: "center",
-    marginBottom: spacing.sm,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    marginBottom: spacing.xs,
-  },
-  sheetTitle: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold as any,
-    color: colors.text,
-  },
-  sheetBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: spacing.xs,
-  },
-  sheetBtnCancel: {
-    fontSize: typescale.size.base,
-    color: colors.muted,
-  },
-  sheetBtnDone: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
-  },
+const useStyles = createStyles((c) => ({
+  dp: StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    sheet: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: c.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xl,
+    },
+    sheetHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      alignSelf: "center",
+      marginBottom: spacing.sm,
+    },
+    sheetHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: c.borderLight,
+      marginBottom: spacing.xs,
+    },
+    sheetTitle: {
+      fontSize: typescale.size.base,
+      fontWeight: typescale.weight.semibold as any,
+      color: c.text,
+    },
+    sheetBtn: {
+      paddingVertical: 4,
+      paddingHorizontal: spacing.xs,
+    },
+    sheetBtnCancel: {
+      fontSize: typescale.size.base,
+      color: c.muted,
+    },
+    sheetBtnDone: {
+      fontSize: typescale.size.base,
+      fontWeight: typescale.weight.semibold as any,
+      color: c.teal,
+    },
 
-  // Fallback picker
-  fallbackRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: spacing.xl,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-  },
-  fallbackCol: {
-    alignItems: "center",
-    gap: spacing.sm,
-    flex: 1,
-  },
-  arrowBtn: {
-    padding: spacing.sm,
-  },
-  arrow: {
-    fontSize: typescale.size.sm,
-    color: colors.teal,
-  },
-  fallbackValue: {
-    fontSize: typescale.size.lg,
-    fontWeight: typescale.weight.bold as any,
-    color: colors.text,
-    minWidth: 60,
-    textAlign: "center",
-  },
-});
+    // Fallback picker
+    fallbackRow: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: spacing.xl,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
+    },
+    fallbackCol: {
+      alignItems: "center",
+      gap: spacing.sm,
+      flex: 1,
+    },
+    arrowBtn: {
+      padding: spacing.sm,
+    },
+    arrow: {
+      fontSize: typescale.size.sm,
+      color: c.teal,
+    },
+    fallbackValue: {
+      fontSize: typescale.size.lg,
+      fontWeight: typescale.weight.bold as any,
+      color: c.text,
+      minWidth: 60,
+      textAlign: "center",
+    },
+  }),
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+  // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xxl,
-  },
-  inner: {
-    width: "100%",
-    maxWidth: 440,
-    alignSelf: "center",
-    gap: spacing.xl,
-  },
-  header: { gap: 6 },
-  title: {
-    fontSize: typescale.size.xxl,
-    fontWeight: typescale.weight.bold as any,
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: typescale.size.base,
-    color: colors.muted,
-    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-  },
-  card: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-    borderRadius: radius.xl,
-  },
-  fields:    { gap: spacing.md },
-  row:       { flexDirection: "row", gap: spacing.sm },
-  pillGroup: { gap: spacing.xs },
-  calIcon:   { paddingLeft: 4 },
-  calIconText: { display: "none" },
-  hint: {
-    marginTop: 5,
-    color: colors.subtle,
-  },
-  fieldError: {
-    marginTop: 5,
-    fontSize: typescale.size.sm,
-    color: colors.danger,
-    fontWeight: typescale.weight.medium as any,
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: typescale.size.xs,
-    color: colors.subtle,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-    paddingHorizontal: spacing.lg,
-  },
-});
+  styles: StyleSheet.create({
+    scroll: {
+      flexGrow: 1,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.xxl,
+    },
+    inner: {
+      width: "100%",
+      maxWidth: 440,
+      alignSelf: "center",
+      gap: spacing.xl,
+    },
+    header: { gap: 6 },
+    title: {
+      fontSize: typescale.size.xxl,
+      fontWeight: typescale.weight.bold as any,
+      color: c.text,
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: typescale.size.base,
+      color: c.muted,
+      lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
+    },
+    card: {
+      padding: spacing.xl,
+      gap: spacing.lg,
+      borderRadius: radius.xl,
+    },
+    fields:    { gap: spacing.md },
+    row:       { flexDirection: "row", gap: spacing.sm },
+    pillGroup: { gap: spacing.xs },
+    calIcon:   { paddingLeft: 4 },
+    calIconText: { display: "none" },
+    hint: {
+      marginTop: 5,
+      color: c.subtle,
+    },
+    fieldError: {
+      marginTop: 5,
+      fontSize: typescale.size.sm,
+      color: c.danger,
+      fontWeight: typescale.weight.medium as any,
+    },
+    footer: {
+      textAlign: "center",
+      fontSize: typescale.size.xs,
+      color: c.subtle,
+      lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+      paddingHorizontal: spacing.lg,
+    },
+  }),
+}));

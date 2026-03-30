@@ -2,7 +2,8 @@ import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, radius, typescale } from "../../../theme/tokens";
+import { radius, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   title: string;
@@ -12,9 +13,14 @@ type Props = {
 };
 
 export function SelectableDocRow({ title, subtitle, selected, onToggle }: Props) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onToggle}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.row,
         selected && styles.rowSelected,
@@ -35,7 +41,7 @@ export function SelectableDocRow({ title, subtitle, selected, onToggle }: Props)
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   row: {
     padding: 14,
     flexDirection: "row",
@@ -43,15 +49,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rowSelected: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
   },
   textCol: { flex: 1, paddingRight: 12, gap: 3 },
   title: {
-    color: colors.text,
+    color: c.text,
     fontSize: typescale.size.base,
   },
   subtitle: {
-    color: colors.muted,
+    color: c.muted,
     marginTop: 2,
   },
   box: {
@@ -63,11 +69,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   boxSelected: {
-    backgroundColor: colors.teal,
-    borderColor: colors.teal,
+    backgroundColor: c.teal,
+    borderColor: c.teal,
   },
   boxUnselected: {
     backgroundColor: "transparent",
-    borderColor: colors.border,
+    borderColor: c.border,
   },
-});
+}));

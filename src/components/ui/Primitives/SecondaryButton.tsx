@@ -1,7 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius, typescale } from "../../../theme/tokens";
+import { radius, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   label: string;
@@ -11,8 +12,13 @@ type Props = {
 };
 
 export function SecondaryButton({ label, onPress, disabled, style }: Props) {
+  const styles = useStyles();
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -29,7 +35,7 @@ export function SecondaryButton({ label, onPress, disabled, style }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   btn: {
     height: 48,
     borderRadius: radius.md,
@@ -37,11 +43,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: c.border,
+    backgroundColor: c.surface,
   },
   text: {
-    color: colors.text,
+    color: c.text,
     fontWeight: typescale.weight.semibold,
     fontSize: typescale.size.base,
   },
@@ -50,6 +56,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.75,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
   },
-});
+}));

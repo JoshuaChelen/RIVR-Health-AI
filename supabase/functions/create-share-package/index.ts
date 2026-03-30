@@ -332,8 +332,9 @@ Deno.serve(async (req) => {
 
     // ── Build share URL ───────────────────────────────────────────────────────
 
-    const projectRef = new URL(SUPABASE_URL).hostname.split(".")[0];
-    const shareUrl   = `https://${projectRef}.functions.supabase.co/share?token=${encodeURIComponent(token)}`;
+    const functionsBase = Deno.env.get("SUPABASE_FUNCTIONS_URL")
+      ?? new URL(req.url).origin;
+    const shareUrl = `${functionsBase}/share?token=${encodeURIComponent(token)}`;
 
     return new Response(
       JSON.stringify({ packageId: pkg.id, shareUrl, expiresAt: pkg.expires_at }),

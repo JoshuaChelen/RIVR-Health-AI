@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { AppText } from "../Primitives/AppText";
-import { colors, typescale } from "../../../theme/tokens";
+import { typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
+import { useTheme } from "../../../context/ThemeContext";
 
 function scoreLabel(value: number): string {
   if (value >= 85) return "Excellent";
@@ -49,6 +51,8 @@ const CX     = SIZE / 2;
 const CY     = SIZE / 2;
 
 export function ScoreRing({ value }: { value: number }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const pct         = Math.max(0, Math.min(100, value));
   const targetAngle = pct * 3.6;   // 0–100  →  0–360 degrees
 
@@ -89,7 +93,12 @@ export function ScoreRing({ value }: { value: number }) {
   }, [targetAngle]);
 
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`SHIN Score: ${value} out of 100, ${scoreLabel(value)}`}
+    >
       <Svg width={SIZE} height={SIZE}>
         <Defs>
           <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
@@ -127,7 +136,7 @@ export function ScoreRing({ value }: { value: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   wrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -140,12 +149,12 @@ const styles = StyleSheet.create({
   score: {
     fontSize: typescale.size.hero + 8,
     fontWeight: typescale.weight.black,
-    color: colors.text,
+    color: c.text,
     lineHeight: (typescale.size.hero + 8) * 1.1,
   },
   label: {
     marginTop: 2,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
-});
+}));

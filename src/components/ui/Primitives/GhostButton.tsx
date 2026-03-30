@@ -1,7 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "./AppText";
-import { colors, typescale } from "../../../theme/tokens";
+import { typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   label: string;
@@ -11,8 +12,13 @@ type Props = {
 };
 
 export function GhostButton({ label, onPress, disabled, style }: Props) {
+  const styles = useStyles();
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -29,7 +35,7 @@ export function GhostButton({ label, onPress, disabled, style }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   btn: {
     height: 44,
     alignItems: "center",
@@ -37,7 +43,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   text: {
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.semibold,
     fontSize: typescale.size.base,
   },
@@ -47,4 +53,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.65,
   },
-});
+}));

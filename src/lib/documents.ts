@@ -172,6 +172,27 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
   }
 }
 
+/**
+ * Check if a document with the same title and file size already exists for this user.
+ * Returns the matching row if found, or null.
+ */
+export async function checkDuplicateDocument(
+  userId: string,
+  title: string,
+  sizeBytes: number,
+): Promise<{ id: string; title: string; created_at: string } | null> {
+  const { data } = await supabase
+    .from("documents")
+    .select("id, title, created_at")
+    .eq("user_id", userId)
+    .eq("title", title)
+    .eq("size_bytes", sizeBytes)
+    .limit(1)
+    .maybeSingle();
+
+  return data ?? null;
+}
+
 export async function insertDocumentRow(params: {
   userId: string;
   title: string;

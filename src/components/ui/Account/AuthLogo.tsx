@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Image, StyleSheet, ViewStyle, StyleProp } from "react-native";
-import { colors, shadows } from "../../../theme/tokens";
+import { shadows } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 import { logoIconFullcolor } from "../../../lib/branding";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function AuthLogo({ size = 64, style }: Props) {
+  const styles = useStyles();
   const imageSize = Math.round(size * 0.72);
 
   return (
@@ -18,23 +20,27 @@ export function AuthLogo({ size = 64, style }: Props) {
         { width: size, height: size, borderRadius: size * 0.3 },
         style,
       ]}
+      accessible
+      accessibilityLabel="RIVR Health logo"
+      accessibilityRole="image"
     >
       <Image
         source={logoIconFullcolor}
         style={{ width: imageSize, height: imageSize }}
         resizeMode="contain"
+        accessible={false}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderWidth: 1.5,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
     alignItems: "center",
     justifyContent: "center",
     ...shadows.card,
   },
-});
+}));

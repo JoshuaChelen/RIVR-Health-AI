@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Linking,
   View,
   StyleSheet,
   ScrollView,
@@ -9,6 +10,7 @@ import {
   ActivityIndicator,
   Keyboard,
   Modal,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -28,7 +30,10 @@ import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
 import { safeList } from "../../lib/profileMedical";
 
-import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { captureException } from "../../lib/sentry";
+import { radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Profile">;
@@ -71,14 +76,15 @@ const SEX_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 const MARITAL_OPTIONS = ["Single", "Married", "Partnered", "Divorced", "Widowed"];
 
 function DataRow({ label, value }: { label: string; value?: string | number | null }) {
+  const { colors } = useTheme();
   const text =
     value !== null && value !== undefined && String(value).trim()
       ? String(value)
       : null;
   return (
     <View style={dr.row}>
-      <AppText variant="label" style={dr.label}>{label}</AppText>
-      <AppText style={[dr.value, !text && dr.empty]} numberOfLines={2}>
+      <AppText variant="label" style={[dr.label, { color: colors.muted }]}>{label}</AppText>
+      <AppText style={[dr.value, { color: colors.text }, !text && { color: colors.subtle, fontWeight: typescale.weight.regular as any }]} numberOfLines={2}>
         {text ?? "—"}
       </AppText>
     </View>
@@ -95,7 +101,6 @@ const dr = StyleSheet.create({
   },
   label: {
     flex: 1,
-    color: colors.muted,
     paddingTop: 1,
   },
   value: {
@@ -103,22 +108,20 @@ const dr = StyleSheet.create({
     textAlign: "right",
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.medium as any,
-    color: colors.text,
-  },
-  empty: {
-    color: colors.subtle,
-    fontWeight: typescale.weight.regular as any,
   },
 });
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function ProfileScreen({ navigation }: Props) {
+  const styles = useStyles();
+  const { colors, preference, setPreference } = useTheme();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingSection, setEditingSection] = useState<EditSection | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ── Edit drafts (one per section) ──────────────────────────
   const [basicDraft, setBasicDraft] = useState({
@@ -152,8 +155,8 @@ export function ProfileScreen({ navigation }: Props) {
           if (!active) return;
           const p = await getProfile(userId);
           if (active) setProfile(p);
-        } catch {
-          // Not authenticated or network error — handled by finally
+        } catch (e) {
+          captureException(e);
         } finally {
           if (active) setLoading(false);
         }
@@ -226,6 +229,7 @@ export function ProfileScreen({ navigation }: Props) {
       setProfile(updated);
       setEditingSection(null);
     } catch (e: any) {
+      captureException(e);
       setSaveError(e?.message ?? "Save failed. Please try again.");
     } finally {
       setSaving(false);
@@ -290,7 +294,7 @@ async function saveEmergency() {
     return (
       <Screen edges={["left", "right", "bottom"]}>
         <View style={styles.center}>
-          <ActivityIndicator color={colors.teal} size="large" />
+          <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Loading profile" />
         </View>
       </Screen>
     );
@@ -357,6 +361,10 @@ async function saveEmergency() {
 
           {/* ── Medical Profile entry ─────────────────────── */}
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Medical Profile"
+            accessibilityHint="Edit your medical information"
             style={({ pressed }) => [styles.medCard, pressed && styles.medCardPressed]}
             onPress={() => navigation.navigate("MedicalProfile")}
           >
@@ -375,6 +383,10 @@ async function saveEmergency() {
 
           {/* ── Story entry ───────────────────────────────── */}
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Your Health Story"
+            accessibilityHint="View and edit your health story"
             style={({ pressed }) => [styles.storyCard, pressed && styles.storyCardPressed]}
             onPress={() => navigation.navigate("Story")}
           >
@@ -419,6 +431,7 @@ async function saveEmergency() {
                       onChangeText={(v) => setBasicDraft((d) => ({ ...d, firstName: v }))}
                       autoCapitalize="words"
                       autoCorrect={false}
+                      maxLength={100}
                     />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -429,6 +442,7 @@ async function saveEmergency() {
                       onChangeText={(v) => setBasicDraft((d) => ({ ...d, lastName: v }))}
                       autoCapitalize="words"
                       autoCorrect={false}
+                      maxLength={100}
                     />
                   </View>
                 </View>
@@ -444,6 +458,9 @@ async function saveEmergency() {
                   keyboardType="numbers-and-punctuation"
                   rightAccessory={
                     <Pressable
+                      accessible
+                      accessibilityRole="button"
+                      accessibilityLabel="Open date picker"
                       onPress={() => {
                         const parsed = parseDob(basicDraft.dob);
                         if (parsed) {
@@ -508,6 +525,7 @@ async function saveEmergency() {
                   value={personalDraft.occupation}
                   onChangeText={(v) => setPersonalDraft((d) => ({ ...d, occupation: v }))}
                   autoCapitalize="words"
+                  maxLength={200}
                 />
                 <View style={styles.pillGroup}>
                   <AppText variant="label">Marital status</AppText>
@@ -600,6 +618,7 @@ async function saveEmergency() {
                   onChangeText={(v) => setEmergencyDraft((d) => ({ ...d, name: v }))}
                   autoCapitalize="words"
                   autoCorrect={false}
+                  maxLength={100}
                 />
                 <PhoneField
                   label="Contact phone"
@@ -619,6 +638,7 @@ async function saveEmergency() {
                   value={emergencyDraft.rel}
                   onChangeText={(v) => setEmergencyDraft((d) => ({ ...d, rel: v }))}
                   autoCapitalize="words"
+                  maxLength={100}
                 />
               </View>
             ) : (
@@ -632,13 +652,112 @@ async function saveEmergency() {
             )}
           </SectionCard>
 
+          {/* ── Appearance toggle ─────────────────────────── */}
+          <View style={styles.appearanceSection}>
+            <AppText style={styles.appearanceLabel}>Appearance</AppText>
+            <View style={styles.segmentRow}>
+              {(["system", "light", "dark"] as const).map((opt) => (
+                <Pressable
+                  key={opt}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel={`${opt.charAt(0).toUpperCase() + opt.slice(1)} theme`}
+                  accessibilityState={{ selected: preference === opt }}
+                  onPress={() => setPreference(opt)}
+                  style={[styles.segment, preference === opt && styles.segmentActive]}
+                >
+                  <AppText style={[styles.segmentText, preference === opt && styles.segmentTextActive]}>
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           {/* ── Sign out ───────────────────────────────────── */}
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
             style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.5 }]}
             onPress={async () => { await supabase.auth.signOut(); }}
           >
             <AppText style={styles.signOutText}>Sign out</AppText>
           </Pressable>
+
+          <Pressable
+            onPress={() => Linking.openURL("https://rivrhealth.ai/privacy-policy")}
+            style={({ pressed }) => [
+              { paddingVertical: spacing.sm, alignItems: "center" },
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <AppText style={{ color: colors.teal, fontSize: typescale.size.sm, fontWeight: typescale.weight.medium as any }}>
+              Privacy Policy
+            </AppText>
+          </Pressable>
+
+          {/* ── Delete account ─────────────────────────────── */}
+          <View style={styles.deleteSection}>
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Delete account"
+              accessibilityHint="Permanently deletes your account and all data"
+              disabled={deleting}
+              style={({ pressed }) => [styles.deleteBtn, pressed && !deleting && { opacity: 0.6 }]}
+              onPress={() => {
+                Alert.alert(
+                  "Delete Account?",
+                  "This will permanently delete your account, all documents, health data, and shared links. This cannot be undone.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete Everything",
+                      style: "destructive",
+                      onPress: async () => {
+                        setDeleting(true);
+                        try {
+                          const { data: sessionData } = await supabase.auth.getSession();
+                          const token = sessionData.session?.access_token;
+                          if (!token) throw new Error("Not signed in");
+
+                          const res = await fetch(
+                            `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/delete-account`,
+                            {
+                              method: "POST",
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                              },
+                            }
+                          );
+
+                          const body = await res.json();
+                          if (!res.ok) throw new Error(body.error ?? "Failed to delete account");
+
+                          await supabase.auth.signOut();
+                        } catch (e: any) {
+                          captureException(e);
+                          setDeleting(false);
+                          Alert.alert("Delete failed", e?.message ?? "Something went wrong. Please try again.");
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
+            >
+              {deleting ? (
+                <ActivityIndicator color={colors.danger} size="small" />
+              ) : (
+                <AppText style={styles.deleteBtnText}>Delete Account</AppText>
+              )}
+            </Pressable>
+            <AppText style={styles.deleteHint}>
+              Permanently delete your account and all health data
+            </AppText>
+          </View>
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -689,7 +808,7 @@ function medicalSummary(profile: UserProfile | null): string {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => StyleSheet.create({
   center: {
     flex: 1,
     alignItems: "center",
@@ -770,7 +889,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successSoft,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "#A7F3D0",
+    borderColor: colors.success,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -838,7 +957,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  
+
   medTextBlock: { flex: 1, gap: 3 },
   medTitle: {
     fontSize: typescale.size.base,
@@ -885,7 +1004,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  
+
   storyTextBlock: { flex: 1, gap: 3 },
   storyTitle: {
     fontSize: typescale.size.base,
@@ -895,6 +1014,43 @@ const styles = StyleSheet.create({
   storySub: {
     fontSize: typescale.size.xs,
     color: colors.muted,
+  },
+
+  // ── Appearance ──
+  appearanceSection: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+  },
+  appearanceLabel: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.bold as any,
+    color: colors.muted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  segmentRow: {
+    flexDirection: "row",
+    borderRadius: radius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    backgroundColor: colors.bgSecondary,
+  },
+  segmentActive: {
+    backgroundColor: colors.teal,
+  },
+  segmentText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold as any,
+    color: colors.textSub,
+  },
+  segmentTextActive: {
+    color: "#fff",
   },
 
   // ── Sign out ──
@@ -910,10 +1066,33 @@ const styles = StyleSheet.create({
     color: colors.subtle,
   },
 
+  // ── Delete account ──
+  deleteSection: {
+    alignItems: "center",
+    marginTop: spacing.xxl,
+    marginBottom: spacing.xxl,
+    gap: spacing.xs,
+  },
+  deleteBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  deleteBtnText: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.semibold as any,
+    color: colors.danger,
+  },
+  deleteHint: {
+    fontSize: typescale.size.xs,
+    color: colors.muted,
+    textAlign: "center",
+    paddingHorizontal: spacing.xl,
+  },
+
   // ── DOB calendar icon ──
   calIcon: { paddingLeft: 4 },
-  
-});
+
+}));
 
 // ─── ProfileDobPickerModal ────────────────────────────────────────────────────
 // Mirrors OnboardingStep1Screen's DatePickerModal — uses the native package when
@@ -935,6 +1114,8 @@ function ProfileDobPickerModal({
   onConfirm: (d: Date) => void;
   onCancel: () => void;
 }) {
+  const dp2 = useDp2Styles();
+  const { colors } = useTheme();
   const [local, setLocal] = useState(date);
   useEffect(() => { setLocal(date); }, [date]);
 
@@ -1022,7 +1203,7 @@ function ProfileDobPickerModal({
   );
 }
 
-const dp2 = StyleSheet.create({
+const useDp2Styles = createStyles((colors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: {
     position: "absolute", bottom: 0, left: 0, right: 0,
@@ -1047,4 +1228,4 @@ const dp2 = StyleSheet.create({
   col: { alignItems: "center", gap: spacing.sm, flex: 1 },
   arrowBtn: { padding: spacing.sm },
   val: { fontSize: typescale.size.lg, fontWeight: typescale.weight.bold as any, color: colors.text, minWidth: 60, textAlign: "center" },
-});
+}));

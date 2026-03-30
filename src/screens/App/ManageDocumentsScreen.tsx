@@ -11,11 +11,16 @@ import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { UploadFile } from "../../components/ui/ManageDocuments/UploadFile";
 import { ListDocuments } from "../../components/ui/ManageDocuments/ListDocuments";
 import { RecordVoiceNote } from "../../components/ui/ManageDocuments/RecordVoiceNote";
-import { colors, spacing, radius, typescale } from "../../theme/tokens";
+import { spacing, radius, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<AppStackParamList, "ManageDocuments">;
 
 export function ManageDocumentsScreen({ navigation }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   const [refreshKey, setRefreshKey]     = useState(0);
   const [starting, setStarting]         = useState(false);
   const [msg, setMsg]                   = useState<string | null>(null);
@@ -40,7 +45,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
         </View>
       ),
     });
-  }, [navigation, pendingCount]);
+  }, [navigation, pendingCount, styles, colors]);
 
   async function loadPendingCount() {
     const { data: userRes } = await supabase.auth.getUser();
@@ -162,7 +167,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   screen: { flex: 1 },
 
   badge: {
@@ -172,12 +177,12 @@ const styles = StyleSheet.create({
     borderWidth:       StyleSheet.hairlineWidth,
   },
   badgeActive: {
-    backgroundColor: colors.tealSoft,
-    borderColor:     colors.tealBorder,
+    backgroundColor: c.tealSoft,
+    borderColor:     c.tealBorder,
   },
   badgeIdle: {
     backgroundColor: "transparent",
-    borderColor:     colors.border,
+    borderColor:     c.border,
   },
 
   list: { flex: 1 },
@@ -187,30 +192,31 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.bg,
+    borderTopColor: c.border,
+    backgroundColor: c.bg,
     gap: spacing.xs,
   },
   processBtn: {
     width: "100%",
-    shadowColor: colors.teal,
+    shadowColor: c.teal,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 4,
   },
   msg: {
-    fontSize: typescale.size.xs,
-    color: colors.textSub,
     textAlign: "center",
+    color: c.teal,
+    fontWeight: typescale.weight.medium,
   },
   noFiles: {
     textAlign: "center",
-    color: colors.subtle,
+    color: c.muted,
+    paddingHorizontal: spacing.md,
   },
   readyHint: {
     textAlign: "center",
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.medium,
   },
-});
+}));

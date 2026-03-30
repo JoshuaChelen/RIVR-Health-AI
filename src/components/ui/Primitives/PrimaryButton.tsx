@@ -1,7 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius, typescale } from "../../../theme/tokens";
+import { radius, typescale } from "../../../theme/tokens";
+import { useTheme } from "../../../context/ThemeContext";
 
 type Props = {
   label: string;
@@ -11,16 +12,22 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-const toneMap = {
-  teal:   colors.teal,
-  blue:   colors.blue,
-  green:  colors.green,
-  orange: colors.orange,
-};
-
 export function PrimaryButton({ label, onPress, disabled, tone = "teal", style }: Props) {
+  const { colors } = useTheme();
+
+  const toneMap = {
+    teal:   colors.teal,
+    blue:   colors.blue,
+    green:  colors.green,
+    orange: colors.orange,
+  };
+
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [

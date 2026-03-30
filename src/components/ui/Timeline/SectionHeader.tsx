@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "../Primitives/AppText";
-import { colors } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   title: string;
@@ -11,6 +11,7 @@ type Props = {
 };
 
 export function SectionHeader({ title, subtitle, right, style }: Props) {
+  const styles = useStyles();
   return (
     <View style={[styles.wrap, style]}>
       <View style={styles.row}>
@@ -27,7 +28,7 @@ export function SectionHeader({ title, subtitle, right, style }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   wrap: { width: "100%" },
   row: {
     flexDirection: "row",
@@ -41,14 +42,14 @@ const styles = StyleSheet.create({
   left:  { flex: 1 },
   right: { alignItems: "flex-end" },
   title: {
-    color: colors.text,
+    color: c.text,
   },
   subtitle: {
     marginTop: 2,
-    color: colors.muted,
+    color: c.muted,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
   },
-});
+}));

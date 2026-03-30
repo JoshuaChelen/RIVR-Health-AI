@@ -12,9 +12,12 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
+import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/Primitives/SecondaryButton";
-import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   useAppleHealth,
@@ -172,6 +175,8 @@ function MiniLineChart({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function AppleHealthScreen({ route }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const initialMetric = route.params?.initialMetric;
 
   const scrollRef = useRef<ScrollView>(null);
@@ -229,6 +234,50 @@ export function AppleHealthScreen({ route }: Props) {
           isLinkedWithWarning={isLinkedWithWarning}
           errorText={errorText}
         />
+
+        {/* ── Error banner ──────────────────────────────────── */}
+        {errorText && !isLinkedWithWarning ? (
+          <ErrorBanner message="Couldn't load Apple Health data" onRetry={refresh} />
+        ) : null}
+
+        {/* ── Unsupported info card ────────────────────────── */}
+        {status === "unsupported" && (
+          <View style={styles.infoCard}>
+            <View style={styles.infoIconWrap}>
+              <Ionicons name="phone-portrait-outline" size={28} color={colors.muted} />
+            </View>
+            <AppText style={styles.infoTitle}>iPhone required</AppText>
+            <AppText style={styles.infoBody}>
+              Apple Health is only available on iPhone. This feature isn't accessible on this device or build.
+            </AppText>
+          </View>
+        )}
+
+        {/* ── Unlinked invite card ─────────────────────────── */}
+        {status === "unlinked" && (
+          <View style={styles.inviteCard}>
+            <View style={styles.inviteIconWrap}>
+              <Ionicons name="heart-outline" size={28} color={colors.teal} />
+            </View>
+            <AppText style={styles.inviteTitle}>Sync your vitals</AppText>
+            <AppText style={styles.inviteBody}>
+              Connect Apple Health to automatically sync your steps, sleep, heart rate, and more. Your data stays on your device — RIVR never writes to Apple Health.
+            </AppText>
+          </View>
+        )}
+
+        {/* ── Disconnected guide card ──────────────────────── */}
+        {status === "disconnected" && (
+          <View style={styles.disconnectGuide}>
+            <View style={styles.disconnectGuideHeader}>
+              <Ionicons name="settings-outline" size={16} color={colors.textSub} />
+              <AppText style={styles.disconnectGuideTitle}>How to re-enable access</AppText>
+            </View>
+            <AppText style={styles.disconnectGuideBody}>
+              Go to Settings → Privacy &amp; Security → Health → RIVR Health and enable all data types.
+            </AppText>
+          </View>
+        )}
 
         {/* ── 2. Dashboard (linked only) ────────────────────── */}
         {isLinked && (
@@ -370,6 +419,9 @@ function StatusHero({
   isLinkedWithWarning,
   errorText,
 }: StatusHeroProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   let iconName: React.ComponentProps<typeof Ionicons>["name"] = "heart-outline";
   let iconColor = colors.teal;
   let iconBg = colors.tealSoft;
@@ -422,32 +474,32 @@ function StatusHero({
   }
 
   return (
-    <View style={hero.card}>
-      <View style={hero.topRow}>
-        <View style={[hero.iconWrap, { backgroundColor: iconBg }]}>
+    <View style={styles.hero_card}>
+      <View style={styles.hero_topRow}>
+        <View style={[styles.hero_iconWrap, { backgroundColor: iconBg }]}>
           {showSpinner ? (
-            <ActivityIndicator size="small" color={colors.muted} />
+            <ActivityIndicator size="small" color={colors.muted} accessibilityLabel="Checking Apple Health status" />
           ) : (
             <Ionicons name={iconName} size={20} color={iconColor} />
           )}
         </View>
 
-        <AppText style={hero.title}>Apple Health</AppText>
+        <AppText style={styles.hero_title}>Apple Health</AppText>
 
-        <View style={[hero.badge, { backgroundColor: badgeBgColor }]}>
-          <AppText style={[hero.badgeText, { color: badgeTextColor }]}>
+        <View style={[styles.hero_badge, { backgroundColor: badgeBgColor }]}>
+          <AppText style={[styles.hero_badgeText, { color: badgeTextColor }]}>
             {badgeLabel}
           </AppText>
         </View>
       </View>
 
-      <AppText style={hero.subtitle}>{subtitle}</AppText>
+      <AppText style={styles.hero_subtitle}>{subtitle}</AppText>
 
       {errorText ? (
         <View
           style={[
-            hero.alertRow,
-            isLinkedWithWarning ? hero.alertRowWarn : hero.alertRowError,
+            styles.hero_alertRow,
+            isLinkedWithWarning ? styles.hero_alertRowWarn : styles.hero_alertRowError,
           ]}
         >
           <Ionicons
@@ -457,7 +509,7 @@ function StatusHero({
           />
           <AppText
             style={[
-              hero.alertText,
+              styles.hero_alertText,
               { color: isLinkedWithWarning ? colors.warning : colors.danger },
             ]}
           >
@@ -468,73 +520,6 @@ function StatusHero({
     </View>
   );
 }
-
-const hero = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    ...shadows.card,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  title: {
-    flex: 1,
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.bold,
-    color: colors.text,
-  },
-  badge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    flexShrink: 0,
-  },
-  badgeText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-  },
-  subtitle: {
-    fontSize: typescale.size.sm,
-    color: colors.muted,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-    paddingLeft: 40 + spacing.sm,
-  },
-  alertRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  alertRowWarn: {
-    backgroundColor: colors.warnSoft,
-  },
-  alertRowError: {
-    backgroundColor: colors.dangerSoft,
-  },
-  alertText: {
-    flex: 1,
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.medium,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-  },
-});
 
 // ─── MetricChartCard ──────────────────────────────────────────────────────────
 
@@ -561,108 +546,41 @@ function MetricChartCard({
   chart?: React.ReactNode;
   chartLabel?: string;
 }) {
+  const styles = useStyles();
+
   return (
-    <View style={[mcc.card, highlighted && mcc.cardHighlighted]}>
+    <View style={[styles.mcc_card, highlighted && styles.mcc_cardHighlighted]}>
       {/* Header row: icon + labels + value */}
-      <View style={mcc.header}>
-        <View style={[mcc.iconWrap, { backgroundColor: iconBg }]}>
+      <View style={styles.mcc_header}>
+        <View style={[styles.mcc_iconWrap, { backgroundColor: iconBg }]}>
           <Ionicons name={iconName} size={20} color={iconColor} />
         </View>
 
-        <View style={mcc.textBlock}>
-          <AppText style={mcc.label}>{label}</AppText>
-          <AppText style={mcc.subtitle}>{subtitle}</AppText>
+        <View style={styles.mcc_textBlock}>
+          <AppText style={styles.mcc_label}>{label}</AppText>
+          <AppText style={styles.mcc_subtitle}>{subtitle}</AppText>
           {secondaryValue ? (
-            <AppText style={mcc.secondaryValue}>{secondaryValue}</AppText>
+            <AppText style={styles.mcc_secondaryValue}>{secondaryValue}</AppText>
           ) : null}
         </View>
 
-        <AppText style={mcc.value} numberOfLines={1}>
+        <AppText style={styles.mcc_value} numberOfLines={1}>
           {value}
         </AppText>
       </View>
 
       {/* Chart + chart label below header */}
       {chart ? (
-        <View style={mcc.chartBlock}>
-          <View style={mcc.chartArea}>{chart}</View>
+        <View style={styles.mcc_chartBlock}>
+          <View style={styles.mcc_chartArea}>{chart}</View>
           {chartLabel ? (
-            <AppText style={mcc.chartLabel}>{chartLabel}</AppText>
+            <AppText style={styles.mcc_chartLabel}>{chartLabel}</AppText>
           ) : null}
         </View>
       ) : null}
     </View>
   );
 }
-
-const mcc = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
-    ...shadows.xs,
-  },
-  cardHighlighted: {
-    borderColor: colors.tealBorder,
-    backgroundColor: colors.tealSoft,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  textBlock: {
-    flex: 1,
-    gap: 3,
-  },
-  label: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold,
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: typescale.size.xs,
-    color: colors.muted,
-  },
-  secondaryValue: {
-    fontSize: typescale.size.xs,
-    color: colors.subtle,
-    marginTop: 1,
-  },
-  value: {
-    fontSize: typescale.size.xl,
-    fontWeight: typescale.weight.bold,
-    color: colors.text,
-    flexShrink: 0,
-    textAlign: "right",
-  },
-  chartBlock: {
-    gap: spacing.xxs,
-    paddingTop: spacing.xxs,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  chartArea: {
-    height: 44,
-    overflow: "hidden",
-  },
-  chartLabel: {
-    fontSize: typescale.size.xs,
-    color: colors.subtle,
-    textAlign: "right",
-  },
-});
 
 // ─── ActionsCard ──────────────────────────────────────────────────────────────
 
@@ -677,12 +595,15 @@ function ActionsCard({
   onRefresh: () => void;
   onDisconnect: () => void;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   return (
-    <View style={ac.card}>
-      <View style={ac.syncRow}>
-        <View style={ac.syncLeft}>
+    <View style={styles.ac_card}>
+      <View style={styles.ac_syncRow}>
+        <View style={styles.ac_syncLeft}>
           <Ionicons name="sync-outline" size={14} color={colors.muted} />
-          <AppText style={ac.syncText}>
+          <AppText style={styles.ac_syncText}>
             {lastSync ? `Last synced ${fmtLastSync(lastSync)}` : "Not yet synced"}
           </AppText>
         </View>
@@ -690,11 +611,11 @@ function ActionsCard({
           label={refreshing ? "Refreshing…" : "Refresh"}
           onPress={onRefresh}
           disabled={refreshing}
-          style={ac.refreshBtn}
+          style={styles.ac_refreshBtn}
         />
       </View>
 
-      <View style={ac.divider} />
+      <View style={styles.ac_divider} />
 
       <SecondaryButton
         label={refreshing ? "Disconnecting…" : "Disconnect Apple Health"}
@@ -705,63 +626,287 @@ function ActionsCard({
   );
 }
 
-const ac = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const useStyles = createStyles((c) => StyleSheet.create({
+  // ── Hero ────────────────────────────────────────────────────────────────
+  hero_card: {
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  hero_topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  hero_iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  hero_title: {
+    flex: 1,
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+  },
+  hero_badge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    flexShrink: 0,
+  },
+  hero_badgeText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+  },
+  hero_subtitle: {
+    fontSize: typescale.size.sm,
+    color: c.muted,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    paddingLeft: 40 + spacing.sm,
+  },
+  hero_alertRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  hero_alertRowWarn: {
+    backgroundColor: c.warnSoft,
+  },
+  hero_alertRowError: {
+    backgroundColor: c.dangerSoft,
+  },
+  hero_alertText: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.medium,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // ── MetricChartCard (mcc) ───────────────────────────────────────────────
+  mcc_card: {
+    backgroundColor: c.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadows.xs,
+  },
+  mcc_cardHighlighted: {
+    borderColor: c.tealBorder,
+    backgroundColor: c.tealSoft,
+  },
+  mcc_header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  mcc_iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  mcc_textBlock: {
+    flex: 1,
+    gap: 3,
+  },
+  mcc_label: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.semibold,
+    color: c.text,
+  },
+  mcc_subtitle: {
+    fontSize: typescale.size.xs,
+    color: c.muted,
+  },
+  mcc_secondaryValue: {
+    fontSize: typescale.size.xs,
+    color: c.subtle,
+    marginTop: 1,
+  },
+  mcc_value: {
+    fontSize: typescale.size.xl,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+    flexShrink: 0,
+    textAlign: "right",
+  },
+  mcc_chartBlock: {
+    gap: spacing.xxs,
+    paddingTop: spacing.xxs,
+    borderTopWidth: 1,
+    borderTopColor: c.borderLight,
+  },
+  mcc_chartArea: {
+    height: 44,
+    overflow: "hidden",
+  },
+  mcc_chartLabel: {
+    fontSize: typescale.size.xs,
+    color: c.subtle,
+    textAlign: "right",
+  },
+
+  // ── ActionsCard (ac) ───────────────────────────────────────────────────
+  ac_card: {
+    backgroundColor: c.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.xs,
   },
-  syncRow: {
+  ac_syncRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-  syncLeft: {
+  ac_syncLeft: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
   },
-  syncText: {
+  ac_syncText: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
   },
-  refreshBtn: {
+  ac_refreshBtn: {
     height: 36,
     paddingHorizontal: spacing.md,
     flexShrink: 0,
   },
-  divider: {
+  ac_divider: {
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginVertical: spacing.xxs,
   },
-  disconnectNote: {
+  ac_disconnectNote: {
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     textAlign: "center",
     paddingHorizontal: spacing.xs,
   },
-});
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
+  // ── Main styles ─────────────────────────────────────────────────────────
   scroll: {
     padding: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.xxl + spacing.lg,
   },
+
+  // Unsupported info card
+  infoCard: {
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: c.bgSecondary,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.xl,
+  },
+  infoIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoTitle: {
+    fontSize: typescale.size.lg,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+  },
+  infoBody: {
+    fontSize: typescale.size.sm,
+    color: c.muted,
+    textAlign: "center",
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+
+  // Unlinked invite card
+  inviteCard: {
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: c.tealSoft,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    padding: spacing.xl,
+  },
+  inviteIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteTitle: {
+    fontSize: typescale.size.lg,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+  },
+  inviteBody: {
+    fontSize: typescale.size.sm,
+    color: c.muted,
+    textAlign: "center",
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+
+  // Disconnected guide card
+  disconnectGuide: {
+    backgroundColor: c.bgSecondary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  disconnectGuideHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  disconnectGuideTitle: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold,
+    color: c.textSub,
+  },
+  disconnectGuideBody: {
+    fontSize: typescale.size.sm,
+    color: c.muted,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+
   sectionEyebrow: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
@@ -773,10 +918,10 @@ const styles = StyleSheet.create({
   },
   footer: {
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     textAlign: "center",
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
   },
-});
+}));

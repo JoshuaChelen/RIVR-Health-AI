@@ -1,7 +1,8 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { AppText } from "../Primitives/AppText";
-import { colors, radius, spacing } from "../../../theme/tokens";
+import { radius, spacing } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   current: number; // 1-based
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function OnboardingProgressBar({ current, total }: Props) {
+  const styles = useStyles();
   return (
     <View style={styles.root}>
       <View style={styles.segments}>
@@ -26,7 +28,7 @@ export function OnboardingProgressBar({ current, total }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   root: {
     gap: spacing.xs,
   },
@@ -40,13 +42,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   filled: {
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
   },
   empty: {
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
   },
   label: {
-    color: colors.muted,
+    color: c.muted,
     textAlign: "right",
   },
-});
+}));

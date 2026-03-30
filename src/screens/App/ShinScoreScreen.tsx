@@ -21,7 +21,10 @@ import {
   getLatestEvaluation,
 } from "../../lib/aiJobs";
 
-import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
+import { captureException } from "../../lib/sentry";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -29,6 +32,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 type Props = NativeStackScreenProps<AppStackParamList, "ShinScore">;
 
 export function ShinScoreScreen({ navigation }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   const [loading, setLoading]   = useState(true);
   const [running, setRunning]   = useState(false);
   const [job, setJob]           = useState<any>(null);
@@ -64,6 +70,7 @@ export function ShinScoreScreen({ navigation }: Props) {
       setEval(ev?.result ?? null);
       setRunning(!!(j && (j.status === "queued" || j.status === "running")));
     } catch (e: any) {
+      captureException(e);
       setError(String(e?.message || e));
     } finally {
       setLoading(false);
@@ -130,17 +137,24 @@ useEffect(() => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable onPress={start} disabled={running} style={styles.headerBtn}>
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Documents"
+          onPress={start}
+          disabled={running}
+          style={styles.headerBtn}
+        >
           <AppText style={[styles.headerBtnText, running && styles.headerBtnDisabled]}>
             {running ? "Running…" : "Documents"}
           </AppText>
         </Pressable>
       ),
     });
-  }, [navigation, start, running]);
+  }, [navigation, start, running, styles]);
 
   return (
-    <Screen edges={["left", "right", "bottom"]}> 
+    <Screen edges={["left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Error banner ─────────────────────────────────── */}
@@ -153,7 +167,7 @@ useEffect(() => {
         {/* ── Loading ──────────────────────────────────────── */}
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.teal} size="large" />
+            <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Loading" />
             <AppText style={styles.loadingText}>Loading your score…</AppText>
           </View>
         ) : null}
@@ -166,7 +180,7 @@ useEffect(() => {
               <AppText style={styles.scoreSectionLabel}>SHIN SCORE</AppText>
               {running ? (
                 <View style={styles.analyzingBadge}>
-                  <ActivityIndicator size="small" color={colors.teal} style={styles.analyzingSpinner} />
+                  <ActivityIndicator size="small" color={colors.teal} style={styles.analyzingSpinner} accessibilityLabel="Loading" />
                   <AppText style={styles.analyzingText}>Analyzing…</AppText>
                 </View>
               ) : null}
@@ -206,6 +220,9 @@ useEffect(() => {
                   Fill in your health profile or upload medical records,{"\n"}then tap "Process" in Documents.
                 </AppText>
                 <Pressable
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Open Documents"
                   style={({ pressed }) => [styles.generateBtn, pressed && { opacity: 0.8 }]}
                   onPress={start}
                 >
@@ -215,7 +232,7 @@ useEffect(() => {
             ) : (
               /* Running but no score yet */
               <View style={styles.runningWrap}>
-                <ActivityIndicator color={colors.teal} size="large" />
+                <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Loading" />
                 <AppText style={styles.runningText}>Analyzing your health data…</AppText>
                 <AppText style={styles.runningSub}>This may take a minute. Stay on this page or check back shortly.</AppText>
               </View>
@@ -226,6 +243,9 @@ useEffect(() => {
         {/* ── View full summary link ────────────────────────── */}
         {score != null && !loading ? (
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="AI Health Summary"
             style={({ pressed }) => [styles.summaryLink, pressed && styles.summaryLinkPressed]}
             onPress={() => navigation.navigate("HealthSummary")}
           >
@@ -247,7 +267,7 @@ useEffect(() => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     padding: spacing.lg,
     gap: spacing.md,
@@ -262,7 +282,7 @@ const styles = StyleSheet.create({
   headerBtnText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
   headerBtnDisabled: {
     opacity: 0.45,
@@ -270,7 +290,7 @@ const styles = StyleSheet.create({
 
   // Error
   errorBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.sm,
     borderWidth: 1,
@@ -278,7 +298,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
   },
 
@@ -290,15 +310,15 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
   },
 
   // Score card
   scoreCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.card,
@@ -311,13 +331,13 @@ const styles = StyleSheet.create({
   scoreSectionLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.teal,
+    color: c.teal,
     letterSpacing: 1.2,
   },
   analyzingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
@@ -330,7 +350,7 @@ const styles = StyleSheet.create({
   analyzingText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
 
   // Ring area
@@ -342,17 +362,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   labelBadge: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
   },
   labelBadgeText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.bold,
-    color: colors.teal,
+    color: c.teal,
     letterSpacing: 0.3,
   },
 
@@ -363,13 +383,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    borderTopColor: c.borderLight,
     marginTop: spacing.xxs,
   },
   overviewAccent: {
     width: 3,
     borderRadius: 2,
-    backgroundColor: colors.tealBorder,
+    backgroundColor: c.tealBorder,
     alignSelf: "stretch",
     marginTop: 2,
     flexShrink: 0,
@@ -377,7 +397,7 @@ const styles = StyleSheet.create({
   overviewText: {
     flex: 1,
     fontSize: typescale.size.sm,
-    color: colors.textSub,
+    color: c.textSub,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
 
@@ -392,7 +412,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
@@ -401,18 +421,18 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: typescale.size.lg,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   emptyBody: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.md,
   },
   generateBtn: {
     marginTop: spacing.xs,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
@@ -433,11 +453,11 @@ const styles = StyleSheet.create({
   runningText: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
-    color: colors.text,
+    color: c.text,
   },
   runningSub: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.md,
@@ -445,10 +465,10 @@ const styles = StyleSheet.create({
 
   // View full summary link card
   summaryLink: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     flexDirection: "row",
     alignItems: "center",
@@ -463,7 +483,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.md,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -475,10 +495,10 @@ const styles = StyleSheet.create({
   summaryLinkTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
-    color: colors.text,
+    color: c.text,
   },
   summaryLinkSub: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
   },
-});
+}));

@@ -19,7 +19,7 @@
  *   — highlights are NOT converted to recommendations (positive notes, not actions)
  */
 
-import { colors } from "../theme/tokens";
+import { colors, type Colors } from "../theme/tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,21 +57,31 @@ export type RecommendationItem = {
 
 // ─── Style maps ───────────────────────────────────────────────────────────────
 
-export const CATEGORY_STYLE: Record<Category, { bg: string; text: string }> = {
-  "Missing info": { bg: colors.blueSoft,    text: colors.blue },
-  "Follow-up":   { bg: colors.tealSoft,    text: colors.teal },
-  "Monitoring":  { bg: colors.orangeSoft,  text: colors.orange },
-  "Medication":  { bg: colors.blueSoft,    text: colors.blue },
-  "Safety":      { bg: colors.dangerSoft,  text: colors.danger },
-  "Lifestyle":   { bg: colors.greenSoft,   text: colors.green },
-  "Info":        { bg: colors.bgSecondary, text: colors.muted },
-};
+/** Theme-aware category styles — pass `colors` from useTheme(). */
+export function getCategoryStyle(c: Colors): Record<Category, { bg: string; text: string }> {
+  return {
+    "Missing info": { bg: c.blueSoft,    text: c.blue },
+    "Follow-up":   { bg: c.tealSoft,    text: c.teal },
+    "Monitoring":  { bg: c.orangeSoft,  text: c.orange },
+    "Medication":  { bg: c.blueSoft,    text: c.blue },
+    "Safety":      { bg: c.dangerSoft,  text: c.danger },
+    "Lifestyle":   { bg: c.greenSoft,   text: c.green },
+    "Info":        { bg: c.bgSecondary, text: c.muted },
+  };
+}
 
-export const PRIORITY_ACCENT: Record<Priority, string> = {
-  high:   colors.danger,
-  medium: colors.orange,
-  low:    colors.teal,
-};
+/** Theme-aware priority accents — pass `colors` from useTheme(). */
+export function getPriorityAccent(c: Colors): Record<Priority, string> {
+  return {
+    high:   c.danger,
+    medium: c.orange,
+    low:    c.teal,
+  };
+}
+
+// Backward-compatible constants (use light-mode colors)
+export const CATEGORY_STYLE: Record<Category, { bg: string; text: string }> = getCategoryStyle(colors);
+export const PRIORITY_ACCENT: Record<Priority, string> = getPriorityAccent(colors);
 
 // ─── Sort & filter constants ──────────────────────────────────────────────────
 

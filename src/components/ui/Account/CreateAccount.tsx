@@ -10,7 +10,7 @@ import { PrimaryButton } from "../Primitives/PrimaryButton";
 import { SecondaryButton } from "../Primitives/SecondaryButton";
 import { EmailInput } from "./EmailInput";
 import { PasswordInput } from "./PasswordInput";
-import { colors } from "../../../theme/tokens";
+import { useTheme } from "../../../context/ThemeContext";
 
 type Props = {
   onSuccess?: () => void;      // optional: called after sign up request succeeds
@@ -18,6 +18,7 @@ type Props = {
 };
 
 export default function CreateAccount({ onSuccess, onGoToLogin }: Props) {
+  const { colors } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

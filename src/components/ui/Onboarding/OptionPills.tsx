@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Pressable, Text, StyleSheet } from "react-native";
-import { colors, radius, spacing, typescale } from "../../../theme/tokens";
+import { radius, spacing, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   options: string[];
@@ -9,11 +10,16 @@ type Props = {
 };
 
 export function OptionPills({ options, selected, onSelect }: Props) {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
       {options.map((opt) => (
         <Pressable
           key={opt}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={opt}
+          accessibilityState={{ selected: selected === opt }}
           onPress={() => onSelect(opt)}
           style={({ pressed }) => [
             styles.pill,
@@ -30,7 +36,7 @@ export function OptionPills({ options, selected, onSelect }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -41,20 +47,20 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: c.border,
+    backgroundColor: c.surface,
   },
   pillSelected: {
-    borderColor: colors.teal,
-    backgroundColor: colors.tealSoft,
+    borderColor: c.teal,
+    backgroundColor: c.tealSoft,
   },
   label: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.medium as any,
-    color: colors.textSub,
+    color: c.textSub,
   },
   labelSelected: {
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.semibold as any,
   },
-});
+}));

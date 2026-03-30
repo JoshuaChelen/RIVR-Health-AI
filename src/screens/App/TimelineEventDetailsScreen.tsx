@@ -16,7 +16,10 @@ import { supabase } from "../../lib/supabase";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { categoryMeta } from "../../components/ui/Timeline/TimelineCard";
-import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
+import { captureException } from "../../lib/sentry";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 
@@ -47,6 +50,8 @@ type Draft = {
 };
 
 export function TimelineEventDetailsScreen({ route, navigation }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const id = route.params?.id;
 
   const [item, setItem]     = useState<TimelineEventRow | null>(null);
@@ -90,6 +95,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
         const t = (row?.title ?? "Details").toString();
         navigation.setOptions({ title: t.length > 26 ? "Details" : t });
       } catch (e: any) {
+        captureException(e);
         setErr(e?.message ?? "Failed to load details.");
       } finally {
         setBusy(false);
@@ -177,6 +183,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
       navigation.setOptions({ title: t.length > 26 ? "Details" : t });
       setEditing(false);
     } catch (e: any) {
+      captureException(e);
       const msg = e?.message ?? "Failed to save changes.";
       setErr(msg);
       Alert.alert("Save failed", msg);
@@ -186,7 +193,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
   };
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const meta = categoryMeta(item?.category ?? "");
+  const meta = categoryMeta(item?.category ?? "", colors);
 
   const clinicalRows = useMemo(() => {
     return item?.data ? flattenData(item.data) : [];
@@ -201,7 +208,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
         {/* ── Loading ──────────────────────────────────────────── */}
         {busy ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.teal} />
+            <ActivityIndicator color={colors.teal} accessibilityLabel="Loading event details" />
             <AppText style={styles.loadingText}>Loading…</AppText>
           </View>
         ) : null}
@@ -226,6 +233,9 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                 <View style={styles.headerActions}>
                   {!editing ? (
                     <Pressable
+                      accessible
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit event"
                       onPress={() => setEditing(true)}
                       disabled={saving}
                       style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.7 }]}
@@ -235,6 +245,9 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                   ) : (
                     <>
                       <Pressable
+                        accessible
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel editing"
                         onPress={cancelEdit}
                         disabled={saving}
                         style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.7 }]}
@@ -242,6 +255,9 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                         <AppText style={styles.editBtnText}>Cancel</AppText>
                       </Pressable>
                       <Pressable
+                        accessible
+                        accessibilityRole="button"
+                        accessibilityLabel="Save event"
                         onPress={saveEdit}
                         disabled={saving}
                         style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.85 }]}
@@ -447,6 +463,9 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                 </AppText>
               </View>
               <Switch
+                accessible
+                accessibilityLabel="Include in pre-visit note"
+                accessibilityRole="switch"
                 value={included}
                 onValueChange={onToggleIncluded}
                 disabled={saving}
@@ -465,6 +484,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={{ gap: 6 }}>
       <AppText style={styles.fieldLabel}>{label}</AppText>
@@ -474,6 +494,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 function InfoRow({ label, value, isLast }: { label: string; value: string; isLast: boolean }) {
+  const styles = useStyles();
   return (
     <View style={[styles.infoRow, isLast && styles.infoRowLast]}>
       <AppText style={styles.infoLabel}>{label}</AppText>
@@ -483,6 +504,7 @@ function InfoRow({ label, value, isLast }: { label: string; value: string; isLas
 }
 
 function CategoryPill({ meta, label }: { meta: ReturnType<typeof categoryMeta>; label: string }) {
+  const styles = useStyles();
   return (
     <View style={[styles.catPill, { backgroundColor: meta.pillBg }]}>
       <AppText style={[styles.catPillText, { color: meta.pillText }]}>{label}</AppText>
@@ -570,7 +592,7 @@ function formatDate(ymd?: string | null, precision?: "day" | "month" | "year") {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     padding: spacing.lg,
     gap: spacing.md,
@@ -585,12 +607,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
   },
 
   // Error
   errorBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.sm,
     borderWidth: 1,
@@ -598,16 +620,16 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
   },
 
   // Header card
   headerCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.card,
@@ -634,19 +656,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: c.border,
+    backgroundColor: c.surface,
   },
   editBtnText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.teal,
+    color: c.teal,
   },
   saveBtn: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 7,
     borderRadius: radius.sm,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
   },
   saveBtnText: {
     fontSize: typescale.size.xs,
@@ -656,12 +678,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typescale.size.xl,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     lineHeight: typescale.size.xl * typescale.lineHeight.tight,
   },
   dateMeta: {
     fontSize: typescale.size.sm,
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.semibold,
   },
   pillsRow: {
@@ -683,22 +705,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   typePillText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
+    color: c.textSub,
   },
 
   // Content cards (Summary, Details, Clinical Data, Tags)
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.card,
@@ -706,13 +728,13 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.teal,
+    color: c.teal,
     letterSpacing: 1.1,
     marginBottom: spacing.xxs,
   },
   summaryText: {
     fontSize: typescale.size.sm,
-    color: colors.textSub,
+    color: c.textSub,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
 
@@ -724,7 +746,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: c.borderLight,
   },
   infoRowLast: {
     borderBottomWidth: 0,
@@ -733,7 +755,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     textTransform: "uppercase",
     letterSpacing: 0.4,
     flex: 1,
@@ -741,7 +763,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: typescale.size.sm,
-    color: colors.text,
+    color: c.text,
     fontWeight: typescale.weight.medium,
     flex: 2,
     textAlign: "right",
@@ -757,22 +779,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: radius.pill,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
   },
   tagText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
 
   // Pre-Visit toggle card
   preVisitCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     flexDirection: "row",
     alignItems: "center",
@@ -783,7 +805,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.sm,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -795,11 +817,11 @@ const styles = StyleSheet.create({
   preVisitTitle: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   preVisitSub: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
@@ -807,18 +829,18 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
+    borderColor: c.border,
+    backgroundColor: c.bg,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: 10,
-    color: colors.text,
+    color: c.text,
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.medium,
   },
@@ -840,24 +862,24 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
+    borderColor: c.border,
+    backgroundColor: c.bg,
   },
   segmentActive: {
-    borderColor: colors.teal,
-    backgroundColor: colors.tealSoft,
+    borderColor: c.teal,
+    backgroundColor: c.tealSoft,
   },
   segmentText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.muted,
+    color: c.muted,
   },
   segmentTextActive: {
-    color: colors.teal,
+    color: c.teal,
   },
   editHint: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     fontStyle: "italic",
   },
-});
+}));

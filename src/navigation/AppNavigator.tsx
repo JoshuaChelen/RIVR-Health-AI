@@ -18,11 +18,13 @@ import { AIInsightsScreen } from "../screens/App/AIInsightsScreen";
 import { ShinScoreScreen } from "../screens/App/ShinScoreScreen";
 import { AppleHealthScreen } from "../screens/App/AppleHealthScreen";
 
-import { colors, typescale } from "../theme/tokens";
+import { typescale } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export function AppNavigator() {
+  const { colors } = useTheme();
   return (
     <Stack.Navigator
       initialRouteName="Home"
@@ -43,6 +45,9 @@ export function AppNavigator() {
         headerLeft: ({ canGoBack }) =>
           canGoBack ? (
             <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
               onPress={() => navigation.goBack()}
               hitSlop={8}
               style={({ pressed }) => [
@@ -64,6 +69,7 @@ export function AppNavigator() {
                 size={22}
                 color={colors.teal}
                 style={{ marginLeft: -1 }}
+                accessible={false}
               />
             </Pressable>
           ) : null,

@@ -13,6 +13,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { supabase } from "../../lib/supabase";
+import { captureException } from "../../lib/sentry";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -21,11 +22,13 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { EmailInput } from "../../components/ui/Account/EmailInput";
 import { PasswordInput } from "../../components/ui/Account/PasswordInput";
-import { colors, spacing, radius, typescale } from "../../theme/tokens";
+import { spacing, radius, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "SignUp">;
 
 export function SignUpScreen({ navigation }: Props) {
+  const styles = useStyles();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
@@ -77,6 +80,7 @@ export function SignUpScreen({ navigation }: Props) {
       if (error) throw error;
       setSuccessText(data.session ? "Account created!" : "Check your inbox to verify your email.");
     } catch (e: any) {
+      captureException(e);
       setErrorText(e?.message ?? "Sign up failed.");
     } finally {
       setBusy(false);
@@ -141,6 +145,10 @@ export function SignUpScreen({ navigation }: Props) {
                   <Pressable
                     onPress={() => navigation.navigate("Login")}
                     style={({ pressed }) => [styles.signInBtn, pressed && { opacity: 0.6 }]}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel="Sign in"
+                    accessibilityHint="Navigate to sign in"
                   >
                     <AppText style={styles.signInBtnText}>Sign in</AppText>
                   </Pressable>
@@ -162,7 +170,7 @@ export function SignUpScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -184,12 +192,12 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: typescale.size.xxl,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.5,
   },
   tagline: {
     fontSize: typescale.size.base,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
   },
 
@@ -204,7 +212,7 @@ const styles = StyleSheet.create({
   },
 
   errorBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -213,12 +221,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
   },
 
   successBanner: {
-    backgroundColor: colors.successSoft,
+    backgroundColor: c.successSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -227,13 +235,13 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: typescale.size.sm,
-    color: colors.success,
+    color: c.success,
     fontWeight: typescale.weight.medium,
   },
 
   divider: {
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginVertical: spacing.xxs,
   },
 
@@ -245,25 +253,25 @@ const styles = StyleSheet.create({
   },
   signInPrompt: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
   },
   signInBtn: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     paddingVertical: 6,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
   },
   signInBtnText: {
     fontSize: typescale.size.sm,
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.semibold,
   },
 
   footer: {
     textAlign: "center",
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
   },
-});
+}));

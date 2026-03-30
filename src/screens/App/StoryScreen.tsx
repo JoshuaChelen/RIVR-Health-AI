@@ -19,7 +19,10 @@ import { getCurrentUserId } from "../../lib/auth";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 
-import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { captureException } from "../../lib/sentry";
+import { radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Story">;
@@ -64,36 +67,41 @@ function QuestionCard({
   onStartEdit, onSave, onCancel,
   saving, error,
 }: QuestionCardProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const answered = !!(answer?.trim());
 
   return (
-    <View style={[qc.card, answered && !isEditing && qc.cardAnswered]}>
+    <View style={[styles.qc_card, answered && !isEditing && styles.qc_cardAnswered]}>
 
       {/* ── Top row: number pill + edit button ── */}
-      <View style={qc.topRow}>
-        <View style={[qc.pill, answered && qc.pillAnswered]}>
-          <AppText style={[qc.pillText, answered && qc.pillTextAnswered]}>
+      <View style={styles.qc_topRow}>
+        <View style={[styles.qc_pill, answered && styles.qc_pillAnswered]}>
+          <AppText style={[styles.qc_pillText, answered && styles.qc_pillTextAnswered]}>
             {String(number).padStart(2, "0")}
           </AppText>
         </View>
         {!isEditing && answered && (
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Edit answer"
             onPress={onStartEdit}
-            style={({ pressed }) => [qc.editBtn, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [styles.qc_editBtn, pressed && { opacity: 0.6 }]}
           >
-            <AppText style={qc.editBtnText}>Edit</AppText>
+            <AppText style={styles.qc_editBtnText}>Edit</AppText>
           </Pressable>
         )}
       </View>
 
       {/* ── Question text ── */}
-      <AppText style={qc.questionText}>{text}</AppText>
+      <AppText style={styles.qc_questionText}>{text}</AppText>
 
       {/* ── Content: edit / answer / empty ── */}
       {isEditing ? (
-        <View style={qc.editArea}>
-          <View style={[qc.textAreaWrap, focused && qc.textAreaFocused]}>
+        <View style={styles.qc_editArea}>
+          <View style={[styles.qc_textAreaWrap, focused && styles.qc_textAreaFocused]}>
             <TextInput
               value={draft}
               onChangeText={onDraftChange}
@@ -101,194 +109,70 @@ function QuestionCard({
               textAlignVertical="top"
               placeholder="Write your answer here…"
               placeholderTextColor={colors.subtle}
-              style={qc.textInput}
+              style={styles.qc_textInput}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               autoFocus
+              accessibilityLabel="Your answer"
             />
           </View>
 
           {error ? (
-            <View style={qc.errorBanner}>
-              <AppText style={qc.errorText}>{error}</AppText>
+            <View style={styles.qc_errorBanner}>
+              <AppText style={styles.qc_errorText}>{error}</AppText>
             </View>
           ) : null}
 
-          <View style={qc.actions}>
+          <View style={styles.qc_actions}>
             <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Cancel editing"
               onPress={onCancel}
-              style={({ pressed }) => [qc.cancelBtn, pressed && { opacity: 0.6 }]}
+              style={({ pressed }) => [styles.qc_cancelBtn, pressed && { opacity: 0.6 }]}
             >
-              <AppText style={qc.cancelText}>Cancel</AppText>
+              <AppText style={styles.qc_cancelText}>Cancel</AppText>
             </Pressable>
             <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Save answer"
               onPress={onSave}
               disabled={saving}
               style={({ pressed }) => [
-                qc.saveBtn,
+                styles.qc_saveBtn,
                 saving && { opacity: 0.5 },
                 pressed && !saving && { opacity: 0.82 },
               ]}
             >
-              <AppText style={qc.saveText}>{saving ? "Saving…" : "Save"}</AppText>
+              <AppText style={styles.qc_saveText}>{saving ? "Saving…" : "Save"}</AppText>
             </Pressable>
           </View>
         </View>
 
       ) : answered ? (
-        <AppText style={qc.answerText}>{answer}</AppText>
+        <AppText style={styles.qc_answerText}>{answer}</AppText>
       ) : (
         <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Write your answer"
           onPress={onStartEdit}
-          style={({ pressed }) => [qc.addBtn, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [styles.qc_addBtn, pressed && { opacity: 0.6 }]}
         >
-          <AppText style={qc.addText}>+ Write your answer</AppText>
+          <AppText style={styles.qc_addText}>+ Write your answer</AppText>
         </Pressable>
       )}
     </View>
   );
 }
 
-const qc = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    ...shadows.xs,
-  },
-  cardAnswered: {
-    borderColor: colors.tealBorder,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  pill: {
-    backgroundColor: colors.bgSecondary,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  pillAnswered: {
-    backgroundColor: colors.tealSoft,
-  },
-  pillText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold as any,
-    color: colors.muted,
-    letterSpacing: 0.8,
-  },
-  pillTextAnswered: {
-    color: colors.teal,
-  },
-  editBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.tealSoft,
-  },
-  editBtnText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
-  },
-  questionText: {
-    fontSize: typescale.size.md,
-    fontWeight: typescale.weight.semibold as any,
-    color: colors.text,
-    lineHeight: typescale.size.md * typescale.lineHeight.relaxed,
-  },
-  answerText: {
-    fontSize: typescale.size.base,
-    color: colors.textSub,
-    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-    fontStyle: "italic",
-    paddingTop: 2,
-  },
-  addBtn: {
-    paddingVertical: spacing.xs,
-    paddingTop: spacing.xxs,
-  },
-  addText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
-  },
-  editArea: {
-    gap: spacing.sm,
-    paddingTop: spacing.xxs,
-  },
-  textAreaWrap: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 120,
-  },
-  textAreaFocused: {
-    borderColor: colors.teal,
-    borderWidth: 1.5,
-    shadowColor: colors.teal,
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  textInput: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.regular as any,
-    color: colors.text,
-    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-    minHeight: 100,
-  },
-  errorBanner: {
-    backgroundColor: colors.dangerSoft,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
-  },
-  errorText: {
-    fontSize: typescale.size.sm,
-    color: colors.danger,
-  },
-  actions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  cancelBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-  },
-  cancelText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium as any,
-    color: colors.muted,
-  },
-  saveBtn: {
-    backgroundColor: colors.teal,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 9,
-  },
-  saveText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.bold as any,
-    color: "#fff",
-  },
-});
-
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function StoryScreen(_: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   const [profile, setProfile]     = useState<UserProfile | null>(null);
   const [loading, setLoading]     = useState(true);
   const [editingQ, setEditingQ]     = useState<keyof StoryAnswers | null>(null);
@@ -307,8 +191,8 @@ export function StoryScreen(_: Props) {
           if (!active) return;
           const p = await getProfile(userId);
           if (active) setProfile(p);
-        } catch {
-          // Not authenticated or network error
+        } catch (e) {
+          captureException(e);
         } finally {
           if (active) setLoading(false);
         }
@@ -386,13 +270,14 @@ async function saveAnswer() {
             break;
           }
         }
-      } catch {
-        // optional: keep silent so story save still succeeds
+      } catch (e) {
+        captureException(e);
       } finally {
         setRefreshingHealth(false);
       }
     })();
   } catch (e: any) {
+    captureException(e);
     setSaveError(e?.message ?? "Save failed. Please try again.");
   } finally {
     setSaving(false);
@@ -410,7 +295,7 @@ async function saveAnswer() {
     return (
       <Screen edges={["left", "right", "bottom"]}>
         <View style={styles.center}>
-          <ActivityIndicator color={colors.teal} size="large" />
+          <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Loading health story" />
         </View>
       </Screen>
     );
@@ -502,7 +387,144 @@ async function saveAnswer() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
+  // ── QuestionCard (qc) ──────────────────────────────────────────────────
+  qc_card: {
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...shadows.xs,
+  },
+  qc_cardAnswered: {
+    borderColor: c.tealBorder,
+  },
+  qc_topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  qc_pill: {
+    backgroundColor: c.bgSecondary,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  qc_pillAnswered: {
+    backgroundColor: c.tealSoft,
+  },
+  qc_pillText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold as any,
+    color: c.muted,
+    letterSpacing: 0.8,
+  },
+  qc_pillTextAnswered: {
+    color: c.teal,
+  },
+  qc_editBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: c.tealSoft,
+  },
+  qc_editBtnText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold as any,
+    color: c.teal,
+  },
+  qc_questionText: {
+    fontSize: typescale.size.md,
+    fontWeight: typescale.weight.semibold as any,
+    color: c.text,
+    lineHeight: typescale.size.md * typescale.lineHeight.relaxed,
+  },
+  qc_answerText: {
+    fontSize: typescale.size.base,
+    color: c.textSub,
+    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
+    fontStyle: "italic",
+    paddingTop: 2,
+  },
+  qc_addBtn: {
+    paddingVertical: spacing.xs,
+    paddingTop: spacing.xxs,
+  },
+  qc_addText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold as any,
+    color: c.teal,
+  },
+  qc_editArea: {
+    gap: spacing.sm,
+    paddingTop: spacing.xxs,
+  },
+  qc_textAreaWrap: {
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: radius.md,
+    backgroundColor: c.bg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 120,
+  },
+  qc_textAreaFocused: {
+    borderColor: c.teal,
+    borderWidth: 1.5,
+    shadowColor: c.teal,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  qc_textInput: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.regular as any,
+    color: c.text,
+    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
+    minHeight: 100,
+  },
+  qc_errorBanner: {
+    backgroundColor: c.dangerSoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: c.dangerBorder,
+  },
+  qc_errorText: {
+    fontSize: typescale.size.sm,
+    color: c.danger,
+  },
+  qc_actions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  qc_cancelBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+  },
+  qc_cancelText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.medium as any,
+    color: c.muted,
+  },
+  qc_saveBtn: {
+    backgroundColor: c.teal,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 9,
+  },
+  qc_saveText: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.bold as any,
+    color: "#fff",
+  },
+
+  // ── Main styles ─────────────────────────────────────────────────────────
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: {
     paddingBottom: spacing.xxl + spacing.xl,
@@ -513,19 +535,19 @@ const styles = StyleSheet.create({
 
   // ── Refresh banner ──
   refreshBanner: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  refreshText: { color: colors.teal },
+  refreshText: { color: c.teal },
 
   // ── Header ──
   header: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.xl,
     gap: spacing.md,
     ...shadows.xs,
@@ -533,12 +555,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typescale.size.xl,
     fontWeight: typescale.weight.bold as any,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.4,
   },
   headerSub: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
   progressRow: {
@@ -550,27 +572,27 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: radius.pill,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
     borderRadius: radius.pill,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
   },
   progressLabel: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     minWidth: 80,
     textAlign: "right",
   },
 
   // ── Completion ──
   completionBadge: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -581,16 +603,16 @@ const styles = StyleSheet.create({
   completionText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
+    color: c.teal,
   },
 
   // ── Footer ──
   footerNote: {
     textAlign: "center",
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.md,
     marginTop: spacing.xs,
   },
-});
+}));

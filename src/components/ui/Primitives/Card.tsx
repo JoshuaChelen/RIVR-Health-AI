@@ -1,12 +1,14 @@
 import React from "react";
 import { View, StyleSheet, ViewProps } from "react-native";
-import { colors, radius, shadows } from "../../../theme/tokens";
+import { radius, shadows } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = ViewProps & {
   variant?: "default" | "flat" | "elevated";
 };
 
 export function Card({ style, variant = "default", ...props }: Props) {
+  const styles = useStyles();
   return (
     <View
       {...props}
@@ -20,21 +22,21 @@ export function Card({ style, variant = "default", ...props }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: 14,
     ...shadows.card,
   },
   flat: {
     ...shadows.xs,
-    borderColor: colors.borderLight,
+    borderColor: c.borderLight,
   },
   elevated: {
     ...shadows.lg,
     borderWidth: 0,
   },
-});
+}));

@@ -11,7 +11,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
 import { AppText } from "./AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, radius, shadows, spacing, typescale } from "../../../theme/tokens";
+import { radius, shadows, spacing, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
+import { useTheme } from "../../../context/ThemeContext";
 
 // Renders an SVG country flag by ISO alpha-2 code (e.g. "US", "GB").
 // Uses react-native-svg — no emoji, no font dependency, works reliably on iOS.
@@ -327,6 +329,8 @@ export function PhoneField({
   editable = true,
   returnKeyType = "done",
 }: Props) {
+  const pf = useStyles();
+  const { colors } = useTheme();
   const [focused, setFocused]   = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
@@ -423,25 +427,25 @@ export function PhoneField({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const pf = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   container: { gap: 7 },
   label: { marginBottom: 1 },
-  labelFocused: { color: colors.teal },
+  labelFocused: { color: c.teal },
 
   wrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     height: 52,
     ...shadows.xs,
   },
   wrapFocused: {
-    borderColor: colors.teal,
+    borderColor: c.teal,
     borderWidth: 1.5,
-    shadowColor: colors.teal,
+    shadowColor: c.teal,
     shadowOpacity: 0.12,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -458,12 +462,12 @@ const pf = StyleSheet.create({
   prefixDial: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.text,
+    color: c.text,
   },
   divider: {
     width: 1,
     height: 28,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
   },
 
   input: {
@@ -472,7 +476,7 @@ const pf = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.medium as any,
-    color: colors.text,
+    color: c.text,
   },
 
   // Modal
@@ -485,7 +489,7 @@ const pf = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingTop: spacing.sm,
@@ -496,18 +500,18 @@ const pf = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
     alignSelf: "center",
     marginBottom: spacing.sm,
   },
   sheetTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold as any,
-    color: colors.text,
+    color: c.text,
     textAlign: "center",
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: c.borderLight,
     marginBottom: spacing.xs,
   },
 
@@ -520,22 +524,22 @@ const pf = StyleSheet.create({
     gap: spacing.sm,
   },
   countryRowSelected: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
   },
   countryFlag: { fontSize: 22, lineHeight: 28, flexShrink: 0 },
   countryName: {
     flex: 1,
     fontSize: typescale.size.base,
-    color: colors.text,
+    color: c.text,
   },
   countryDial: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     flexShrink: 0,
   },
   separator: {
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginHorizontal: spacing.xs,
   },
-});
+}));

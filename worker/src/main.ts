@@ -60,6 +60,55 @@ async function checkCancelled(jobId: string, ac: AbortController): Promise<void>
   }
 }
 
+// ─── Stale job recovery ──────────────────────────────────────────────────────
+
+const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+async function recoverStaleJobs(): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
+
+  const { data: staleJobs, error } = await supabaseAdmin
+    .from("ai_jobs")
+    .select("id, user_id, document_ids")
+    .eq("status", "processing")
+    .lt("updated_at", cutoff);
+
+  if (error) {
+    console.error("[worker] recoverStaleJobs query failed", error.message);
+    return;
+  }
+
+  if (!staleJobs || staleJobs.length === 0) return;
+
+  for (const job of staleJobs) {
+    console.warn("[worker] Recovered stale job:", job.id);
+
+    await supabaseAdmin
+      .from("ai_jobs")
+      .update({
+        status: "failed",
+        error: "Job timed out — worker may have crashed. You can retry.",
+        updated_at: nowIso(),
+        locked_at: null,
+        locked_by: null,
+      })
+      .eq("id", job.id);
+
+    // Reset any documents stuck in 'processing' back to 'uploaded'
+    const docIds = Array.isArray(job.document_ids) ? job.document_ids : [];
+    if (docIds.length > 0) {
+      await supabaseAdmin
+        .from("documents")
+        .update({ status: "uploaded", processing_error: null, updated_at: nowIso() })
+        .eq("user_id", job.user_id)
+        .in("id", docIds)
+        .eq("status", "processing");
+    }
+  }
+
+  console.log(`[worker] Recovered ${staleJobs.length} stale job(s)`);
+}
+
 // ─── Job helpers ──────────────────────────────────────────────────────────────
 
 async function claimJob() {
@@ -996,8 +1045,20 @@ async function processJob(job: any) {
 async function main() {
   console.log("[worker] started");
 
+  // Recover any jobs stuck from a previous crash before polling
+  await recoverStaleJobs();
+
+  const recoveryInterval = Math.ceil(300_000 / POLL_MS); // every ~5 minutes
+  let pollCount = 0;
+
   while (true) {
     try {
+      // Periodic stale job recovery
+      if (pollCount > 0 && pollCount % recoveryInterval === 0) {
+        await recoverStaleJobs();
+      }
+      pollCount++;
+
       const job = await claimJob();
       if (!job) {
         await sleep(POLL_MS);

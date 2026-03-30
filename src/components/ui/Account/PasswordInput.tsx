@@ -22,6 +22,7 @@ export function PasswordInput({
       value={value}
       onChangeText={onChangeText}
       secureTextEntry={!show}
+      textContentType="password"
       placeholder="Enter password"
       autoCapitalize="none"
       rightAccessory={
