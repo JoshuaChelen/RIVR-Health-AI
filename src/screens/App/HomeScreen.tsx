@@ -12,11 +12,15 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
+import { captureException } from "../../lib/sentry";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
+import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { ScoreRing } from "../../components/ui/Home/ScoreRing";
-import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { useAppleHealth } from "../../context/AppleHealthContext";
@@ -56,58 +60,73 @@ export function HomeScreen({ navigation }: Props) {
   const [label, setLabel] = useState<string | null>(null);
   const [profileInitials, setProfileInitials] = useState<string | null>(null);
   const [aiRecommendations, setAiRecommendations] = useState<RecommendationItem[]>([]);
+  const [error, setError] = useState(false);
+  const [isScoreStale, setIsScoreStale] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
+  const styles = useStyles();
+  const { colors } = useTheme();
 
-      (async () => {
-        setScoreLoading(true);
-        try {
-          const { data: userRes } = await supabase.auth.getUser();
-          if (!userRes?.user || !active) return;
+  const load = useCallback(async () => {
+    setScoreLoading(true);
+    setError(false);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      if (!userRes?.user) return;
 
-          const userId = userRes.user.id;
-          const [healthProfile, evalRow, userProfile] = await Promise.all([
-            getHealthProfile(userId),
-            getLatestEvaluation(userId),
-            getProfile(userId),
-          ]);
+      const userId = userRes.user.id;
+      const [healthProfile, evalRow, userProfile, latestDocRes] = await Promise.all([
+        getHealthProfile(userId),
+        getLatestEvaluation(userId),
+        getProfile(userId),
+        supabase
+          .from("documents")
+          .select("processed_at")
+          .eq("user_id", userId)
+          .eq("status", "processed")
+          .not("processed_at", "is", null)
+          .order("processed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-          if (!active) return;
+      const evalResult = evalRow?.result ?? null;
+      const resolvedScore =
+        healthProfile?.score ?? evalResult?.score_0_to_100 ?? null;
+      const resolvedLabel =
+        healthProfile?.score_label ?? evalResult?.score_label ?? null;
 
-          const evalResult = evalRow?.result ?? null;
-          const resolvedScore =
-            healthProfile?.score ?? evalResult?.score_0_to_100 ?? null;
-          const resolvedLabel =
-            healthProfile?.score_label ?? evalResult?.score_label ?? null;
+      setScore(typeof resolvedScore === "number" ? resolvedScore : null);
+      setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
 
-          setScore(typeof resolvedScore === "number" ? resolvedScore : null);
-          setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
+      const recs = buildRecommendations(
+        healthProfile?.summary_json ?? null,
+        evalResult,
+      );
+      setAiRecommendations(recs.slice(0, 3));
 
-          const recs = buildRecommendations(
-            healthProfile?.summary_json ?? null,
-            evalResult,
-          );
-          setAiRecommendations(recs.slice(0, 3));
+      if (userProfile?.first_name) {
+        const first = userProfile.first_name[0]?.toUpperCase() ?? "";
+        const last = userProfile.last_name?.[0]?.toUpperCase() ?? "";
+        setProfileInitials(first + last);
+      }
 
-          if (userProfile?.first_name) {
-            const first = userProfile.first_name[0]?.toUpperCase() ?? "";
-            const last = userProfile.last_name?.[0]?.toUpperCase() ?? "";
-            setProfileInitials(first + last);
-          }
-        } catch {
-          // Silently fail on the dashboard — errors are surfaced on Health Summary
-        } finally {
-          if (active) setScoreLoading(false);
-        }
-      })();
+      // Staleness: check if docs were processed after the last evaluation
+      const latestDocAt = latestDocRes.data?.processed_at ?? null;
+      const evalAt = evalRow?.created_at ?? null;
+      setIsScoreStale(!!(
+        typeof resolvedScore === "number" &&
+        latestDocAt && evalAt &&
+        new Date(latestDocAt).getTime() > new Date(evalAt).getTime()
+      ));
+    } catch (e) {
+      captureException(e);
+      setError(true);
+    } finally {
+      setScoreLoading(false);
+    }
+  }, []);
 
-      return () => {
-        active = false;
-      };
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const health = useAppleHealth();
 
@@ -133,6 +152,9 @@ export function HomeScreen({ navigation }: Props) {
             </AppText>
           </View>
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
             style={({ pressed }) => [
               styles.profileAvatar,
               pressed && { opacity: 0.7 },
@@ -145,8 +167,19 @@ export function HomeScreen({ navigation }: Props) {
           </Pressable>
         </View>
 
+        {/* ── Error ────────────────────────────────────────── */}
+        {error && !scoreLoading ? (
+          <View style={{ marginHorizontal: spacing.xl }}>
+            <ErrorBanner message="Couldn't load your dashboard" onRetry={load} />
+          </View>
+        ) : null}
+
         {/* ── SHIN Score ring card ───────────────────────────── */}
         <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="SHIN Score card"
+          accessibilityHint="View your SHIN Score details"
           style={({ pressed }) => [
             styles.heroCard,
             pressed && styles.heroPressed,
@@ -155,7 +188,22 @@ export function HomeScreen({ navigation }: Props) {
         >
           <View style={styles.heroHeader}>
             <View style={styles.heroLabelBlock}>
-              <AppText style={styles.heroLabel}>SHIN SCORE</AppText>
+              <View style={styles.heroLabelRow}>
+                <AppText style={styles.heroLabel}>SHIN SCORE</AppText>
+                {isScoreStale ? (
+                  <Pressable
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel="Score may be outdated, tap to view details"
+                    onPress={() => navigation.navigate("HealthSummary")}
+                    hitSlop={8}
+                    style={styles.staleBadge}
+                  >
+                    <View style={styles.staleDot} />
+                    <AppText style={styles.staleLabel}>Summary outdated</AppText>
+                  </Pressable>
+                ) : null}
+              </View>
               <AppText style={styles.heroSub}>Overall health index</AppText>
             </View>
             {scoreLoading ? null : score != null ? (
@@ -184,7 +232,7 @@ export function HomeScreen({ navigation }: Props) {
           <View style={styles.ringWrap}>
             {scoreLoading ? (
               <View style={styles.ringPlaceholder}>
-                <ActivityIndicator color={colors.teal} size="large" />
+                <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Loading score" />
                 <AppText style={styles.ringPlaceholderText}>
                   Loading score…
                 </AppText>
@@ -212,6 +260,10 @@ export function HomeScreen({ navigation }: Props) {
 
         {/* ── AI Health Summary card ─────────────────────────── */}
         <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="AI Health Summary"
+          accessibilityHint="View your full health summary"
           style={({ pressed }) => [
             styles.summaryCard,
             pressed && styles.summaryPressed,
@@ -270,6 +322,9 @@ export function HomeScreen({ navigation }: Props) {
 
         {/* ── Sign out ──────────────────────────────────────── */}
         <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
           style={({ pressed }) => [
             styles.signOut,
             pressed && { opacity: 0.5 },
@@ -304,8 +359,12 @@ function QuickAction({
   label: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={({ pressed }) => [styles.quickBtn, pressed && styles.quickPressed]}
       onPress={onPress}
     >
@@ -324,7 +383,7 @@ function HomeFeatureCard({
   titleColor,
   headerAccessory,
   footerLabel,
-  footerColor = colors.teal,
+  footerColor,
   onPress,
   children,
 }: {
@@ -339,22 +398,25 @@ function HomeFeatureCard({
   onPress: () => void;
   children: React.ReactNode;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const resolvedFooterColor = footerColor ?? colors.teal;
   return (
     <Pressable
       style={({ pressed }) => [
-        fcard.card,
+        styles.fcard_card,
         { borderTopColor: accentColor },
-        pressed && fcard.pressed,
+        pressed && styles.fcard_pressed,
       ]}
       onPress={onPress}
     >
       {/* ── Header ─────────────────────────────────── */}
-      <View style={fcard.header}>
-        <View style={[fcard.iconWrap, { backgroundColor: iconBg }]}>
+      <View style={styles.fcard_header}>
+        <View style={[styles.fcard_iconWrap, { backgroundColor: iconBg }]}>
           {icon}
         </View>
         <AppText
-          style={[fcard.title, titleColor ? { color: titleColor } : undefined]}
+          style={[styles.fcard_title, titleColor ? { color: titleColor } : undefined]}
         >
           {title}
         </AppText>
@@ -363,76 +425,18 @@ function HomeFeatureCard({
       </View>
 
       {/* ── Body — flex:1 keeps footer pinned to bottom ── */}
-      <View style={fcard.body}>{children}</View>
+      <View style={styles.fcard_body}>{children}</View>
 
       {/* ── Footer CTA ─────────────────────────────── */}
-      <View style={fcard.footer}>
-        <AppText style={[fcard.footerText, { color: footerColor }]}>
+      <View style={styles.fcard_footer}>
+        <AppText style={[styles.fcard_footerText, { color: resolvedFooterColor }]}>
           {footerLabel}
         </AppText>
-        <Ionicons name="arrow-forward" size={11} color={footerColor} />
+        <Ionicons name="arrow-forward" size={11} color={resolvedFooterColor} />
       </View>
     </Pressable>
   );
 }
-
-// ─── Feature card shell styles ────────────────────────────────────────────────
-
-const fcard = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderTopWidth: 3,
-    // borderTopColor applied inline via accentColor prop
-    padding: spacing.md,
-    gap: spacing.sm,
-    ...shadows.card,
-  },
-  pressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.97 }],
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  iconWrap: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    flex: 1,
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: colors.text,
-    letterSpacing: 0.2,
-  },
-  // Grows to fill space between header and footer, keeping footer at bottom
-  // when sibling card is taller and stretches this card's height.
-  body: {
-    flex: 1,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xxs,
-    paddingTop: spacing.xxs,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  footerText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-    // color applied inline via footerColor prop
-  },
-});
 
 // ─── AI Suggestions card ──────────────────────────────────────────────────────
 
@@ -445,6 +449,9 @@ function AiSuggestionsCard({
   recommendations: RecommendationItem[];
   loading: boolean;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   let body: React.ReactNode;
 
   if (loading) {
@@ -511,8 +518,56 @@ function AppleHealthMiniCard({
   health: AppleHealthContextValue;
   onPress: (metric?: MetricKey) => void;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { status, heartRate, sleepAvgText, stepsAvg7d, sleepAvgMin } = health;
   const isConnected = status === "linked";
+
+  // ── Unsupported ────────────────────────────────────────────────────────────
+  if (status === "unsupported") {
+    return (
+      <HomeFeatureCard
+        accentColor={colors.border}
+        iconBg={colors.bgSecondary}
+        icon={<Ionicons name="phone-portrait-outline" size={13} color={colors.subtle} />}
+        title="Apple Health"
+        titleColor={colors.muted}
+        footerLabel="Not available"
+        footerColor={colors.subtle}
+        onPress={() => onPress()}
+      >
+        <View style={styles.ahMiniEmpty}>
+          <AppText style={styles.ahMiniEmptyLabel}>iPhone only</AppText>
+          <AppText style={styles.ahMiniEmptySub}>
+            Not available on this device
+          </AppText>
+        </View>
+      </HomeFeatureCard>
+    );
+  }
+
+  // ── Disconnected ───────────────────────────────────────────────────────────
+  if (status === "disconnected") {
+    return (
+      <HomeFeatureCard
+        accentColor={colors.warning}
+        iconBg={colors.warnSoft}
+        icon={<Ionicons name="heart-outline" size={13} color={colors.warning} />}
+        title="Apple Health"
+        titleColor={colors.muted}
+        footerLabel="Reconnect"
+        footerColor={colors.teal}
+        onPress={() => onPress()}
+      >
+        <View style={styles.ahMiniEmpty}>
+          <AppText style={styles.ahMiniEmptyLabel}>Disconnected</AppText>
+          <AppText style={styles.ahMiniEmptySub}>
+            Tap to reconnect
+          </AppText>
+        </View>
+      </HomeFeatureCard>
+    );
+  }
 
   // ── Not connected ──────────────────────────────────────────────────────────
   if (!isConnected) {
@@ -608,7 +663,7 @@ function AppleHealthMiniCard({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     paddingBottom: spacing.xxl + spacing.xl,
     gap: spacing.md,
@@ -632,7 +687,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -646,21 +701,21 @@ const styles = StyleSheet.create({
   greetDate: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
     letterSpacing: 0.3,
     marginBottom: 3,
   },
   greetTitle: {
-    color: colors.text,
+    color: c.text,
   },
 
   // SHIN Score ring card
   heroCard: {
     marginHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.card,
@@ -679,18 +734,41 @@ const styles = StyleSheet.create({
     gap: 3,
     marginRight: spacing.xs,
   },
+  heroLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   heroLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.teal,
+    color: c.teal,
     letterSpacing: 1.2,
+  },
+  staleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  staleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: c.warning,
+  },
+  staleLabel: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: c.warning,
   },
   heroSub: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
   },
   labelPill: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -700,15 +778,15 @@ const styles = StyleSheet.create({
   labelPillText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
   labelPillMuted: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
   },
   labelPillTextMuted: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.muted,
+    color: c.muted,
   },
   ringWrap: {
     alignItems: "center",
@@ -721,7 +799,7 @@ const styles = StyleSheet.create({
   },
   ringPlaceholderText: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
   },
   emptyScore: {
     paddingVertical: spacing.lg,
@@ -733,7 +811,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 3,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
@@ -742,11 +820,11 @@ const styles = StyleSheet.create({
   emptyScoreTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   emptyScoreBody: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
@@ -754,10 +832,10 @@ const styles = StyleSheet.create({
   // AI Health Summary card
   summaryCard: {
     marginHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     flexDirection: "row",
     alignItems: "center",
     overflow: "hidden",
@@ -773,7 +851,7 @@ const styles = StyleSheet.create({
   summaryAccent: {
     width: 4,
     alignSelf: "stretch",
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     borderTopLeftRadius: radius.xl,
     borderBottomLeftRadius: radius.xl,
     marginRight: spacing.xs,
@@ -783,7 +861,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -795,11 +873,11 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   summarySub: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
   },
 
   // Dual card row
@@ -822,12 +900,12 @@ const styles = StyleSheet.create({
   },
   suggestionBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: c.borderLight,
   },
   suggestionText: {
     flex: 1,
     fontSize: typescale.size.xs,
-    color: colors.textSub,
+    color: c.textSub,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
@@ -846,19 +924,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: colors.border,
+    borderColor: c.border,
     alignItems: "center",
     justifyContent: "center",
   },
   ahMiniEmptyLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
   },
   ahMiniEmptySub: {
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     textAlign: "center",
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
@@ -868,7 +946,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.success,
+    backgroundColor: c.success,
   },
 
   // Connected pills
@@ -885,13 +963,13 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   ahMiniPillSleep: {
-    backgroundColor: colors.blueSoft,
+    backgroundColor: c.blueSoft,
   },
   ahMiniPillSteps: {
-    backgroundColor: colors.greenSoft,
+    backgroundColor: c.greenSoft,
   },
   ahMiniPillHR: {
-    backgroundColor: colors.orangeSoft,
+    backgroundColor: c.orangeSoft,
   },
   ahMiniPillPressed: {
     opacity: 0.6,
@@ -900,7 +978,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.medium,
-    color: colors.textSub,
+    color: c.textSub,
   },
   ahMiniPillValueWrap: {
     flexDirection: "row",
@@ -909,12 +987,12 @@ const styles = StyleSheet.create({
   ahMiniPillValue: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   ahMiniPillUnit: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.medium,
-    color: colors.muted,
+    color: c.muted,
   },
 
   // AI Suggestions — loading state
@@ -935,7 +1013,7 @@ const styles = StyleSheet.create({
   },
   aiEmptyText: {
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     textAlign: "center",
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
@@ -959,7 +1037,7 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.medium,
-    color: colors.subtle,
+    color: c.subtle,
   },
   actionsRow: {
     flexDirection: "row",
@@ -969,11 +1047,11 @@ const styles = StyleSheet.create({
   quickBtn: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     gap: spacing.xxs,
     ...shadows.xs,
   },
@@ -990,7 +1068,62 @@ const styles = StyleSheet.create({
   quickLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
+    color: c.textSub,
     textAlign: "center",
   },
-});
+
+  // ── Feature card shell styles ──────────────────────────────────────────────
+  fcard_card: {
+    flex: 1,
+    backgroundColor: c.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderTopWidth: 3,
+    // borderTopColor applied inline via accentColor prop
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  fcard_pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.97 }],
+  },
+  fcard_header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  fcard_iconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fcard_title: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+    letterSpacing: 0.2,
+  },
+  // Grows to fill space between header and footer, keeping footer at bottom
+  // when sibling card is taller and stretches this card's height.
+  fcard_body: {
+    flex: 1,
+  },
+  fcard_footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xxs,
+    paddingTop: spacing.xxs,
+    borderTopWidth: 1,
+    borderTopColor: c.borderLight,
+  },
+  fcard_footerText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    // color applied inline via footerColor prop
+  },
+}));

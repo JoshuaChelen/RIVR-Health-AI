@@ -10,10 +10,14 @@ import {
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import { supabase } from "../../lib/supabase";
+import { captureException } from "../../lib/sentry";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { colors, spacing, radius, shadows, typescale } from "../../theme/tokens";
+import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
+import { spacing, radius, shadows, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -25,8 +29,8 @@ type OptionDef = {
   iconName: keyof typeof Ionicons.glyphMap;
   title: string;
   description: string;
-  accent: string;
-  accentSoft: string;
+  accentKey: "teal" | "blue" | "orange" | "green";
+  accentSoftKey: "tealSoft" | "blueSoft" | "orangeSoft" | "greenSoft";
 };
 
 // ─── Option definitions ───────────────────────────────────────────────────────
@@ -38,8 +42,8 @@ const SHARE_OPTIONS: OptionDef[] = [
     title: "Full Summary",
     description:
       "Your AI-generated health analysis with SHIN score, overview, and complete findings.",
-    accent: colors.teal,
-    accentSoft: colors.tealSoft,
+    accentKey: "teal",
+    accentSoftKey: "tealSoft",
   },
   {
     type: "card_3x5",
@@ -47,8 +51,8 @@ const SHARE_OPTIONS: OptionDef[] = [
     title: "3x5 Card",
     description:
       "Critical health facts — blood type, medications, allergies — for quick provider reference.",
-    accent: colors.blue,
-    accentSoft: colors.blueSoft,
+    accentKey: "blue",
+    accentSoftKey: "blueSoft",
   },
   {
     type: "pre_visit_note",
@@ -56,8 +60,8 @@ const SHARE_OPTIONS: OptionDef[] = [
     title: "Pre-Visit Note",
     description:
       "Selected timeline events formatted as a structured note for your upcoming appointment.",
-    accent: colors.orange,
-    accentSoft: colors.orangeSoft,
+    accentKey: "orange",
+    accentSoftKey: "orangeSoft",
   },
   {
     type: "full_timeline",
@@ -65,14 +69,17 @@ const SHARE_OPTIONS: OptionDef[] = [
     title: "Full Health Timeline",
     description:
       "Your complete medical history chronologically — all events, grouped by date, for provider review.",
-    accent: colors.green,
-    accentSoft: colors.greenSoft,
+    accentKey: "green",
+    accentSoftKey: "greenSoft",
   },
 ];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function ShareScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
   const [selected, setSelected]       = useState<Set<ShareType>>(new Set());
   const [modalVisible, setModalVisible] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
@@ -119,6 +126,7 @@ export function ShareScreen() {
       if (pkg?.shareUrl) setShareUrl(pkg.shareUrl);
       else throw new Error("No share URL returned");
     } catch (e: any) {
+      captureException(e);
       setShareError(e?.message ?? "Failed to create share link.");
     } finally {
       setShareLoading(false);
@@ -203,6 +211,10 @@ export function ShareScreen() {
 
         {/* ── Generate button ─────────────────────────────────── */}
         <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={canGenerate ? `Generate secure link, ${selected.size} items selected` : "Select at least one option"}
+          accessibilityState={{ disabled: !canGenerate }}
           onPress={handleGenerate}
           disabled={!canGenerate}
           style={({ pressed }) => [
@@ -266,7 +278,7 @@ export function ShareScreen() {
           {shareLoading ? (
             <View style={styles.modalCenter}>
               <View style={styles.loadingCard}>
-                <ActivityIndicator color={colors.teal} size="large" />
+                <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Creating share link" />
                 <AppText style={styles.loadingTitle}>
                   Packaging your health data…
                 </AppText>
@@ -279,10 +291,11 @@ export function ShareScreen() {
           ) : shareError ? (
             /* ── Error state ── */
             <View style={styles.modalCenter}>
-              <View style={styles.errorCard}>
-                <Ionicons name="warning-outline" size={36} color={colors.danger} />
-                <AppText style={styles.errorTitle}>Failed to create link</AppText>
-                <AppText style={styles.errorBody}>{shareError}</AppText>
+              <View style={{ width: "100%", gap: spacing.md }}>
+                <ErrorBanner
+                  message="Something went wrong creating your share link"
+                  onRetry={() => { setShareError(null); handleGenerate(); }}
+                />
                 <Pressable
                   onPress={closeModal}
                   style={({ pressed }) => [
@@ -330,6 +343,9 @@ export function ShareScreen() {
 
               {/* Copy button */}
               <Pressable
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={copied ? "Copied to clipboard" : "Copy link"}
                 onPress={copyToClipboard}
                 style={({ pressed }) => [
                   styles.copyBtn,
@@ -354,15 +370,17 @@ export function ShareScreen() {
                 <AppText style={styles.includedLabel}>WHAT'S INCLUDED</AppText>
                 {Array.from(selected).map((type) => {
                   const opt = SHARE_OPTIONS.find((o) => o.type === type)!;
+                  const accent = colors[opt.accentKey];
+                  const accentSoft = colors[opt.accentSoftKey];
                   return (
                     <View key={type} style={styles.includedRow}>
                       <View
                         style={[
                           styles.includedIconWrap,
-                          { backgroundColor: opt.accentSoft },
+                          { backgroundColor: accentSoft },
                         ]}
                       >
-                        <Ionicons name={opt.iconName} size={14} color={opt.accent} />
+                        <Ionicons name={opt.iconName} size={14} color={accent} />
                       </View>
                       <AppText style={styles.includedText}>{opt.title}</AppText>
                     </View>
@@ -388,54 +406,63 @@ function OptionCard({
   isSelected: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const accent = colors[opt.accentKey];
+  const accentSoft = colors[opt.accentSoftKey];
+
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={`${opt.title}, ${opt.description}`}
+      accessibilityState={{ selected: isSelected }}
       onPress={onPress}
       style={({ pressed }) => [
-        oc.card,
-        isSelected && { borderColor: opt.accent, borderWidth: 2 },
-        pressed && oc.pressed,
+        styles.oc_card,
+        isSelected && { borderColor: accent, borderWidth: 2 },
+        pressed && styles.oc_pressed,
       ]}
     >
       {/* Left teal accent bar */}
       <View
         style={[
-          oc.accentBar,
-          { backgroundColor: isSelected ? opt.accent : colors.borderLight },
+          styles.oc_accentBar,
+          { backgroundColor: isSelected ? accent : colors.borderLight },
         ]}
       />
 
-      <View style={oc.body}>
+      <View style={styles.oc_body}>
         {/* Icon + title row */}
-        <View style={oc.topRow}>
+        <View style={styles.oc_topRow}>
           <View
             style={[
-              oc.iconWrap,
+              styles.oc_iconWrap,
               {
                 backgroundColor: isSelected
-                  ? opt.accentSoft
+                  ? accentSoft
                   : colors.bgSecondary,
               },
             ]}
           >
-            <Ionicons name={opt.iconName} size={18} color={opt.accent} />
+            <Ionicons name={opt.iconName} size={18} color={accent} />
           </View>
 
-          <View style={oc.textBlock}>
+          <View style={styles.oc_textBlock}>
             <AppText
-              style={[oc.title, isSelected && { color: opt.accent }]}
+              style={[styles.oc_title, isSelected && { color: accent }]}
             >
               {opt.title}
             </AppText>
-            <AppText style={oc.desc}>{opt.description}</AppText>
+            <AppText style={styles.oc_desc}>{opt.description}</AppText>
           </View>
 
           <View
             style={[
-              oc.checkBox,
+              styles.oc_checkBox,
               isSelected && {
-                backgroundColor: opt.accent,
-                borderColor: opt.accent,
+                backgroundColor: accent,
+                borderColor: accent,
               },
             ]}
           >
@@ -449,35 +476,38 @@ function OptionCard({
   );
 }
 
-const oc = StyleSheet.create({
-  card: {
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const useStyles = createStyles((c) => StyleSheet.create({
+  // ── OptionCard (oc) ─────────────────────────────────────────────────────
+  oc_card: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     overflow: "hidden",
     ...shadows.card,
   },
-  pressed: {
+  oc_pressed: {
     opacity: 0.88,
     transform: [{ scale: 0.99 }],
   },
-  accentBar: {
+  oc_accentBar: {
     width: 4,
     borderTopLeftRadius: radius.xl,
     borderBottomLeftRadius: radius.xl,
   },
-  body: {
+  oc_body: {
     flex: 1,
     padding: spacing.md,
   },
-  topRow: {
+  oc_topRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
   },
-  iconWrap: {
+  oc_iconWrap: {
     width: 42,
     height: 42,
     borderRadius: radius.md,
@@ -485,36 +515,33 @@ const oc = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  textBlock: {
+  oc_textBlock: {
     flex: 1,
     gap: 3,
   },
-  title: {
+  oc_title: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
-  desc: {
+  oc_desc: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
-  checkBox: {
+  oc_checkBox: {
     width: 24,
     height: 24,
     borderRadius: radius.xs,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: c.border,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
     backgroundColor: "transparent",
   },
-});
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
+  // ── Main styles ─────────────────────────────────────────────────────────
   scroll: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
@@ -533,23 +560,23 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: radius.lg,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
   },
   headerText: {
     flex: 1,
     gap: 4,
   },
   title: {
-    color: colors.text,
+    color: c.text,
   },
   subtitle: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
 
@@ -563,7 +590,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 14,
     borderRadius: 2,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
   },
   copyBtnContent: {
     flexDirection: "row",
@@ -573,7 +600,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
@@ -588,17 +615,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   settingChipText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
+    color: c.textSub,
   },
 
   // Security note
@@ -606,38 +633,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.xs,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   securityText: {
     flex: 1,
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
   // Generate button
   generateBtn: {
     height: 54,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     borderRadius: radius.xl,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.teal,
+    shadowColor: c.teal,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 14,
     elevation: 4,
   },
   generateBtnDisabled: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     shadowOpacity: 0,
     elevation: 0,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   generateBtnPressed: {
     opacity: 0.88,
@@ -649,14 +676,14 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   generateBtnTextDisabled: {
-    color: colors.subtle,
+    color: c.subtle,
   },
 
   // ── Modal ────────────────────────────────────────────────────────────────
 
   modal: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: c.bg,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
   },
@@ -664,7 +691,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
     alignSelf: "center",
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
@@ -676,7 +703,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: c.border,
   },
   modalHeaderText: {
     gap: 3,
@@ -684,17 +711,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: typescale.size.lg,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   modalSubtitle: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
   },
   modalCloseBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
@@ -711,10 +738,10 @@ const styles = StyleSheet.create({
   loadingCard: {
     alignItems: "center",
     gap: spacing.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.xxl,
     width: "100%",
     ...shadows.card,
@@ -722,12 +749,12 @@ const styles = StyleSheet.create({
   loadingTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     textAlign: "center",
   },
   loadingBody: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
@@ -736,7 +763,7 @@ const styles = StyleSheet.create({
   errorCard: {
     alignItems: "center",
     gap: spacing.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: "#FECACA",
@@ -746,11 +773,11 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   errorBody: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     textAlign: "center",
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
@@ -758,15 +785,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   dismissBtnText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
+    color: c.textSub,
   },
 
   // Success content
@@ -779,7 +806,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    backgroundColor: colors.successSoft,
+    backgroundColor: c.successSoft,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
@@ -790,59 +817,59 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: colors.success,
+    backgroundColor: c.success,
   },
   successBadgeText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
-    color: colors.success,
+    color: c.success,
   },
   qrCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     padding: spacing.xl,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     ...shadows.card,
   },
   urlCard: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     width: "100%",
     gap: 5,
   },
   urlLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   urlText: {
     fontSize: typescale.size.sm,
-    color: colors.textSub,
+    color: c.textSub,
     lineHeight: typescale.size.sm * typescale.lineHeight.normal,
   },
   copyBtn: {
     width: "100%",
     height: 50,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.teal,
+    shadowColor: c.teal,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.22,
     shadowRadius: 10,
     elevation: 3,
   },
   copyBtnSuccess: {
-    backgroundColor: colors.success,
-    shadowColor: colors.success,
+    backgroundColor: c.success,
+    shadowColor: c.success,
   },
   copyBtnText: {
     fontSize: typescale.size.base,
@@ -851,17 +878,17 @@ const styles = StyleSheet.create({
   },
   includedBlock: {
     width: "100%",
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
   includedLabel: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.muted,
+    color: c.muted,
     letterSpacing: 0.8,
     textTransform: "uppercase",
     marginBottom: spacing.xxs,
@@ -881,6 +908,6 @@ const styles = StyleSheet.create({
   includedText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
-    color: colors.text,
+    color: c.text,
   },
-});
+}));

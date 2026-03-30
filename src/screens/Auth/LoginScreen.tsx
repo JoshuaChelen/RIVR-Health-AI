@@ -14,6 +14,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { supabase } from "../../lib/supabase";
+import { captureException } from "../../lib/sentry";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -22,11 +23,15 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { EmailInput } from "../../components/ui/Account/EmailInput";
 import { PasswordInput } from "../../components/ui/Account/PasswordInput";
-import { colors, spacing, radius, typescale } from "../../theme/tokens";
+import { spacing, radius, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
 export function LoginScreen({ navigation }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy]         = useState(false);
@@ -49,7 +54,7 @@ export function LoginScreen({ navigation }: Props) {
         Animated.timing(formOpacity, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.timing(formSlide,   { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
-      Animated.timing(footerOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.timing(footerOpacity, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -67,6 +72,7 @@ export function LoginScreen({ navigation }: Props) {
       });
       if (error) throw error;
     } catch (e: any) {
+      captureException(e);
       setErrorText(e?.message ?? "Login failed.");
     } finally {
       setBusy(false);
@@ -123,20 +129,29 @@ export function LoginScreen({ navigation }: Props) {
 
                 {busy ? (
                   <View style={styles.busyRow}>
-                    <ActivityIndicator color={colors.teal} size="small" />
+                    <ActivityIndicator color={colors.teal} size="small" accessibilityLabel="Signing in" />
                   </View>
                 ) : null}
+
 
                 <View style={styles.divider} />
 
                 <View style={styles.links}>
                   <Pressable
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel="Forgot password?"
+                    accessibilityHint="Navigate to password reset"
                     onPress={() => navigation.navigate("ForgotPassword")}
                     style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.6 }]}
                   >
                     <AppText style={styles.linkText}>Forgot password?</AppText>
                   </Pressable>
                   <Pressable
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel="Create account"
+                    accessibilityHint="Navigate to sign up"
                     onPress={() => navigation.navigate("SignUp")}
                     style={({ pressed }) => [styles.linkBtnPrimary, pressed && { opacity: 0.6 }]}
                   >
@@ -160,7 +175,7 @@ export function LoginScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -182,12 +197,12 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: typescale.size.xxl,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.5,
   },
   tagline: {
     fontSize: typescale.size.base,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
   },
 
@@ -203,12 +218,12 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: typescale.size.xl,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.3,
   },
   formSub: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
 
@@ -217,7 +232,7 @@ const styles = StyleSheet.create({
   },
 
   errorBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -226,7 +241,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
   },
 
@@ -237,7 +252,7 @@ const styles = StyleSheet.create({
 
   divider: {
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginVertical: spacing.xxs,
   },
 
@@ -252,26 +267,26 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     fontWeight: typescale.weight.medium,
   },
   linkBtnPrimary: {
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     paddingVertical: 7,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
   },
   linkTextPrimary: {
     fontSize: typescale.size.sm,
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.semibold,
   },
 
   footer: {
     textAlign: "center",
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
   },
-});
+}));

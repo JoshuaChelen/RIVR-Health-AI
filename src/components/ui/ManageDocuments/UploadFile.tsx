@@ -24,11 +24,14 @@ import { supabase } from "../../../lib/supabase";
 import {
   uploadAndInsertDocument,
   uploadBytesAndInsertDocument,
+  checkDuplicateDocument,
 } from "../../../lib/documents";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
 import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
+import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
+import { useTheme } from "../../../context/ThemeContext";
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -142,6 +145,7 @@ const DECK_OFFSETS = [
 ] as const;
 
 function PageDeck({ pages }: { pages: ScanPage[] }) {
+  const { deckStyles } = useStyles();
   if (!pages.length) return null;
   const visible = pages.slice(-3);
   const offsets = DECK_OFFSETS.slice(3 - visible.length);
@@ -159,7 +163,7 @@ function PageDeck({ pages }: { pages: ScanPage[] }) {
               { zIndex: i + 1, opacity, transform: [{ rotate }, { translateX: tx }, { translateY: ty }] },
             ]}
           >
-            <Image source={{ uri: page.uri }} style={deckStyles.img} resizeMode="cover" />
+            <Image source={{ uri: page.uri }} style={deckStyles.img} resizeMode="cover" accessibilityLabel="Scanned page" />
           </View>
         );
       })}
@@ -167,36 +171,6 @@ function PageDeck({ pages }: { pages: ScanPage[] }) {
   );
 }
 
-const deckStyles = StyleSheet.create({
-  container: {
-    width:  DECK_W + 28,
-    height: DECK_H + 24,
-    alignSelf: "center",
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  card: {
-    position: "absolute",
-    left: 14,
-    top:  12,
-    width:  DECK_W,
-    height: DECK_H,
-    borderRadius: radius.sm,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgSecondary,
-    ...shadows.card,
-  },
-  cardFront: {
-    borderColor: colors.tealBorder,
-    ...shadows.lg,
-  },
-  img: {
-    width:  DECK_W,
-    height: DECK_H,
-  },
-});
 
 
 // ─── Single page thumbnail ─────────────────────────────────────────────────────
@@ -219,13 +193,18 @@ function PageThumb({
   onMoveLeft: () => void;
   onMoveRight: () => void;
 }) {
+  const { thumbStyles } = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={thumbStyles.wrap}>
       <View style={thumbStyles.frame}>
-        <Image source={{ uri: page.uri }} style={thumbStyles.img} resizeMode="cover" />
+        <Image source={{ uri: page.uri }} style={thumbStyles.img} resizeMode="cover" accessibilityLabel="Scanned page" />
 
         <Pressable
           onPress={onRemove}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Remove page"
           style={({ pressed }) => [thumbStyles.removeBtn, pressed && { opacity: 0.7 }]}
           hitSlop={8}
         >
@@ -268,57 +247,6 @@ function PageThumb({
   );
 }
 
-const thumbStyles = StyleSheet.create({
-  wrap: {
-    alignItems: "center",
-    gap: spacing.xxs,
-    marginRight: spacing.sm,
-  },
-  frame: {
-    width:  THUMB_W,
-    height: THUMB_H,
-    borderRadius: radius.xs,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgSecondary,
-  },
-  img: { width: THUMB_W, height: THUMB_H },
-  removeBtn: {
-    position: "absolute",
-    top: 3,
-    right: 3,
-    width:  20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(13,27,42,0.6)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  
-  badge: {
-    position: "absolute",
-    bottom: 3,
-    left: 3,
-    backgroundColor: "rgba(13,27,42,0.6)",
-    borderRadius: radius.xs,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  badgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
-  arrowRow: { flexDirection: "row", gap: 4 },
-  arrowBtn: {
-    width: 28,
-    height: 20,
-    borderRadius: radius.xs,
-    backgroundColor: colors.bgSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  arrowBtnOff: { opacity: 0.25 },
-});
 
 
 // ─── Scan session modal ────────────────────────────────────────────────────────
@@ -346,6 +274,8 @@ function ScanModal({
   onUpload: () => void;
   onClose: () => void;
 }) {
+  const { modalStyles } = useStyles();
+  const { colors } = useTheme();
   // On web, camera support varies by browser/device. Label accordingly.
   const cameraLabel = Platform.OS === "web"
     ? (pages.length === 0 ? "Capture Photo" : "Add Photo")
@@ -370,6 +300,9 @@ function ScanModal({
           <Pressable
             onPress={onClose}
             disabled={busy}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Close"
             style={({ pressed }) => [modalStyles.closeBtn, pressed && { opacity: 0.6 }]}
             hitSlop={10}
           >
@@ -425,6 +358,9 @@ function ScanModal({
             <Pressable
               onPress={onAddCamera}
               disabled={busy}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Take photo"
               style={({ pressed }) => [
                 modalStyles.addBtn,
                 pressed && !busy && { opacity: 0.75 },
@@ -438,6 +374,9 @@ function ScanModal({
             <Pressable
               onPress={onAddLibrary}
               disabled={busy}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Choose from library"
               style={({ pressed }) => [
                 modalStyles.addBtn,
                 pressed && !busy && { opacity: 0.75 },
@@ -468,7 +407,7 @@ function ScanModal({
             ]}
           >
             {busy ? (
-              <ActivityIndicator color="#fff" size="small" style={{ marginRight: 6 }} />
+              <ActivityIndicator color="#fff" size="small" accessibilityLabel="Uploading" style={{ marginRight: 6 }} />
             ) : null}
             <AppText style={modalStyles.uploadBtnText}>
               {busy
@@ -484,144 +423,10 @@ function ScanModal({
   );
 }
 
-const modalStyles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  title: {
-    fontSize: typescale.size.lg,
-    fontWeight: typescale.weight.bold,
-    color: colors.text,
-  },
-  countPill: {
-    backgroundColor: colors.tealSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: colors.tealBorder,
-  },
-  countText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-    color: colors.teal,
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
-    backgroundColor: colors.bgSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  
-  body: { paddingBottom: spacing.lg },
-
-  emptyDeck: {
-    height: DECK_H + 40,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  emptyDeckRect: {
-    width: DECK_W,
-    height: DECK_H,
-    borderRadius: radius.sm,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: colors.border,
-    backgroundColor: colors.bgSecondary,
-  },
-  emptyDeckLabel: { fontSize: typescale.size.sm, color: colors.subtle },
-
-  deckCaption: {
-    fontSize: typescale.size.xs,
-    color: colors.muted,
-    textAlign: "center",
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-
-  thumbStrip: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-
-  addRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  addBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: colors.border,
-    ...shadows.xs,
-  },
-  addBtnDisabled: { opacity: 0.45 },
-  
-  addBtnLabel: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium,
-    color: colors.textSub,
-  },
-
-  footer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-    gap: spacing.xs,
-  },
-  statusText: {
-    fontSize: typescale.size.xs,
-    color: colors.teal,
-    textAlign: "center",
-    fontWeight: typescale.weight.medium,
-  },
-  statusError: { color: colors.danger },
-  uploadBtn: {
-    height: 52,
-    borderRadius: radius.lg,
-    backgroundColor: colors.teal,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.card,
-  },
-  uploadBtnDisabled: { opacity: 0.4 },
-  uploadBtnText: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.bold,
-    color: "#fff",
-  },
-});
-
-
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function UploadFile({ onUploaded }: Props) {
+  const { cardStyles } = useStyles();
   // PDF upload state
   const [pdfBusy,   setPdfBusy]   = useState(false);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
@@ -661,11 +466,37 @@ export function UploadFile({ onUploaded }: Props) {
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         if (!asset?.uri) continue;
+
+        const fileName = asset.name ?? `document_${Date.now()}.pdf`;
+        const fileSize = typeof asset.size === "number" ? asset.size : 0;
+
+        // Duplicate check (skip if size is unknown)
+        if (fileSize > 0) {
+          const dup = await checkDuplicateDocument(user.id, fileName, fileSize);
+          if (dup) {
+            const dupDate = new Date(dup.created_at).toLocaleDateString(undefined, {
+              month: "short", day: "numeric", year: "numeric",
+            });
+            const proceed = await new Promise<boolean>((resolve) =>
+              Alert.alert(
+                "Possible duplicate",
+                `A document named "${fileName}" with the same file size was uploaded on ${dupDate}.`,
+                [
+                  { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                  { text: "Upload Anyway", onPress: () => resolve(true) },
+                ],
+                { cancelable: true, onDismiss: () => resolve(false) },
+              )
+            );
+            if (!proceed) continue;
+          }
+        }
+
         setPdfStatus(`Uploading ${i + 1} of ${assets.length}…`);
         await uploadAndInsertDocument({
           userId:     user.id,
           uri:        asset.uri,
-          fileName:   asset.name ?? `document_${Date.now()}.pdf`,
+          fileName,
           mimeType:   asset.mimeType ?? "application/pdf",
           sourceType: "pdf",
         });
@@ -1039,10 +870,14 @@ function ActionRow({
   onPress: () => void;
   disabled: boolean;
 }) {
+  const { cardStyles } = useStyles();
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={title}
       style={({ pressed }) => [
         cardStyles.row,
         pressed && !disabled && cardStyles.rowPressed,
@@ -1060,59 +895,277 @@ function ActionRow({
   );
 }
 
-const cardStyles = StyleSheet.create({
-  card: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: colors.tealBorder,
-    borderRadius: radius.lg,
-    backgroundColor: colors.tealSoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    ...shadows.xs,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.tealBorder,
-    opacity: 0.5,
-    marginHorizontal: spacing.xs,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  rowPressed:  { opacity: 0.7 },
-  rowDisabled: { opacity: 0.5 },
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: colors.teal,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  textBlock: { flex: 1, gap: 2 },
-  rowTitle: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold,
-    color: colors.teal,
-  },
-  rowHint: {
-    fontSize: typescale.size.xs,
-    color: colors.teal,
-    opacity: 0.75,
-  },
-  pdfStatus: {
-    paddingBottom: spacing.xs,
-    paddingLeft: 38 + spacing.md,
-  },
-  statusText: {
-    fontSize: typescale.size.xs,
-    color: colors.teal,
-    fontWeight: typescale.weight.medium,
-  },
-  statusError: { color: colors.danger },
-});
+const useStyles = createStyles((c) => ({
+  deckStyles: StyleSheet.create({
+    container: {
+      width:  DECK_W + 28,
+      height: DECK_H + 24,
+      alignSelf: "center",
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    card: {
+      position: "absolute",
+      left: 14,
+      top:  12,
+      width:  DECK_W,
+      height: DECK_H,
+      borderRadius: radius.sm,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bgSecondary,
+      ...shadows.card,
+    },
+    cardFront: {
+      borderColor: c.tealBorder,
+      ...shadows.lg,
+    },
+    img: {
+      width:  DECK_W,
+      height: DECK_H,
+    },
+  }),
+
+  thumbStyles: StyleSheet.create({
+    wrap: {
+      alignItems: "center",
+      gap: spacing.xxs,
+      marginRight: spacing.sm,
+    },
+    frame: {
+      width:  THUMB_W,
+      height: THUMB_H,
+      borderRadius: radius.xs,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bgSecondary,
+    },
+    img: { width: THUMB_W, height: THUMB_H },
+    removeBtn: {
+      position: "absolute",
+      top: 3,
+      right: 3,
+      width:  20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: "rgba(13,27,42,0.6)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    badge: {
+      position: "absolute",
+      bottom: 3,
+      left: 3,
+      backgroundColor: "rgba(13,27,42,0.6)",
+      borderRadius: radius.xs,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+    },
+    badgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+    arrowRow: { flexDirection: "row", gap: 4 },
+    arrowBtn: {
+      width: 28,
+      height: 20,
+      borderRadius: radius.xs,
+      backgroundColor: c.bgSecondary,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    arrowBtnOff: { opacity: 0.25 },
+  }),
+
+  modalStyles: StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
+
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      backgroundColor: c.surface,
+    },
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    title: {
+      fontSize: typescale.size.lg,
+      fontWeight: typescale.weight.bold,
+      color: c.text,
+    },
+    countPill: {
+      backgroundColor: c.tealSoft,
+      borderRadius: radius.pill,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderWidth: 1,
+      borderColor: c.tealBorder,
+    },
+    countText: {
+      fontSize: typescale.size.xs,
+      fontWeight: typescale.weight.semibold,
+      color: c.teal,
+    },
+    closeBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: radius.pill,
+      backgroundColor: c.bgSecondary,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    body: { paddingBottom: spacing.lg },
+
+    emptyDeck: {
+      height: DECK_H + 40,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+    },
+    emptyDeckRect: {
+      width: DECK_W,
+      height: DECK_H,
+      borderRadius: radius.sm,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: c.border,
+      backgroundColor: c.bgSecondary,
+    },
+    emptyDeckLabel: { fontSize: typescale.size.sm, color: c.subtle },
+
+    deckCaption: {
+      fontSize: typescale.size.xs,
+      color: c.muted,
+      textAlign: "center",
+      marginBottom: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+
+    thumbStrip: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+
+    addRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    addBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.xs,
+      height: 48,
+      borderRadius: radius.md,
+      backgroundColor: c.surface,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: c.border,
+      ...shadows.xs,
+    },
+    addBtnDisabled: { opacity: 0.45 },
+
+    addBtnLabel: {
+      fontSize: typescale.size.sm,
+      fontWeight: typescale.weight.medium,
+      color: c.textSub,
+    },
+
+    footer: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xl,
+      paddingTop: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+      backgroundColor: c.surface,
+      gap: spacing.xs,
+    },
+    statusText: {
+      fontSize: typescale.size.xs,
+      color: c.teal,
+      textAlign: "center",
+      fontWeight: typescale.weight.medium,
+    },
+    statusError: { color: c.danger },
+    uploadBtn: {
+      height: 52,
+      borderRadius: radius.lg,
+      backgroundColor: c.teal,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      ...shadows.card,
+    },
+    uploadBtnDisabled: { opacity: 0.4 },
+    uploadBtnText: {
+      fontSize: typescale.size.base,
+      fontWeight: typescale.weight.bold,
+      color: "#fff",
+    },
+  }),
+
+  cardStyles: StyleSheet.create({
+    card: {
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: c.tealBorder,
+      borderRadius: radius.lg,
+      backgroundColor: c.tealSoft,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      ...shadows.xs,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.tealBorder,
+      opacity: 0.5,
+      marginHorizontal: spacing.xs,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    rowPressed:  { opacity: 0.7 },
+    rowDisabled: { opacity: 0.5 },
+    iconCircle: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.pill,
+      backgroundColor: c.teal,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    textBlock: { flex: 1, gap: 2 },
+    rowTitle: {
+      fontSize: typescale.size.sm,
+      fontWeight: typescale.weight.semibold,
+      color: c.teal,
+    },
+    rowHint: {
+      fontSize: typescale.size.xs,
+      color: c.teal,
+      opacity: 0.75,
+    },
+    pdfStatus: {
+      paddingBottom: spacing.xs,
+      paddingLeft: 38 + spacing.md,
+    },
+    statusText: {
+      fontSize: typescale.size.xs,
+      color: c.teal,
+      fontWeight: typescale.weight.medium,
+    },
+    statusError: { color: c.danger },
+  }),
+}));

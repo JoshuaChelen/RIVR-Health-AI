@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "rivrhealth",
     "icon": "./assets/branding/app-icon-noborder.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/branding/splash-logo.png",
@@ -22,7 +22,16 @@
         }
       ],
       "expo-font",
-      "react-native-health"
+      "react-native-health",
+      "sentry-expo",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
@@ -35,7 +44,7 @@
         "NSPhotoLibraryUsageDescription": "Allow RIVR to access your photos to upload health documents.",
         "NSCameraUsageDescription": "Allow RIVR to use your camera to scan health documents."
       },
-      "bundleIdentifier": "com.anonymous.RIVR-Health-AI"
+      "bundleIdentifier": "com.rivrhealth.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -45,10 +54,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.RIVRHealthAI"
+      "package": "com.rivrhealth.app"
     },
     "web": {
       "favicon": "./assets/branding/favicon.png"

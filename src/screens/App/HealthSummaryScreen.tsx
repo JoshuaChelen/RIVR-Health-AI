@@ -9,12 +9,17 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
+import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
 import { getCurrentUserId } from "../../lib/auth";
+import { captureException } from "../../lib/sentry";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { colors, radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
+import { radius, shadows, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
@@ -57,22 +62,39 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const [profile, setProfile]         = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [evaluation, setEval]         = useState<any>(null);
+  const [evalCreatedAt, setEvalCreatedAt] = useState<string | null>(null);
+  const [latestDocProcessedAt, setLatestDocProcessedAt] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
+
+  const styles = useStyles();
+  const { colors } = useTheme();
 
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
       const userId = await getCurrentUserId();
-      const [p, ev, up] = await Promise.all([
+      const [p, ev, up, latestDoc] = await Promise.all([
         getHealthProfile(userId),
         getLatestEvaluation(userId),
         getProfile(userId),
+        supabase
+          .from("documents")
+          .select("processed_at")
+          .eq("user_id", userId)
+          .eq("status", "processed")
+          .not("processed_at", "is", null)
+          .order("processed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
       setProfile(p);
       setEval(ev?.result ?? null);
+      setEvalCreatedAt(ev?.created_at ?? null);
+      setLatestDocProcessedAt(latestDoc.data?.processed_at ?? null);
       setUserProfile(up);
     } catch (e: any) {
+      captureException(e);
       setError(e?.message ?? "Failed to load health summary.");
     } finally {
       setLoading(false);
@@ -97,12 +119,21 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const currentManualProfileSig =
     userProfile ? manualProfileSignature(userProfile) : null;
 
-  const isStale = !!(
+  const isStaleProfile = !!(
     hasContent &&
     savedManualProfileSig &&
     currentManualProfileSig &&
     savedManualProfileSig !== currentManualProfileSig
   );
+
+  const isStaleDoc = !!(
+    hasContent &&
+    latestDocProcessedAt &&
+    evalCreatedAt &&
+    new Date(latestDocProcessedAt).getTime() > new Date(evalCreatedAt).getTime()
+  );
+
+  const isStale = isStaleProfile || isStaleDoc;
 
   // ── Source tags ─────────────────────────────────────────────────────────────
   const src = profile?.sources ?? null;
@@ -125,16 +156,13 @@ export default function HealthSummaryScreen({ navigation }: Props) {
       >
         {/* ── Error ─────────────────────────────────────────── */}
         {error ? (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-            <AppText style={styles.errorText}>{error}</AppText>
-          </View>
+          <ErrorBanner message="Couldn't load your health summary" onRetry={load} />
         ) : null}
 
         {/* ── Loading ───────────────────────────────────────── */}
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={colors.teal} size="small" />
+            <ActivityIndicator color={colors.teal} size="small" accessibilityLabel="Loading health summary" />
             <AppText style={styles.loadingText}>Analysing your health data…</AppText>
           </View>
         ) : null}
@@ -144,7 +172,11 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           <View style={styles.staleBanner}>
             <Ionicons name="refresh-outline" size={13} color={colors.teal} />
             <AppText style={styles.staleText}>
-              Your profile has changed since this summary was generated.
+              {isStaleProfile && isStaleDoc
+                ? "Your profile and documents have changed since your last summary."
+                : isStaleDoc
+                ? "New documents have been processed since your last summary."
+                : "Your medical profile has changed since your last summary."}
             </AppText>
             <Pressable
               style={({ pressed }) => [styles.staleBtn, pressed && { opacity: 0.75 }]}
@@ -274,28 +306,30 @@ function OverviewCard({
   sourceTags: string[];
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [ov.card, pressed && { opacity: 0.9 }]}
+      style={({ pressed }) => [styles.ov_card, pressed && { opacity: 0.9 }]}
     >
-      <View style={ov.header}>
-        <View style={ov.iconWrap}>
+      <View style={styles.ov_header}>
+        <View style={styles.ov_iconWrap}>
           <Ionicons name="person-circle-outline" size={14} color={colors.teal} />
         </View>
-        <AppText style={ov.eyebrow}>Your Overview</AppText>
+        <AppText style={styles.ov_eyebrow}>Your Overview</AppText>
       </View>
 
-      <AppText style={ov.text} numberOfLines={3} ellipsizeMode="tail">
+      <AppText style={styles.ov_text} numberOfLines={3} ellipsizeMode="tail">
         {overview}
       </AppText>
 
       {sourceTags.length > 0 ? (
-        <View style={ov.tagRow}>
+        <View style={styles.ov_tagRow}>
           <Ionicons name="layers-outline" size={11} color={colors.subtle} />
           {sourceTags.map((tag) => (
-            <View key={tag} style={ov.tag}>
-              <AppText style={ov.tagText}>{tag}</AppText>
+            <View key={tag} style={styles.ov_tag}>
+              <AppText style={styles.ov_tagText}>{tag}</AppText>
             </View>
           ))}
         </View>
@@ -304,153 +338,43 @@ function OverviewCard({
   );
 }
 
-const ov = StyleSheet.create({
-  card: {
-    backgroundColor: colors.bgSecondary,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  iconWrap: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.tealSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  eyebrow: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  text: {
-    fontSize: typescale.size.sm,
-    color: colors.textSub,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-  },
-  tagRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    flexWrap: "wrap",
-    marginTop: spacing.xxs,
-  },
-  tag: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tagText: {
-    fontSize: typescale.size.xs,
-    color: colors.muted,
-    fontWeight: typescale.weight.medium,
-  },
-});
-
 // ─── SectionEyebrow ───────────────────────────────────────────────────────────
 
 function SectionEyebrow({ label, count }: { label: string; count?: number }) {
+  const styles = useStyles();
   return (
-    <View style={sey.row}>
-      <AppText style={sey.text}>{label}</AppText>
+    <View style={styles.sey_row}>
+      <AppText style={styles.sey_text}>{label}</AppText>
       {count != null ? (
-        <View style={sey.badge}>
-          <AppText style={sey.badgeText}>{count}</AppText>
+        <View style={styles.sey_badge}>
+          <AppText style={styles.sey_badgeText}>{count}</AppText>
         </View>
       ) : null}
     </View>
   );
 }
 
-const sey = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingTop: spacing.xs,
-  },
-  text: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: colors.teal,
-    borderRadius: radius.pill,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: spacing.xs,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: "#fff",
-  },
-});
-
 // ─── EssentialRow ─────────────────────────────────────────────────────────────
 
 function EssentialRow({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
   return (
-    <View style={essStyles.row}>
+    <View style={styles.ess_row}>
       <AppText
-        style={essStyles.label}
+        style={styles.ess_label}
         numberOfLines={1}
         ellipsizeMode="tail"
       >
         {label}
       </AppText>
-      <AppText style={essStyles.value}>{value}</AppText>
+      <AppText style={styles.ess_value}>{value}</AppText>
     </View>
   );
 }
 
-const essStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    gap: spacing.sm,
-  },
-  label: {
-    width: 96,
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    paddingTop: 1,
-    flexShrink: 0,
-  },
-  value: {
-    flex: 1,
-    fontSize: typescale.size.sm,
-    color: colors.text,
-    lineHeight: typescale.size.sm * typescale.lineHeight.normal,
-  },
-});
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     padding: spacing.lg,
     gap: spacing.sm,
@@ -462,16 +386,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.xs,
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.dangerBorder,
+    borderColor: c.dangerBorder,
   },
   errorText: {
     flex: 1,
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
@@ -479,21 +403,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
   },
   staleText: {
     flex: 1,
     fontSize: typescale.size.xs,
-    color: colors.teal,
+    color: c.teal,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
   staleBtn: {
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
@@ -512,7 +436,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
   },
 
   // ── Global empty state ───────────────────────────────────
@@ -525,7 +449,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.xs,
@@ -533,11 +457,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: typescale.size.lg,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   emptyBody: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
@@ -546,7 +470,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   emptyBtn: {
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
@@ -560,10 +484,10 @@ const styles = StyleSheet.create({
 
   // ── Content cards (essentials, full summary) ─────────────
   contentCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     padding: spacing.lg,
     gap: spacing.sm,
     ...shadows.xs,
@@ -579,7 +503,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
-    color: colors.text,
+    color: c.text,
   },
   shareBtn: {
     flexDirection: "row",
@@ -587,20 +511,20 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
     flexShrink: 0,
   },
   shareBtnText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
   fullText: {
     fontSize: typescale.size.sm,
-    color: colors.textSub,
+    color: c.textSub,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
   essentialsList: {
@@ -608,11 +532,11 @@ const styles = StyleSheet.create({
   },
   oneLiner: {
     fontSize: typescale.size.sm,
-    color: colors.textSub,
+    color: c.textSub,
     fontStyle: "italic",
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    borderTopColor: c.borderLight,
     marginTop: spacing.xxs,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
@@ -628,7 +552,116 @@ const styles = StyleSheet.create({
   disclaimerText: {
     flex: 1,
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
-});
+
+  // ── OverviewCard ────────────────────────────────────────
+  ov_card: {
+    backgroundColor: c.bgSecondary,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  ov_header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  ov_iconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: c.tealSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ov_eyebrow: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  ov_text: {
+    fontSize: typescale.size.sm,
+    color: c.textSub,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+  ov_tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    flexWrap: "wrap",
+    marginTop: spacing.xxs,
+  },
+  ov_tag: {
+    backgroundColor: c.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  ov_tagText: {
+    fontSize: typescale.size.xs,
+    color: c.muted,
+    fontWeight: typescale.weight.medium,
+  },
+
+  // ── SectionEyebrow ─────────────────────────────────────
+  sey_row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  sey_text: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  sey_badge: {
+    backgroundColor: c.teal,
+    borderRadius: radius.pill,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sey_badgeText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: "#fff",
+  },
+
+  // ── EssentialRow ────────────────────────────────────────
+  ess_row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: c.borderLight,
+    gap: spacing.sm,
+  },
+  ess_label: {
+    width: 96,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    paddingTop: 1,
+    flexShrink: 0,
+  },
+  ess_value: {
+    flex: 1,
+    fontSize: typescale.size.sm,
+    color: c.text,
+    lineHeight: typescale.size.sm * typescale.lineHeight.normal,
+  },
+}));

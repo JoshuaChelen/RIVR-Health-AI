@@ -30,7 +30,10 @@ import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-import { colors, radius, spacing, typescale } from "../../theme/tokens";
+import { captureException } from "../../lib/sentry";
+import { radius, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<AppStackParamList, "MedicalProfile">;
 type MedSection =
@@ -75,83 +78,94 @@ function manualProfileSignature(p: UserProfile | null | undefined) {
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
+const useSubStyles = createStyles((c) => StyleSheet.create({
+  // ── DataRow ──
+  drRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 8, gap: spacing.sm },
+  drLabel: { flex: 1, paddingTop: 1, color: c.muted },
+  drValue: { flex: 1.5, textAlign: "right", fontSize: typescale.size.base, fontWeight: typescale.weight.medium as any, color: c.text },
+  drEmpty: { color: c.subtle, fontWeight: typescale.weight.regular as any },
+  // ── ItemRow ──
+  irRow: { flexDirection: "row", alignItems: "center", paddingVertical: 9, gap: spacing.sm },
+  irText: { flex: 1, gap: 2 },
+  irPrimary: { fontSize: typescale.size.base, fontWeight: typescale.weight.medium as any, color: c.text },
+  irSecondary: { fontSize: typescale.size.xs, color: c.muted },
+  irDel: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.dangerSoft },
+  // ── ListDivider ──
+  divider: { height: 1, backgroundColor: c.borderLight },
+  // ── EmptyHint ──
+  ehWrap: { paddingVertical: spacing.md, alignItems: "center" },
+  ehText: { fontSize: typescale.size.sm, fontStyle: "italic", color: c.subtle },
+  // ── AddButton ──
+  abBtn: { paddingVertical: spacing.xs, paddingHorizontal: 2, alignSelf: "flex-start" },
+  abText: { fontSize: typescale.size.sm, fontWeight: typescale.weight.semibold as any, color: c.teal },
+}));
+
 function DataRow({ label, value }: { label: string; value?: string | null }) {
+  const s = useSubStyles();
   return (
-    <View style={dr.row}>
-      <AppText variant="label" style={dr.label}>{label}</AppText>
-      <AppText style={[dr.value, !value && dr.empty]} numberOfLines={2}>
+    <View style={s.drRow}>
+      <AppText variant="label" style={s.drLabel}>{label}</AppText>
+      <AppText style={[s.drValue, !value && s.drEmpty]} numberOfLines={2}>
         {value?.trim() || "—"}
       </AppText>
     </View>
   );
 }
-const dr = StyleSheet.create({
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 8, gap: spacing.sm },
-  label: { flex: 1, color: colors.muted, paddingTop: 1 },
-  value: { flex: 1.5, textAlign: "right", fontSize: typescale.size.base, fontWeight: typescale.weight.medium as any, color: colors.text },
-  empty: { color: colors.subtle, fontWeight: typescale.weight.regular as any },
-});
 
 function ItemRow({ primary, secondary, onDelete }: {
   primary: string; secondary?: string; onDelete?: () => void;
 }) {
+  const s = useSubStyles();
+  const { colors } = useTheme();
   return (
-    <View style={ir.row}>
-      <View style={ir.text}>
-        <AppText style={ir.primary}>{primary}</AppText>
-        {secondary ? <AppText style={ir.secondary}>{secondary}</AppText> : null}
+    <View style={s.irRow}>
+      <View style={s.irText}>
+        <AppText style={s.irPrimary}>{primary}</AppText>
+        {secondary ? <AppText style={s.irSecondary}>{secondary}</AppText> : null}
       </View>
       {onDelete ? (
-        <Pressable onPress={onDelete} style={({ pressed }) => [ir.del, pressed && { opacity: 0.6 }]} hitSlop={8}>
+        <Pressable accessible accessibilityRole="button" accessibilityLabel="Remove item" onPress={onDelete} style={({ pressed }) => [s.irDel, pressed && { opacity: 0.6 }]} hitSlop={8}>
           <Ionicons name="close" size={12} color={colors.danger} />
         </Pressable>
       ) : null}
     </View>
   );
 }
-const ir = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: 9, gap: spacing.sm },
-  text: { flex: 1, gap: 2 },
-  primary: { fontSize: typescale.size.base, fontWeight: typescale.weight.medium as any, color: colors.text },
-  secondary: { fontSize: typescale.size.xs, color: colors.muted },
-  del: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.dangerSoft, alignItems: "center", justifyContent: "center" },
-  
-});
 
 function ListDivider() {
-  return <View style={{ height: 1, backgroundColor: colors.borderLight }} />;
+  const s = useSubStyles();
+  return <View style={s.divider} />;
 }
 
 function EmptyHint({ text }: { text: string }) {
+  const s = useSubStyles();
   return (
-    <View style={eh.wrap}>
-      <AppText style={eh.text}>{text}</AppText>
+    <View style={s.ehWrap}>
+      <AppText style={s.ehText}>{text}</AppText>
     </View>
   );
 }
-const eh = StyleSheet.create({
-  wrap: { paddingVertical: spacing.md, alignItems: "center" },
-  text: { fontSize: typescale.size.sm, color: colors.subtle, fontStyle: "italic" },
-});
 
 function AddButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const s = useSubStyles();
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [ab.btn, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [s.abBtn, pressed && { opacity: 0.7 }]}
     >
-      <AppText style={ab.text}>+ {label}</AppText>
+      <AppText style={s.abText}>+ {label}</AppText>
     </Pressable>
   );
 }
-const ab = StyleSheet.create({
-  btn: { paddingVertical: spacing.xs, paddingHorizontal: 2, alignSelf: "flex-start" },
-  text: { fontSize: typescale.size.sm, fontWeight: typescale.weight.semibold as any, color: colors.teal },
-});
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function MedicalProfileScreen({ navigation }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingSection, setEditingSection] = useState<MedSection | null>(null);
@@ -191,8 +205,8 @@ export function MedicalProfileScreen({ navigation }: Props) {
           if (!active) return;
           const p = await getProfile(userId);
           if (active) setProfile(p);
-        } catch {
-          // Not authenticated or network error
+        } catch (e) {
+          captureException(e);
         } finally {
           if (active) setLoading(false);
         }
@@ -246,11 +260,12 @@ export function MedicalProfileScreen({ navigation }: Props) {
     if (beforeSig !== afterSig) {
       try {
         await upsertManualInputDocument(userId);
-      } catch {
-        // Do not fail the profile save if the document row refresh fails.
+      } catch (e) {
+        captureException(e);
       }
     }
   } catch (e: any) {
+    captureException(e);
     setSaveError(e?.message ?? "Save failed.");
   } finally {
     setSaving(false);
@@ -312,8 +327,8 @@ useEffect(() => {
     (async () => {
       try {
         await enqueueManualProfileIfPending();
-      } catch {
-        // Do not block navigation if enqueue fails
+      } catch (e) {
+        captureException(e);
       } finally {
         navigation.dispatch(action);
       }
@@ -444,7 +459,7 @@ useEffect(() => {
     return (
       <Screen edges={["left", "right", "bottom"]}>
         <View style={styles.center}>
-          <ActivityIndicator color={colors.teal} size="large" />
+          <ActivityIndicator color={colors.teal} size="large" accessibilityLabel="Loading medical profile" />
         </View>
       </Screen>
     );
@@ -520,6 +535,7 @@ useEffect(() => {
                     onChangeText={setSymptomsDraft}
                     placeholder="Briefly describe any current issues, recent changes, or upcoming concerns…"
                     placeholderTextColor={colors.subtle}
+                    maxLength={2000}
                     multiline
                     numberOfLines={4}
                     textAlignVertical="top"
@@ -565,8 +581,8 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Allergen *" placeholder="e.g. Penicillin, Peanuts" value={f("allergen")} onChangeText={(v) => setField("allergen", v)} autoCapitalize="words" />
-                  <TextField label="Reaction" placeholder="e.g. Hives, Anaphylaxis" value={f("reaction")} onChangeText={(v) => setField("reaction", v)} autoCapitalize="words" />
+                  <TextField label="Allergen *" placeholder="e.g. Penicillin, Peanuts" value={f("allergen")} onChangeText={(v) => setField("allergen", v)} autoCapitalize="words" maxLength={200} />
+                  <TextField label="Reaction" placeholder="e.g. Hives, Anaphylaxis" value={f("reaction")} onChangeText={(v) => setField("reaction", v)} autoCapitalize="words" maxLength={200} />
                   <View style={styles.pillGroup}>
                     <AppText variant="label">Severity</AppText>
                     <OptionPills options={SEVERITY_OPTS} selected={f("severity") || null} onSelect={(v) => setField("severity", v)} />
@@ -615,13 +631,13 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Name *" placeholder="e.g. Lisinopril" value={f("name")} onChangeText={(v) => setField("name", v)} autoCapitalize="words" />
+                  <TextField label="Name *" placeholder="e.g. Lisinopril" value={f("name")} onChangeText={(v) => setField("name", v)} autoCapitalize="words" maxLength={200} />
                   <View style={styles.inlineRow}>
                     <View style={{ flex: 1 }}>
-                      <TextField label="Dose" placeholder="e.g. 10mg" value={f("dose")} onChangeText={(v) => setField("dose", v)} />
+                      <TextField label="Dose" placeholder="e.g. 10mg" value={f("dose")} onChangeText={(v) => setField("dose", v)} maxLength={100} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <TextField label="Frequency" placeholder="e.g. Daily" value={f("frequency")} onChangeText={(v) => setField("frequency", v)} autoCapitalize="words" />
+                      <TextField label="Frequency" placeholder="e.g. Daily" value={f("frequency")} onChangeText={(v) => setField("frequency", v)} autoCapitalize="words" maxLength={100} />
                     </View>
                   </View>
                   <AddButton label="Add medication" onPress={addMedication} />
@@ -668,13 +684,13 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Condition *" placeholder="e.g. Hypertension, Type 2 Diabetes" value={f("condition")} onChangeText={(v) => setField("condition", v)} autoCapitalize="words" />
+                  <TextField label="Condition *" placeholder="e.g. Hypertension, Type 2 Diabetes" value={f("condition")} onChangeText={(v) => setField("condition", v)} autoCapitalize="words" maxLength={200} />
                   <View style={styles.inlineRow}>
                     <View style={{ flex: 1 }}>
-                      <TextField label="Year diagnosed" placeholder="e.g. 2018" value={f("year")} onChangeText={(v) => setField("year", v)} keyboardType="number-pad" />
+                      <TextField label="Year diagnosed" placeholder="e.g. 2018" value={f("year")} onChangeText={(v) => setField("year", v)} keyboardType="number-pad" maxLength={4} />
                     </View>
                     <View style={{ flex: 2 }}>
-                      <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" />
+                      <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" maxLength={500} />
                     </View>
                   </View>
                   <AddButton label="Add condition" onPress={addMedHistory} />
@@ -721,13 +737,13 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Procedure *" placeholder="e.g. Appendectomy" value={f("procedure")} onChangeText={(v) => setField("procedure", v)} autoCapitalize="words" />
+                  <TextField label="Procedure *" placeholder="e.g. Appendectomy" value={f("procedure")} onChangeText={(v) => setField("procedure", v)} autoCapitalize="words" maxLength={200} />
                   <View style={styles.inlineRow}>
                     <View style={{ flex: 1 }}>
-                      <TextField label="Year" placeholder="e.g. 2020" value={f("year")} onChangeText={(v) => setField("year", v)} keyboardType="number-pad" />
+                      <TextField label="Year" placeholder="e.g. 2020" value={f("year")} onChangeText={(v) => setField("year", v)} keyboardType="number-pad" maxLength={4} />
                     </View>
                     <View style={{ flex: 2 }}>
-                      <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" />
+                      <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" maxLength={500} />
                     </View>
                   </View>
                   <AddButton label="Add surgery" onPress={addSurgery} />
@@ -774,12 +790,12 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Condition *" placeholder="e.g. Heart disease, Cancer" value={f("condition")} onChangeText={(v) => setField("condition", v)} autoCapitalize="words" />
+                  <TextField label="Condition *" placeholder="e.g. Heart disease, Cancer" value={f("condition")} onChangeText={(v) => setField("condition", v)} autoCapitalize="words" maxLength={200} />
                   <View style={styles.pillGroup}>
                     <AppText variant="label">Relation *</AppText>
                     <OptionPills options={RELATION_OPTS} selected={f("relation") || null} onSelect={(v) => setField("relation", v)} />
                   </View>
-                  <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" />
+                  <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" maxLength={500} />
                   <AddButton label="Add family history" onPress={addFamilyHistory} />
                 </View>
               </View>
@@ -824,13 +840,13 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Reason *" placeholder="e.g. Pneumonia, Hip fracture" value={f("reason")} onChangeText={(v) => setField("reason", v)} autoCapitalize="words" />
+                  <TextField label="Reason *" placeholder="e.g. Pneumonia, Hip fracture" value={f("reason")} onChangeText={(v) => setField("reason", v)} autoCapitalize="words" maxLength={200} />
                   <View style={styles.inlineRow}>
                     <View style={{ flex: 1 }}>
-                      <TextField label="Year" placeholder="e.g. 2021" value={f("year")} onChangeText={(v) => setField("year", v)} keyboardType="number-pad" />
+                      <TextField label="Year" placeholder="e.g. 2021" value={f("year")} onChangeText={(v) => setField("year", v)} keyboardType="number-pad" maxLength={4} />
                     </View>
                     <View style={{ flex: 2 }}>
-                      <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" />
+                      <TextField label="Notes" placeholder="Optional" value={f("notes")} onChangeText={(v) => setField("notes", v)} autoCapitalize="sentences" maxLength={500} />
                     </View>
                   </View>
                   <AddButton label="Add hospitalization" onPress={addHospitalization} />
@@ -877,8 +893,8 @@ useEffect(() => {
                 }
                 <View style={styles.addFormDivider} />
                 <View style={styles.formFields}>
-                  <TextField label="Category *" placeholder="e.g. Tobacco, Living situation" value={f("category")} onChangeText={(v) => setField("category", v)} autoCapitalize="words" />
-                  <TextField label="Detail *" placeholder="e.g. Smoked 10 years, quit 2012" value={f("detail")} onChangeText={(v) => setField("detail", v)} autoCapitalize="sentences" />
+                  <TextField label="Category *" placeholder="e.g. Tobacco, Living situation" value={f("category")} onChangeText={(v) => setField("category", v)} autoCapitalize="words" maxLength={200} />
+                  <TextField label="Detail *" placeholder="e.g. Smoked 10 years, quit 2012" value={f("detail")} onChangeText={(v) => setField("detail", v)} autoCapitalize="sentences" maxLength={500} />
                   <AddButton label="Add entry" onPress={addSocialHistory} />
                 </View>
               </View>
@@ -906,7 +922,7 @@ useEffect(() => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: {
     paddingBottom: spacing.xxl + spacing.xl,
@@ -971,4 +987,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
     marginTop: spacing.xs,
   },
-});
+}));

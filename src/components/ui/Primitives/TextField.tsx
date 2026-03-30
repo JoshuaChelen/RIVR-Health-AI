@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { View, TextInput, StyleSheet, TextInputProps, Pressable } from "react-native";
 import { AppText } from "./AppText";
-import { colors, radius, shadows, typescale } from "../../../theme/tokens";
+import { radius, shadows, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
+import { useTheme } from "../../../context/ThemeContext";
 
 type Props = TextInputProps & {
   label?: string;
@@ -11,6 +13,8 @@ type Props = TextInputProps & {
 
 export function TextField({ label, style, rightAccessory, onFocus, onBlur, disabled, ...props }: Props) {
   const [focused, setFocused] = useState(false);
+  const styles = useStyles();
+  const { colors } = useTheme();
 
   return (
     <View style={styles.container}>
@@ -18,6 +22,7 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
       <View style={[styles.wrap, !disabled && focused && styles.wrapFocused, disabled && styles.wrapDisabled]}>
         <TextInput
           {...props}
+          accessibilityLabel={props.accessibilityLabel ?? label}
           editable={disabled ? false : props.editable}
           placeholderTextColor={colors.subtle}
           style={[styles.input, disabled && styles.inputDisabled, style]}
@@ -31,8 +36,12 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
 }
 
 export function SmallTextButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       style={({ pressed }) => [styles.smallBtn, pressed && { opacity: 0.7 }]}
     >
@@ -42,7 +51,7 @@ export function SmallTextButton({ label, onPress }: { label: string; onPress: ()
 }
 
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   container: {
     gap: 7,
     width: "100%",
@@ -52,7 +61,7 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   labelFocused: {
-    color: colors.teal,
+    color: c.teal,
   },
   wrap: {
     flexDirection: "row",
@@ -60,24 +69,24 @@ const styles = StyleSheet.create({
     width: "100%",
     minWidth: 0,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     paddingHorizontal: 14,
     height: 52,
     ...shadows.xs,
   },
   wrapFocused: {
-    borderColor: colors.teal,
+    borderColor: c.teal,
     borderWidth: 1,
-    shadowColor: colors.teal,
+    shadowColor: c.teal,
     shadowOpacity: 0.12,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
   wrapDisabled: {
-    backgroundColor: colors.borderLight,
-    borderColor: colors.border,
+    backgroundColor: c.borderLight,
+    borderColor: c.border,
   },
   input: {
     flex: 1,
@@ -85,11 +94,11 @@ const styles = StyleSheet.create({
     height: "100%" as any,
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.medium,
-    color: colors.text,
+    color: c.text,
     paddingVertical: 0,
   },
   inputDisabled: {
-    color: colors.muted,
+    color: c.muted,
   },
   right: {
     marginLeft: 8,
@@ -100,7 +109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   smallBtnText: {
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.semibold as any,
   },
-});
+}));

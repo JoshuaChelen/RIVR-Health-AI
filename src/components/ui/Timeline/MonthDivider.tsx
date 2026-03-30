@@ -1,7 +1,8 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "../Primitives/AppText";
-import { colors, radius, spacing, typescale } from "../../../theme/tokens";
+import { radius, spacing, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   label: string;
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function MonthDivider({ label, style }: Props) {
+  const styles = useStyles();
   return (
     <View style={[styles.row, style]}>
       <View style={styles.badge}>
@@ -19,7 +21,7 @@ export function MonthDivider({ label, style }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -31,21 +33,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: radius.pill,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderWidth: 1,
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
     flexShrink: 0,
   },
   text: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.bold,
-    color: colors.teal,
+    color: c.teal,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
   },
-});
+}));

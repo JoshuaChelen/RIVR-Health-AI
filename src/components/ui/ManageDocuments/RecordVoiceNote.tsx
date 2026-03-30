@@ -6,7 +6,8 @@ import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { PrimaryButton } from "../Primitives/PrimaryButton";
 import { GhostButton } from "../Primitives/GhostButton";
-import { colors, spacing, radius, typescale, shadows } from "../../../theme/tokens";
+import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 import { uploadUriToStorage } from "../../../lib/storageUpload";
 import { insertDocumentRow, safeFilename } from "../../../lib/documents";
@@ -24,6 +25,7 @@ function mmss(ms: number) {
 }
 
 export function RecordVoiceNote({ onUploaded }: Props) {
+  const styles = useStyles();
   const [recording, setRecording]   = useState<Audio.Recording | null>(null);
   const [uri, setUri]               = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState(0);
@@ -155,6 +157,9 @@ export function RecordVoiceNote({ onUploaded }: Props) {
         <Pressable
           onPress={startRecording}
           disabled={busy}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Start recording"
           style={({ pressed }) => [
             styles.row,
             pressed && !busy && styles.rowPressed,
@@ -177,6 +182,9 @@ export function RecordVoiceNote({ onUploaded }: Props) {
       {isRecording && (
         <Pressable
           onPress={stopRecording}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Stop recording"
           style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
         >
           <View style={[styles.iconCircle, styles.iconRecording]}>
@@ -253,14 +261,14 @@ export function RecordVoiceNote({ onUploaded }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   // ── Card shell ────────────────────────────────────────────────────────────
   card: {
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: colors.tealBorder,
+    borderColor: c.tealBorder,
     borderRadius: radius.lg,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     ...shadows.xs,
@@ -269,7 +277,7 @@ const styles = StyleSheet.create({
   // ── Divider ───────────────────────────────────────────────────────────────
   divider: {
     height: 1,
-    backgroundColor: colors.tealBorder,
+    backgroundColor: c.tealBorder,
     opacity: 0.5,
     marginHorizontal: spacing.xs,
   },
@@ -289,17 +297,17 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: radius.pill,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   iconRecording: {
-    backgroundColor: colors.warning,
+    backgroundColor: c.warning,
   },
   iconBusy: {
     // Keep teal during upload — ActivityIndicator shows inside
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
   },
   // ── Text block ────────────────────────────────────────────────────────────
   textBlock: {
@@ -309,18 +317,18 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold,
-    color: colors.teal,
+    color: c.teal,
   },
   rowTitleRecording: {
-    color: colors.warning,
+    color: c.warning,
   },
   rowHint: {
     fontSize: typescale.size.xs,
-    color: colors.teal,
+    color: c.teal,
     opacity: 0.75,
   },
   rowHintRecording: {
-    color: colors.warning,
+    color: c.warning,
     opacity: 1,
     fontWeight: typescale.weight.semibold,
   },
@@ -330,7 +338,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: radius.pill,
-    backgroundColor: colors.warning,
+    backgroundColor: c.warning,
     flexShrink: 0,
   },
   stopPillText: {
@@ -353,10 +361,10 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: typescale.size.xs,
-    color: colors.teal,
+    color: c.teal,
     fontWeight: typescale.weight.medium,
   },
   statusError: {
-    color: colors.danger,
+    color: c.danger,
   },
-});
+}));

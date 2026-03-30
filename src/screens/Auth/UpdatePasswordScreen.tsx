@@ -11,6 +11,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { supabase } from "../../lib/supabase";
+import { captureException } from "../../lib/sentry";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -19,11 +20,15 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/Primitives/SecondaryButton";
 import { PasswordInput } from "../../components/ui/Account/PasswordInput";
-import { colors, spacing, typescale } from "../../theme/tokens";
+import { spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "UpdatePassword">;
 
 export function UpdatePasswordScreen({ navigation }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [busy, setBusy]         = useState(false);
@@ -60,6 +65,7 @@ export function UpdatePasswordScreen({ navigation }: Props) {
       await supabase.auth.signOut();
       navigation.navigate("Login");
     } catch (e: any) {
+      captureException(e);
       setErr(e?.message ?? "Failed to update password.");
     } finally {
       setBusy(false);
@@ -130,7 +136,7 @@ export function UpdatePasswordScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -153,8 +159,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     textAlign: "center",
-    color: colors.subtle,
+    color: c.subtle,
     paddingHorizontal: spacing.xl,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
-});
+}));

@@ -2,7 +2,9 @@ import React from "react";
 import { View, Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, radius, shadows, typescale } from "../../../theme/tokens";
+import { radius, shadows, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
+import { useTheme } from "../../../context/ThemeContext";
 
 type ActionCardProps = {
   title: string;
@@ -23,15 +25,18 @@ export function ActionCard({
   icon,
   ctaLabel,
   onPress,
-  accentColor = colors.teal,
+  accentColor,
   containerStyle,
   disabled = false,
 }: ActionCardProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const accent = accentColor ?? colors.teal;
   return (
     <View style={[styles.card, containerStyle]}>
       <View style={styles.headerRow}>
-        <View style={[styles.iconPill, { backgroundColor: accentColor + "1A" }]}>
-          {icon ?? <Ionicons name="sparkles-outline" size={16} color={accentColor} />}
+        <View style={[styles.iconPill, { backgroundColor: accent + "1A" }]}>
+          {icon ?? <Ionicons name="sparkles-outline" size={16} color={accent} />}
         </View>
 
         {!!badgeText && (
@@ -49,9 +54,13 @@ export function ActionCard({
       <Pressable
         onPress={onPress}
         disabled={disabled}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={ctaLabel}
+        accessibilityState={{ disabled: !!disabled }}
         style={({ pressed }) => [
           styles.cta,
-          { backgroundColor: accentColor },
+          { backgroundColor: accent },
           disabled && { opacity: 0.45 },
           pressed && !disabled && { opacity: 0.85 },
         ]}
@@ -62,13 +71,13 @@ export function ActionCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     ...shadows.card,
   },
   headerRow: {
@@ -85,18 +94,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badge: {
-    backgroundColor: colors.warnSoft,
+    backgroundColor: c.warnSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgeText: {
-    color: colors.warning,
+    color: c.warning,
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
   title: {
-    color: colors.text,
+    color: c.text,
     marginBottom: 6,
   },
   desc: {
@@ -114,4 +123,4 @@ const styles = StyleSheet.create({
     fontWeight: typescale.weight.bold,
     fontSize: typescale.size.sm,
   },
-});
+}));

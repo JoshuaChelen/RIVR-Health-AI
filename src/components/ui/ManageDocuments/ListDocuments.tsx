@@ -1,5 +1,5 @@
 // components/ui/ManageDocuments/ListDocuments.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   FlatList,
@@ -7,12 +7,16 @@ import {
   StyleSheet,
   Modal,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
 import { deleteDocument, cancelProcessing } from "../../../lib/documents";
 import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, radius, spacing, typescale, shadows } from "../../../theme/tokens";
+import { radius, spacing, typescale, shadows } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
+import { useTheme } from "../../../context/ThemeContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +82,7 @@ function useProcessingMessage(isStopping: boolean, isManual = false): string {
 }
 
 function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
+  const { shimmerStyles } = useStyles();
   const position = useRef(new Animated.Value(0)).current;
   const brightness = useRef(new Animated.Value(0.6)).current;
 
@@ -119,36 +124,22 @@ function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
   );
 }
 
-const shimmerStyles = StyleSheet.create({
-  track: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    overflow: "hidden",
-    marginTop: spacing.sm,
-  },
-  highlight: {
-    width: 90,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.teal,
-  },
-  highlightStopping: {
-    backgroundColor: colors.muted,
-  },
-});
-
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  uploaded:   { label: "Ready",      color: colors.blue,    bg: colors.blueSoft    },
-  queued:     { label: "Queued",     color: colors.warning, bg: colors.warnSoft    },
-  processing: { label: "Analyzing",  color: colors.teal,    bg: colors.tealSoft    },
-  stopping:   { label: "Stopping",   color: colors.muted,   bg: colors.bgSecondary },
-  failed:     { label: "Failed",     color: colors.danger,  bg: colors.dangerSoft  },
-};
+function getStatusConfig(colors: import("../../../context/ThemeContext").Colors) {
+  return {
+    uploaded:   { label: "Ready",      color: colors.blue,    bg: colors.blueSoft    },
+    queued:     { label: "Queued",     color: colors.warning, bg: colors.warnSoft    },
+    processing: { label: "Analyzing",  color: colors.teal,    bg: colors.tealSoft    },
+    stopping:   { label: "Stopping",   color: colors.muted,   bg: colors.bgSecondary },
+    failed:     { label: "Failed",     color: colors.danger,  bg: colors.dangerSoft  },
+  } as Record<string, { label: string; color: string; bg: string }>;
+}
 
 function StatusBadge({ status }: { status: string }) {
+  const { colors } = useTheme();
+  const STATUS_CONFIG = getStatusConfig(colors);
+  const { badgeStyles } = useStyles();
   const cfg = STATUS_CONFIG[status] ?? { label: status, color: colors.muted, bg: colors.bgSecondary };
   return (
     <View style={[badgeStyles.wrap, { backgroundColor: cfg.bg }]}>
@@ -158,29 +149,10 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-const badgeStyles = StyleSheet.create({
-  wrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  label: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-  },
-});
-
 // ─── File type icon ────────────────────────────────────────────────────────────
 
 function FileTypeIcon({ path, sourceType }: { path: string | null; sourceType?: string | null }) {
+  const { fileIconStyles } = useStyles();
   if (sourceType === "manual_input") {
     return (
       <View style={[fileIconStyles.wrap, fileIconStyles.profileWrap]}>
@@ -214,34 +186,11 @@ function FileTypeIcon({ path, sourceType }: { path: string | null; sourceType?: 
   );
 }
 
-const fileIconStyles = StyleSheet.create({
-  wrap: {
-    width: 40,
-    height: 44,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pdfWrap:     { backgroundColor: "#FEE2E2" },
-  audioWrap:   { backgroundColor: colors.tealSoft },
-  profileWrap: { backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.tealBorder },
-  imageWrap:   { backgroundColor: colors.blueSoft },
-  scanWrap:    { backgroundColor: colors.teal },
-  label: {
-    fontSize: 10,
-    fontWeight: typescale.weight.black,
-    letterSpacing: 0.5,
-  },
-  pdfLabel:     { color: "#B91C1C" },
-  audioLabel:   { color: colors.teal },
-  profileLabel: { color: colors.teal },
-  imageLabel:   { color: colors.blue },
-  scanLabel:    { color: "#fff" },
-});
 
 // ─── Section header ────────────────────────────────────────────────────────────
 
 function SectionHeader({ label }: { label: string }) {
+  const { sectionStyles } = useStyles();
   return (
     <View style={sectionStyles.row}>
       <View style={sectionStyles.accent} />
@@ -249,29 +198,6 @@ function SectionHeader({ label }: { label: string }) {
     </View>
   );
 }
-
-const sectionStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  accent: {
-    width: 3,
-    height: 12,
-    borderRadius: 2,
-    backgroundColor: colors.teal,
-  },
-  label: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-});
 
 // ─── Confirm modal ─────────────────────────────────────────────────────────────
 
@@ -284,6 +210,7 @@ function ConfirmModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const { modalStyles } = useStyles();
   if (!confirm) return null;
   const isDelete = confirm.mode === "delete";
   return (
@@ -316,6 +243,9 @@ function ConfirmModal({
               <Pressable
                 style={({ pressed }) => [modalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
                 onPress={onClose}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Keep"
               >
                 <AppText style={modalStyles.btnSecondaryText}>Keep</AppText>
               </Pressable>
@@ -327,6 +257,9 @@ function ConfirmModal({
                   pressed && { opacity: 0.85 },
                 ]}
                 onPress={onConfirm}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={isDelete ? "Remove permanently" : "Stop processing"}
               >
                 <AppText style={modalStyles.btnPrimaryText}>
                   {isDelete ? "Remove permanently" : "Stop processing"}
@@ -339,77 +272,6 @@ function ConfirmModal({
     </Modal>
   );
 }
-
-const modalStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(13,27,42,0.45)",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: spacing.xxl,
-    paddingHorizontal: spacing.lg,
-  },
-  sheet: {
-    width: "100%",
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    overflow: "hidden",
-    ...shadows.lg,
-  },
-  accentBar: {
-    height: 4,
-  },
-  accentDanger: { backgroundColor: colors.danger },
-  accentTeal:   { backgroundColor: colors.teal },
-  body: {
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  title: {
-    fontSize: typescale.size.lg,
-    fontWeight: typescale.weight.bold,
-    color: colors.text,
-  },
-  message: {
-    fontSize: typescale.size.sm,
-    color: colors.textSub,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-  },
-  btnRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  btnSecondary: {
-    flex: 1,
-    height: 46,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.bgSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnSecondaryText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold,
-    color: colors.textSub,
-  },
-  btnPrimary: {
-    flex: 1.4,
-    height: 46,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnDanger: { backgroundColor: colors.danger },
-  btnOrange: { backgroundColor: colors.warning },
-  btnPrimaryText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.bold,
-    color: "#fff",
-  },
-});
 
 // ─── Document card ─────────────────────────────────────────────────────────────
 
@@ -426,6 +288,8 @@ function DocCard({
   onCancel: () => void;
   isStopping?: boolean;
 }) {
+  const { cardStyles } = useStyles();
+  const { colors } = useTheme();
   const isManual = doc.source_type === "manual_input";
   const processingMsg = useProcessingMessage(!!isStopping, isManual);
   // Use a virtual "stopping" status for display when the user has requested stop
@@ -503,6 +367,9 @@ function DocCard({
               onPress={isStopping ? undefined : onCancel}
               hitSlop={8}
               disabled={isStopping}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Stop processing"
             >
               <AppText style={[cardStyles.cancelBtnText, isStopping && cardStyles.cancelBtnTextStopping]}>
                 {isStopping ? "Stopping…" : "Stop processing"}
@@ -513,6 +380,9 @@ function DocCard({
               style={({ pressed }) => [cardStyles.actionBtn, cardStyles.removeBtn, pressed && { opacity: 0.7 }]}
               onPress={onDelete}
               hitSlop={8}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Remove document"
             >
               <AppText style={cardStyles.removeBtnText}>Remove</AppText>
             </Pressable>
@@ -533,129 +403,6 @@ function DocCard({
   );
 }
 
-const cardStyles = StyleSheet.create({
-  wrapper: {
-    borderRadius: radius.lg,
-    overflow: "hidden",
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.xs,
-    ...shadows.card,
-  },
-
-  // Top row
-  topRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-  infoBlock: {
-    flex: 1,
-    gap: 3,
-    paddingTop: 2,
-  },
-  title: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold,
-    color: colors.text,
-    lineHeight: typescale.size.base * typescale.lineHeight.normal,
-  },
-  meta: {
-    fontSize: typescale.size.xs,
-    color: colors.muted,
-  },
-
-  // Processing
-  progressBlock: {
-    gap: spacing.xxs,
-  },
-  processingMsg: {
-    fontSize: typescale.size.xs,
-    color: colors.teal,
-    fontWeight: typescale.weight.medium,
-    marginTop: 3,
-  },
-  stoppingMsg: {
-    color: colors.muted,
-  },
-
-  // Error
-  errorBlock: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    backgroundColor: colors.dangerSoft,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-    marginTop: spacing.xxs,
-  },
-  errorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.danger,
-    marginTop: 4,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: typescale.size.xs,
-    color: colors.danger,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-  },
-
-  // Footer actions
-  footer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: spacing.xxs,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-    paddingTop: spacing.xs,
-  },
-  actionBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  cancelBtn: {
-    borderColor: colors.tealBorder,
-    backgroundColor: colors.tealSoft,
-  },
-  cancelBtnStopping: {
-    borderColor: colors.border,
-    backgroundColor: colors.bgSecondary,
-    opacity: 0.7,
-  },
-  cancelBtnText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-    color: colors.teal,
-  },
-  cancelBtnTextStopping: {
-    color: colors.muted,
-  },
-  removeBtn: {
-    borderColor: colors.border,
-    backgroundColor: colors.bgSecondary,
-  },
-  removeBtnText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold,
-    color: colors.muted,
-  },
-
-  // Flash overlay
-  flash: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: radius.lg,
-  },
-});
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
@@ -665,6 +412,8 @@ function sectionLabel(status: string) {
   if (status === "failed")     return "Failed";
   return "Other";
 }
+
+const DOC_PAGE_SIZE = 20;
 
 export function ListDocuments({
   refreshKey = 0,
@@ -679,11 +428,16 @@ export function ListDocuments({
   onStatusChange?: () => void;
   onPendingCountChange?: (n: number) => void;
 }) {
+  const { listStyles } = useStyles();
+  const { colors } = useTheme();
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | { mode: "delete" | "cancel"; doc: DocRow }>(null);
   const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const pending = docs.filter((d) => (d.status ?? "") === "uploaded").length;
@@ -771,24 +525,58 @@ export function ListDocuments({
     });
   }, []);
 
-  // Initial fetch
+  // Initial fetch (paginated)
+  const fetchDocs = useCallback(async (offset: number, append: boolean) => {
+    if (!userId) return;
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from("documents")
+        .select("id,title,created_at,status,processing_error,pdf_path,source_type")
+        .eq("user_id", userId)
+        .neq("status", "processed")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + DOC_PAGE_SIZE - 1);
+
+      if (fetchErr) { setError(fetchErr.message); return; }
+
+      const rows = (data ?? []) as DocRow[];
+      setHasMore(rows.length === DOC_PAGE_SIZE);
+
+      if (append) {
+        setDocs((prev) => [...prev, ...rows]);
+      } else {
+        setDocs(rows);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load documents.");
+    } finally {
+      setLoadingMore(false);
+      setRefreshing(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (!userId) return;
     setError(null);
+    setHasMore(true);
     animsRef.current.clear();
     animatingOutRef.current.clear();
+    fetchDocs(0, false);
+  }, [refreshKey, userId, fetchDocs]);
 
-    supabase
-      .from("documents")
-      .select("id,title,created_at,status,processing_error,pdf_path,source_type")
-      .eq("user_id", userId)
-      .neq("status", "processed")
-      .order("created_at", { ascending: false })
-      .then(({ data, error: fetchErr }) => {
-        if (fetchErr) setError(fetchErr.message);
-        else setDocs((data ?? []) as DocRow[]);
-      });
-  }, [refreshKey, userId]);
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetchDocs(docs.length, true);
+  }, [loadingMore, hasMore, docs.length, fetchDocs]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setHasMore(true);
+    animsRef.current.clear();
+    animatingOutRef.current.clear();
+    fetchDocs(0, false);
+  }, [fetchDocs]);
 
   // Realtime subscription
   useEffect(() => {
@@ -964,15 +752,27 @@ export function ListDocuments({
         keyExtractor={(item) => item.key}
         ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
         contentContainerStyle={listStyles.container}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.teal} />
+        }
         ListHeaderComponent={
           header ? (
             <View style={listStyles.headerWrap}>{header}</View>
           ) : null
         }
         ListFooterComponent={
-          footer ? (
-            <View style={{ marginTop: spacing.sm }}>{footer}</View>
-          ) : null
+          <>
+            {loadingMore ? (
+              <View style={listStyles.loadMoreWrap}>
+                <ActivityIndicator color={colors.teal} size="small" />
+              </View>
+            ) : null}
+            {footer ? (
+              <View style={{ marginTop: spacing.sm }}>{footer}</View>
+            ) : null}
+          </>
         }
         ListEmptyComponent={
           <View style={listStyles.empty}>
@@ -1006,42 +806,331 @@ export function ListDocuments({
   );
 }
 
-const listStyles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  headerWrap: {
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  errorBanner: {
-    backgroundColor: colors.dangerSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: "#FECACA",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  errorBannerText: {
-    fontSize: typescale.size.sm,
-    color: colors.danger,
-    fontWeight: typescale.weight.medium,
-  },
-  empty: {
-    paddingVertical: spacing.xxl,
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold,
-    color: colors.text,
-  },
-  emptyBody: {
-    fontSize: typescale.size.sm,
-    color: colors.muted,
-    textAlign: "center",
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-    maxWidth: 260,
-  },
-});
+const useStyles = createStyles((c) => ({
+  shimmerStyles: StyleSheet.create({
+    track: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      overflow: "hidden",
+      marginTop: spacing.sm,
+    },
+    highlight: {
+      width: 90,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: c.teal,
+    },
+    highlightStopping: {
+      backgroundColor: c.muted,
+    },
+  }),
+
+  badgeStyles: StyleSheet.create({
+    wrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    label: {
+      fontSize: typescale.size.xs,
+      fontWeight: typescale.weight.semibold,
+    },
+  }),
+
+  fileIconStyles: StyleSheet.create({
+    wrap: {
+      width: 40,
+      height: 44,
+      borderRadius: radius.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    pdfWrap:     { backgroundColor: "#FEE2E2" },
+    audioWrap:   { backgroundColor: c.tealSoft },
+    profileWrap: { backgroundColor: c.bgSecondary, borderWidth: 1, borderColor: c.tealBorder },
+    imageWrap:   { backgroundColor: c.blueSoft },
+    scanWrap:    { backgroundColor: c.teal },
+    label: {
+      fontSize: 10,
+      fontWeight: typescale.weight.black,
+      letterSpacing: 0.5,
+    },
+    pdfLabel:     { color: "#B91C1C" },
+    audioLabel:   { color: c.teal },
+    profileLabel: { color: c.teal },
+    imageLabel:   { color: c.blue },
+    scanLabel:    { color: "#fff" },
+  }),
+
+  sectionStyles: StyleSheet.create({
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
+    },
+    accent: {
+      width: 3,
+      height: 12,
+      borderRadius: 2,
+      backgroundColor: c.teal,
+    },
+    label: {
+      fontSize: typescale.size.xs,
+      fontWeight: typescale.weight.bold,
+      color: c.muted,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+    },
+  }),
+
+  modalStyles: StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: "rgba(13,27,42,0.45)",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      paddingBottom: spacing.xxl,
+      paddingHorizontal: spacing.lg,
+    },
+    sheet: {
+      width: "100%",
+      backgroundColor: c.surface,
+      borderRadius: radius.xl,
+      overflow: "hidden",
+      ...shadows.lg,
+    },
+    accentBar: {
+      height: 4,
+    },
+    accentDanger: { backgroundColor: c.danger },
+    accentTeal:   { backgroundColor: c.teal },
+    body: {
+      padding: spacing.lg,
+      gap: spacing.sm,
+    },
+    title: {
+      fontSize: typescale.size.lg,
+      fontWeight: typescale.weight.bold,
+      color: c.text,
+    },
+    message: {
+      fontSize: typescale.size.sm,
+      color: c.textSub,
+      lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    },
+    btnRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    btnSecondary: {
+      flex: 1,
+      height: 46,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.bgSecondary,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    btnSecondaryText: {
+      fontSize: typescale.size.sm,
+      fontWeight: typescale.weight.semibold,
+      color: c.textSub,
+    },
+    btnPrimary: {
+      flex: 1.4,
+      height: 46,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    btnDanger: { backgroundColor: c.danger },
+    btnOrange: { backgroundColor: c.warning },
+    btnPrimaryText: {
+      fontSize: typescale.size.sm,
+      fontWeight: typescale.weight.bold,
+      color: "#fff",
+    },
+  }),
+
+  cardStyles: StyleSheet.create({
+    wrapper: {
+      borderRadius: radius.lg,
+      overflow: "hidden",
+    },
+    card: {
+      backgroundColor: c.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: spacing.md,
+      gap: spacing.xs,
+      ...shadows.card,
+    },
+
+    // Top row
+    topRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+    },
+    infoBlock: {
+      flex: 1,
+      gap: 3,
+      paddingTop: 2,
+    },
+    title: {
+      fontSize: typescale.size.base,
+      fontWeight: typescale.weight.semibold,
+      color: c.text,
+      lineHeight: typescale.size.base * typescale.lineHeight.normal,
+    },
+    meta: {
+      fontSize: typescale.size.xs,
+      color: c.muted,
+    },
+
+    // Processing
+    progressBlock: {
+      gap: spacing.xxs,
+    },
+    processingMsg: {
+      fontSize: typescale.size.xs,
+      color: c.teal,
+      fontWeight: typescale.weight.medium,
+      marginTop: 3,
+    },
+    stoppingMsg: {
+      color: c.muted,
+    },
+
+    // Error
+    errorBlock: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.xs,
+      backgroundColor: c.dangerSoft,
+      borderRadius: radius.sm,
+      padding: spacing.sm,
+      marginTop: spacing.xxs,
+    },
+    errorDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: c.danger,
+      marginTop: 4,
+    },
+    errorText: {
+      flex: 1,
+      fontSize: typescale.size.xs,
+      color: c.danger,
+      lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    },
+
+    // Footer actions
+    footer: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: spacing.xxs,
+      borderTopWidth: 1,
+      borderTopColor: c.borderLight,
+      paddingTop: spacing.xs,
+    },
+    actionBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+    },
+    cancelBtn: {
+      borderColor: c.tealBorder,
+      backgroundColor: c.tealSoft,
+    },
+    cancelBtnStopping: {
+      borderColor: c.border,
+      backgroundColor: c.bgSecondary,
+      opacity: 0.7,
+    },
+    cancelBtnText: {
+      fontSize: typescale.size.xs,
+      fontWeight: typescale.weight.semibold,
+      color: c.teal,
+    },
+    cancelBtnTextStopping: {
+      color: c.muted,
+    },
+    removeBtn: {
+      borderColor: c.border,
+      backgroundColor: c.bgSecondary,
+    },
+    removeBtnText: {
+      fontSize: typescale.size.xs,
+      fontWeight: typescale.weight.semibold,
+      color: c.muted,
+    },
+
+    // Flash overlay
+    flash: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: radius.lg,
+    },
+  }),
+
+  listStyles: StyleSheet.create({
+    container: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.lg,
+      flexGrow: 1,
+    },
+    loadMoreWrap: {
+      paddingVertical: spacing.md,
+      alignItems: "center",
+    },
+    headerWrap: {
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    errorBanner: {
+      backgroundColor: c.dangerSoft,
+      borderBottomWidth: 1,
+      borderBottomColor: "#FECACA",
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    errorBannerText: {
+      fontSize: typescale.size.sm,
+      color: c.danger,
+      fontWeight: typescale.weight.medium,
+    },
+    empty: {
+      paddingVertical: spacing.xxl,
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    emptyTitle: {
+      fontSize: typescale.size.base,
+      fontWeight: typescale.weight.semibold,
+      color: c.text,
+    },
+    emptyBody: {
+      fontSize: typescale.size.sm,
+      color: c.muted,
+      textAlign: "center",
+      lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+      maxWidth: 260,
+    },
+  }),
+}));

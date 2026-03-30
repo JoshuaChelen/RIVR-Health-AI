@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
   RefreshControl,
   Pressable,
@@ -12,10 +12,14 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { supabase } from "../../lib/supabase";
+import { captureException } from "../../lib/sentry";
 import { TimelineCard, categoryMeta } from "../../components/ui/Timeline/TimelineCard";
 import { MonthDivider } from "../../components/ui/Timeline/MonthDivider";
 import { AppText } from "../../components/ui/Primitives/AppText";
-import { colors, spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
+import { spacing, radius, typescale, shadows } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
+import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
@@ -38,38 +42,67 @@ type RenderRow =
   | { kind: "month"; key: string; label: string }
   | { kind: "event"; key: string; event: TimelineEventRow; isLastInGroup: boolean };
 
+const PAGE_SIZE = 30;
+
 export function TimelineScreen({ navigation }: Props) {
   const [events, setEvents]         = useState<TimelineEventRow[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore]       = useState(true);
   const [err, setErr]               = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setErr(null);
-    try {
-        const { data, error } = await supabase
-      .from("timeline_events")
-      .select(
-        "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit"
-      )
-      .neq("source", "apple_health")
-      .order("occurred_at", { ascending: false });
+  const styles = useStyles();
+  const { colors } = useTheme();
 
-    if (error) throw error;
-    setEvents(
-      ((data ?? []) as TimelineEventRow[]).filter(
+  const load = useCallback(async (offset = 0, append = false) => {
+    if (!append) setErr(null);
+    try {
+      const { data, error } = await supabase
+        .from("timeline_events")
+        .select(
+          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit"
+        )
+        .neq("source", "apple_health")
+        .order("occurred_at", { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const filtered = ((data ?? []) as TimelineEventRow[]).filter(
         (e) => e.source !== "apple_health"
-      )
-    );
+      );
+
+      setHasMore(filtered.length === PAGE_SIZE);
+
+      if (append) {
+        setEvents((prev) => [...prev, ...filtered]);
+      } else {
+        setEvents(filtered);
+      }
     } catch (e: any) {
+      captureException(e);
       setErr(e?.message ?? "Failed to load timeline.");
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { setHasMore(true); load(); }, [load]));
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    load(events.length, true);
+  }, [loadingMore, hasMore, loading, events.length, load]);
+
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    setHasMore(true);
+    load(0, false);
+  }, [load]);
 
   const rows: RenderRow[] = useMemo(() => {
     const out: RenderRow[] = [];
@@ -111,35 +144,61 @@ export function TimelineScreen({ navigation }: Props) {
   const includedEvents = events.filter((e) => !!e.included_in_previsit);
   const previewItems   = includedEvents.slice(0, 3);
 
-  return (
-    <ScrollView
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); load(); }}
-          tintColor={colors.teal}
-        />
-      }
-    >
-      {/* ── Error banner ─────────────────────────────────── */}
-      {err ? (
-        <View style={styles.errorBanner}>
-          <AppText style={styles.errorText}>{err}</AppText>
-        </View>
-      ) : null}
+  const renderItem = useCallback(({ item: row }: { item: RenderRow }) => {
+    if (row.kind === "month") {
+      return <MonthDivider label={row.label} style={styles.monthDivider} />;
+    }
 
-      {/* ── Loading ───────────────────────────────────────── */}
-      {loading ? (
+    const ev   = row.event;
+    const meta = categoryMeta(ev.category, colors);
+
+    return (
+      <View style={styles.spineRow}>
+        <View style={styles.spineGutter}>
+          <View
+            style={[
+              styles.spineMarker,
+              { backgroundColor: `${meta.dot}14`, borderColor: `${meta.dot}40` },
+            ]}
+          >
+            <View style={[styles.spineMarkerInner, { backgroundColor: meta.dot }]} />
+          </View>
+          {!row.isLastInGroup ? <View style={styles.spineLine} /> : null}
+        </View>
+        <TimelineCard
+          title={ev.title}
+          dateLabel={formatEventDate(ev.occurred_at, ev.date_precision)}
+          category={ev.category}
+          source={ev.source}
+          summary={ev.summary}
+          included={ev.included_in_previsit}
+          onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
+          onPress={() => navigation.navigate("Details", { id: ev.id })}
+          style={styles.card}
+        />
+      </View>
+    );
+  }, [navigation, onToggleIncluded, styles, colors]);
+
+  const listHeader = useMemo(() => (
+    err ? (
+      <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}>
+        <ErrorBanner message="Couldn't load your timeline" onRetry={() => load()} />
+      </View>
+    ) : null
+  ), [err, load]);
+
+  const listEmpty = useMemo(() => {
+    if (loading) {
+      return (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.teal} />
+          <ActivityIndicator color={colors.teal} accessibilityLabel="Loading timeline" />
           <AppText style={styles.loadingText}>Loading your health timeline…</AppText>
         </View>
-      ) : null}
-
-      {/* ── Empty state ───────────────────────────────────── */}
-      {!loading && !err && rows.length === 0 ? (
+      );
+    }
+    if (!err) {
+      return (
         <View style={styles.emptyWrap}>
           <View style={styles.emptyIconWrap}>
             <Ionicons name="clipboard-outline" size={24} color={colors.teal} />
@@ -155,62 +214,21 @@ export function TimelineScreen({ navigation }: Props) {
             <AppText style={styles.emptyBtnText}>Upload documents</AppText>
           </Pressable>
         </View>
-      ) : null}
+      );
+    }
+    return null;
+  }, [loading, err, navigation, styles, colors]);
 
-      {/* ── Timeline rows with spine ──────────────────────── */}
-      {!loading && !err && rows.length > 0 ? (
-        <View style={styles.timelineWrap}>
-          {rows.map((row) => {
-            if (row.kind === "month") {
-              return (
-                <MonthDivider
-                  key={row.key}
-                  label={row.label}
-                  style={styles.monthDivider}
-                />
-              );
-            }
-
-            const ev   = row.event;
-            const meta = categoryMeta(ev.category);
-
-            return (
-              <View key={row.key} style={styles.spineRow}>
-                {/* Left spine: dot + optional connecting line */}
-                <View style={styles.spineGutter}>
-                  <View
-                    style={[
-                      styles.spineMarker,
-                      { backgroundColor: `${meta.dot}14`, borderColor: `${meta.dot}40` },
-                    ]}
-                  >
-                    <View style={[styles.spineMarkerInner, { backgroundColor: meta.dot }]} />
-                  </View>
-
-                  {!row.isLastInGroup ? <View style={styles.spineLine} /> : null}
-                </View>
-
-                {/* Card */}
-                <TimelineCard
-                  title={ev.title}
-                  dateLabel={formatEventDate(ev.occurred_at, ev.date_precision)}
-                  category={ev.category}
-                  source={ev.source}
-                  summary={ev.summary}
-                  included={ev.included_in_previsit}
-                  onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
-                  onPress={() => navigation.navigate("Details", { id: ev.id })}
-                  style={styles.card}
-                />
-              </View>
-            );
-          })}
+  const listFooter = useMemo(() => (
+    <>
+      {loadingMore ? (
+        <View style={styles.loadMoreWrap}>
+          <ActivityIndicator color={colors.teal} size="small" />
         </View>
       ) : null}
 
       {/* ── Pre-Visit Note panel ──────────────────────────── */}
       <View style={styles.preVisitCard}>
-        {/* Header */}
         <View style={styles.preVisitHeader}>
           <View style={styles.preVisitIconWrap}>
             <Ionicons name="medkit-outline" size={20} color={colors.teal} />
@@ -232,7 +250,6 @@ export function TimelineScreen({ navigation }: Props) {
 
         <View style={styles.preVisitDivider} />
 
-        {/* Instruction or preview items */}
         {includedEvents.length === 0 ? (
           <AppText style={styles.preVisitInstruction}>
             Toggle "Pre-Visit" on any timeline event above to add it to your doctor note.
@@ -241,7 +258,7 @@ export function TimelineScreen({ navigation }: Props) {
           <View style={styles.preVisitItems}>
             {previewItems.map((e) => (
               <View key={e.id} style={styles.preVisitRow}>
-                <View style={[styles.preVisitDot, { backgroundColor: categoryMeta(e.category).dot }]} />
+                <View style={[styles.preVisitDot, { backgroundColor: categoryMeta(e.category, colors).dot }]} />
                 <AppText style={styles.preVisitItemText} numberOfLines={1}>{e.title}</AppText>
               </View>
             ))}
@@ -254,6 +271,9 @@ export function TimelineScreen({ navigation }: Props) {
         )}
 
         <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={includedEvents.length > 0 ? "View Pre-Visit Note" : "Open Pre-Visit Note"}
           onPress={() => navigation.navigate("PreVisitNote")}
           style={({ pressed }) => [styles.preVisitBtn, pressed && styles.preVisitBtnPressed]}
         >
@@ -263,7 +283,29 @@ export function TimelineScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={18} color={colors.teal} />
         </Pressable>
       </View>
-    </ScrollView>
+    </>
+  ), [loadingMore, includedEvents, previewItems, navigation, styles, colors]);
+
+  return (
+    <FlatList
+      data={rows}
+      keyExtractor={(item) => item.key}
+      renderItem={renderItem}
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.3}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={refresh}
+          tintColor={colors.teal}
+        />
+      }
+      ListHeaderComponent={listHeader}
+      ListEmptyComponent={listEmpty}
+      ListFooterComponent={listFooter}
+    />
   );
 }
 
@@ -300,14 +342,19 @@ const MARKER_SIZE    = 16;
 const MARKER_INNER   = 6;
 const DOT_MARGIN_TOP = 11;
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     paddingBottom: spacing.xxl + spacing.xl,
+    flexGrow: 1,
+  },
+  loadMoreWrap: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
   },
 
   // Error
   errorBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: c.dangerSoft,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
     borderRadius: radius.md,
@@ -317,7 +364,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typescale.size.sm,
-    color: colors.danger,
+    color: c.danger,
     fontWeight: typescale.weight.medium,
   },
 
@@ -329,7 +376,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
   },
 
   // Empty
@@ -343,7 +390,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.xs,
@@ -351,18 +398,18 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: typescale.size.lg,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
     textAlign: "center",
   },
   emptyBody: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
   emptyBtn: {
     marginTop: spacing.xs,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
@@ -417,7 +464,7 @@ const styles = StyleSheet.create({
   spineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginTop: 6,
     borderRadius: 1,
   },
@@ -427,10 +474,10 @@ const styles = StyleSheet.create({
 
   // Pre-Visit Note panel
   preVisitCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
     overflow: "hidden",
@@ -446,7 +493,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: radius.sm,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -454,18 +501,18 @@ const styles = StyleSheet.create({
   preVisitTitle: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
-    color: colors.text,
+    color: c.text,
   },
   preVisitSub: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     marginTop: 2,
   },
   preVisitBadge: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -477,14 +524,14 @@ const styles = StyleSheet.create({
   },
   preVisitDivider: {
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginHorizontal: spacing.md,
   },
 
   // Instruction / items
   preVisitInstruction: {
     fontSize: typescale.size.sm,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
     padding: spacing.md,
     paddingTop: spacing.sm,
@@ -508,12 +555,12 @@ const styles = StyleSheet.create({
   preVisitItemText: {
     flex: 1,
     fontSize: typescale.size.sm,
-    color: colors.textSub,
+    color: c.textSub,
     fontWeight: typescale.weight.medium,
   },
   preVisitMore: {
     fontSize: typescale.size.xs,
-    color: colors.muted,
+    color: c.muted,
     marginLeft: 7 + spacing.sm,
   },
 
@@ -521,7 +568,7 @@ const styles = StyleSheet.create({
   preVisitBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     margin: spacing.md,
     marginTop: spacing.xs,
     borderRadius: radius.md,
@@ -539,4 +586,4 @@ const styles = StyleSheet.create({
     fontSize: typescale.size.base,
     textAlign: "center",
   },
-});
+}));

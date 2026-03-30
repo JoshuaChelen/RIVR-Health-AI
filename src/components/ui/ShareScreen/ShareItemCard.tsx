@@ -4,7 +4,8 @@ import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import { AppText } from "../Primitives/AppText";
 import { Card } from "../Primitives/Card";
-import { colors, radius, typescale } from "../../../theme/tokens";
+import { radius, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 type Props = {
   title: string;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function ShareItemCard({ title, url }: Props) {
+  const styles = useStyles();
   return (
     <Card style={styles.card}>
       <AppText variant="title" style={styles.title}>{title}</AppText>
@@ -36,25 +38,25 @@ export function ShareItemCard({ title, url }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   card: { gap: 12 },
   title: {
-    color: colors.text,
+    color: c.text,
     marginBottom: 2,
   },
   urlBox: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     borderRadius: radius.sm,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   urlText: {
-    color: colors.textSub,
+    color: c.textSub,
   },
   copyBtn: {
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
     borderRadius: radius.md,
     height: 44,
     alignItems: "center",
@@ -69,4 +71,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
   },
-});
+}));

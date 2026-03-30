@@ -12,6 +12,7 @@ import type { OnboardingStackParamList } from "../../navigation/onboardingTypes"
 
 import { getProfile, upsertProfile } from "../../lib/profile";
 import { getCurrentUserId } from "../../lib/auth";
+import { captureException } from "../../lib/sentry";
 import { useOnboarding } from "../../context/OnboardingContext";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -24,12 +25,14 @@ import { Card } from "../../components/ui/Primitives/Card";
 import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 
-import { colors, radius, spacing, typescale } from "../../theme/tokens";
+import { radius, spacing, typescale } from "../../theme/tokens";
+import { createStyles } from "../../theme/createStyles";
 import { COUNTRIES, Country, parseStoredPhone, PhoneField } from "../../components/ui/Primitives/PhoneField";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep3">;
 
 export function OnboardingStep3Screen({ navigation }: Props) {
+  const styles = useStyles();
   const { onComplete } = useOnboarding();
 
   const [contactName, setContactName]   = useState("");
@@ -52,8 +55,8 @@ export function OnboardingStep3Screen({ navigation }: Props) {
           setContactPhoneNumber(parsedEmergency.number);
           setContactRel(profile.emergency_contact_relationship ?? "");
         }
-      } catch {
-        // Not authenticated or network error — show empty form
+      } catch (e) {
+        captureException(e);
       }
     })();
   }, []);
@@ -77,6 +80,7 @@ export function OnboardingStep3Screen({ navigation }: Props) {
 
       onComplete();
     } catch (e: any) {
+      captureException(e);
       setError(e?.message ?? "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
@@ -166,11 +170,16 @@ export function OnboardingStep3Screen({ navigation }: Props) {
               </View>
 
               {!anyFilled ? (
-                <GhostButton
-                  label="Skip — I'll add this later"
-                  onPress={finish}
-                  disabled={saving}
-                />
+                <>
+                  <GhostButton
+                    label="Skip for now"
+                    onPress={finish}
+                    disabled={saving}
+                  />
+                  <AppText style={styles.skipNote}>
+                    No worries! You can always add this later from your profile. You can also connect Apple Health any time.
+                  </AppText>
+                </>
               ) : null}
             </Card>
 
@@ -184,7 +193,7 @@ export function OnboardingStep3Screen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
@@ -201,12 +210,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typescale.size.xxl,
     fontWeight: typescale.weight.bold as any,
-    color: colors.text,
+    color: c.text,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: typescale.size.base,
-    color: colors.muted,
+    color: c.muted,
     lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
   },
   card: {
@@ -216,7 +225,7 @@ const styles = StyleSheet.create({
   },
   optionalBadge: {
     alignSelf: "flex-start",
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -224,9 +233,16 @@ const styles = StyleSheet.create({
   optionalText: {
     fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
+    color: c.teal,
   },
   fields: { gap: spacing.md },
+  skipNote: {
+    fontSize: typescale.size.xs,
+    color: c.subtle,
+    textAlign: "center",
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+    marginTop: -spacing.xs,
+  },
   actions: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -234,8 +250,8 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: "center",
     fontSize: typescale.size.xs,
-    color: colors.subtle,
+    color: c.subtle,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.lg,
   },
-});
+}));

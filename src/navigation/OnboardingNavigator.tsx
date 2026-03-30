@@ -5,11 +5,12 @@ import type { OnboardingStackParamList } from "./onboardingTypes";
 import { OnboardingStep1Screen } from "../screens/Onboarding/OnboardingStep1Screen";
 import { OnboardingStep2Screen } from "../screens/Onboarding/OnboardingStep2Screen";
 import { OnboardingStep3Screen } from "../screens/Onboarding/OnboardingStep3Screen";
-import { colors } from "../theme/tokens";
+import { useTheme } from "../context/ThemeContext";
 
 const Stack = createNativeStackNavigator<OnboardingStackParamList>();
 
 export function OnboardingNavigator() {
+  const { colors } = useTheme();
   return (
     <Stack.Navigator
       initialRouteName="OnboardingStep1"

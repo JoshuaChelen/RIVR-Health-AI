@@ -1,7 +1,10 @@
 import { Platform } from "react-native";
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
-export const colors = {
+// ─── Color palette type ──────────────────────────────────────────────────────
+export type Colors = typeof lightColors;
+
+// ─── Light colors ────────────────────────────────────────────────────────────
+export const lightColors = {
   // Backgrounds
   bg:          "#F5F8FA",
   bgSecondary: "#EDF2F7",
@@ -40,6 +43,54 @@ export const colors = {
   red:        "#EF4444",
   redSoft:    "#FFECEC",
 };
+
+// Backward-compatible alias — prefer useTheme().colors in components
+export const colors = lightColors;
+
+// ─── Dark colors ─────────────────────────────────────────────────────────────
+export const darkColors: Colors = {
+  // Backgrounds
+  bg:          "#0D1B2A",
+  bgSecondary: "#1B2838",
+  surface:     "#1E293B",
+  border:      "#334155",
+  borderLight: "#1E293B",
+
+  // Text
+  text:    "#F1F5F9",
+  textSub: "#CBD5E1",
+  muted:   "#94A3B8",
+  subtle:  "#64748B",
+
+  // Status
+  danger:       "#EF4444",
+  dangerSoft:   "#2D1B1B",
+  dangerBorder: "#7F1D1D",
+  warning:     "#D97706",
+  warnSoft:    "#2D2510",
+  success:     "#059669",
+  successSoft: "#0D2D1B",
+
+  // Primary accent — teal
+  teal:       "#1FADA6",
+  tealMid:    "#2CB9B0",
+  tealSoft:   "#0D2D2B",
+  tealBorder: "rgba(31,173,166,0.30)",
+
+  // Supporting accents
+  blue:       "#3B82F6",
+  blueSoft:   "#172554",
+  green:      "#10B981",
+  greenSoft:  "#0D2D1B",
+  orange:     "#F59E0B",
+  orangeSoft: "#2D2510",
+  red:        "#EF4444",
+  redSoft:    "#2D1B1B",
+};
+
+export function getColors(scheme: "light" | "dark"): Colors {
+  return scheme === "dark" ? darkColors : lightColors;
+}
 
 // ─── Typography scale ─────────────────────────────────────────────────────────
 export const typescale = {

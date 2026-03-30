@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 import * as Linking from "expo-linking";
 
+import { Sentry, captureException, setUser } from "./src/lib/sentry";
 import { supabase } from "./src/lib/supabase";
 import { getProfile } from "./src/lib/profile";
 import { OnboardingContext } from "./src/context/OnboardingContext";
+import { NetworkProvider } from "./src/context/NetworkContext";
+import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 
 import { AppNavigator } from "./src/navigation/AppNavigator";
 import { AppleHealthProvider } from "./src/context/AppleHealthContext";
 import { AuthNavigator } from "./src/navigation/AuthNavigator";
 import { OnboardingNavigator } from "./src/navigation/OnboardingNavigator";
+import { SplashScreen } from "./src/screens/SplashScreen";
 import { navRef } from "./src/navigation/navRef";
-import { colors } from "./src/theme/tokens";
 
 const linking = {
   prefixes: ["rivrhealth://"],
@@ -24,7 +27,21 @@ const linking = {
   },
 };
 
-export default function App() {
+function AppInner() {
+  const { colors, colorScheme } = useTheme();
+  const navTheme = useMemo(() => ({
+    ...(colorScheme === "dark" ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colorScheme === "dark" ? DarkTheme : DefaultTheme).colors,
+      background: colors.bg,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.teal,
+    },
+  }), [colorScheme, colors]);
+
+  const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -39,7 +56,8 @@ export default function App() {
     try {
       const profile = await getProfile(userId);
       setOnboardingComplete(!!profile?.onboarding_completed_at);
-    } catch {
+    } catch (e) {
+      captureException(e);
       setOnboardingComplete(false);
     } finally {
       setProfileLoading(false);
@@ -61,6 +79,14 @@ export default function App() {
       (event, session) => {
         setSession(session);
 
+        if (session?.user) {
+          setUser({ id: session.user.id, email: session.user.email });
+        }
+
+        if (event === "SIGNED_OUT") {
+          setUser(null);
+        }
+
         if (event === "PASSWORD_RECOVERY") {
           setIsRecoveryFlow(true);
           setProfileLoading(false);
@@ -81,7 +107,11 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, [checkOnboarding]);
 
-  // Show a minimal splash while we determine where to route the user
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  // Show a minimal spinner if session hydration is still in progress after splash
   if (profileLoading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
@@ -93,18 +123,30 @@ export default function App() {
   const showApp = session && !isRecoveryFlow;
 
   return (
-    <NavigationContainer ref={navRef} linking={linking}>
-      {showApp && onboardingComplete ? (
-        <AppleHealthProvider>
-          <AppNavigator />
-        </AppleHealthProvider>
-      ) : showApp && !onboardingComplete ? (
-        <OnboardingContext.Provider value={{ onComplete: () => setOnboardingComplete(true) }}>
-          <OnboardingNavigator />
-        </OnboardingContext.Provider>
-      ) : (
-        <AuthNavigator />
-      )}
-    </NavigationContainer>
+    <NetworkProvider>
+      <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
+        {showApp && onboardingComplete ? (
+          <AppleHealthProvider>
+            <AppNavigator />
+          </AppleHealthProvider>
+        ) : showApp && !onboardingComplete ? (
+          <OnboardingContext.Provider value={{ onComplete: () => setOnboardingComplete(true) }}>
+            <OnboardingNavigator />
+          </OnboardingContext.Provider>
+        ) : (
+          <AuthNavigator />
+        )}
+      </NavigationContainer>
+    </NetworkProvider>
   );
 }
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}
+
+export default Sentry.wrap(App);

@@ -1,7 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "../Primitives/AppText";
-import { colors, radius, typescale } from "../../../theme/tokens";
+import { radius, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 export type ShareFileType = "card" | "pdf" | "fhir";
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function ShareFormatToggle({ value, onChange }: Props) {
+  const styles = useStyles();
   return (
     <View style={styles.track}>
       <TogglePill label="Card" active={value === "card"} onPress={() => onChange("card")} />
@@ -29,9 +31,14 @@ function TogglePill({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       style={({ pressed }) => [
         styles.pill,
         active ? styles.pillActive : styles.pillInactive,
@@ -51,11 +58,11 @@ function TogglePill({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   track: {
     flexDirection: "row",
     gap: 8,
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
     padding: 4,
     borderRadius: radius.pill,
     alignSelf: "flex-start",
@@ -66,7 +73,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   pillActive: {
-    backgroundColor: colors.teal,
+    backgroundColor: c.teal,
   },
   pillInactive: {
     backgroundColor: "transparent",
@@ -80,7 +87,7 @@ const styles = StyleSheet.create({
     fontWeight: typescale.weight.bold,
   },
   pillTextInactive: {
-    color: colors.muted,
+    color: c.muted,
     fontWeight: typescale.weight.semibold,
   },
-});
+}));

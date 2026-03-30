@@ -4,7 +4,8 @@ import { Card } from "../Primitives/Card";
 import { AppText } from "../Primitives/AppText";
 import { PrimaryButton } from "../Primitives/PrimaryButton";
 import { ErrorBanner } from "../Primitives/ErrorBanner";
-import { colors, radius, spacing, typescale } from "../../../theme/tokens";
+import { radius, spacing, typescale } from "../../../theme/tokens";
+import { createStyles } from "../../../theme/createStyles";
 
 export type SectionCardProps = {
   icon: React.ReactNode;
@@ -23,6 +24,7 @@ export function SectionCard({
   icon, title, editing, onEdit, onCancel, onSave,
   saving, error, canSave = true, children,
 }: SectionCardProps) {
+  const sc = useStyles();
   return (
     <Card style={sc.card}>
       <View style={sc.header}>
@@ -32,6 +34,9 @@ export function SectionCard({
         </View>
         {editing ? (
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`Cancel editing ${title}`}
             onPress={onCancel}
             style={({ pressed }) => [sc.actionBtn, sc.cancelBtn, pressed && { opacity: 0.6 }]}
           >
@@ -39,6 +44,9 @@ export function SectionCard({
           </Pressable>
         ) : (
           <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${title}`}
             onPress={onEdit}
             style={({ pressed }) => [sc.actionBtn, pressed && { opacity: 0.6 }]}
           >
@@ -66,7 +74,7 @@ export function SectionCard({
   );
 }
 
-export const sc = StyleSheet.create({
+const useStyles = createStyles((c) => StyleSheet.create({
   card: {
     padding: 0,
     overflow: "hidden",
@@ -93,30 +101,30 @@ export const sc = StyleSheet.create({
   title: {
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold as any,
-    color: colors.text,
+    color: c.text,
   },
   actionBtn: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 5,
     borderRadius: radius.sm,
-    backgroundColor: colors.tealSoft,
+    backgroundColor: c.tealSoft,
   },
   cancelBtn: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: c.bgSecondary,
   },
   editText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.teal,
+    color: c.teal,
   },
   cancelText: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.muted,
+    color: c.muted,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.borderLight,
+    backgroundColor: c.borderLight,
     marginHorizontal: spacing.lg,
   },
   content: {
@@ -130,4 +138,4 @@ export const sc = StyleSheet.create({
     paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
-});
+}));

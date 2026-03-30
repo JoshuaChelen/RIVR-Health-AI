@@ -34,6 +34,8 @@ function htmlPage() {
     ul{padding-left:18px;}
     a{color:#2563eb; font-weight:700; word-break:break-all;}
     .meta{margin-top:10px; font-size:12px; color:#94a3b8;}
+    .footer{margin-top:24px; text-align:center; font-size:11px; color:#94a3b8;}
+    .footer a{color:#94a3b8; text-decoration:underline;}
   </style>
 </head>
 <body>
@@ -51,6 +53,9 @@ function htmlPage() {
 
     <div id="content"></div>
     <div id="error" class="err" style="display:none"></div>
+  </div>
+  <div class="footer">
+    <a href="https://rivrhealth.ai/privacy-policy" target="_blank">Privacy Policy</a>
   </div>
 
 <script>
@@ -71,7 +76,7 @@ function htmlPage() {
   async function resolve(pin){
   errEl.style.display = "none";
   content.innerHTML = "Loading...";
-  const RESOLVE_URL = "https://vpzywhfrnyyztwylbbzf.functions.supabase.co/share/resolve";
+  const RESOLVE_URL = process.env.SHARE_URL || "";
 
     const res = await fetch(RESOLVE_URL, {
     method: "POST",
