@@ -61,6 +61,12 @@
     },
     "web": {
       "favicon": "./assets/branding/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0b17b39a-c1e6-49f9-95e3-71acea501e8f"
+      }
+    },
+    "owner": "darwashiom"
   }
 }

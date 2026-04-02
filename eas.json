@@ -17,8 +17,8 @@
     "production": {
       "ios": {
         "appleId": "darwashi@udel.edu",
-        "ascAppId": "REPLACE_WITH_YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_YOUR_TEAM_ID"
+        "ascAppId": "6761561666",
+        "appleTeamId": "NUGFXB4PHG"
       }
     }
   }

@@ -66,7 +66,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-      const redirectTo = process.env.EXPO_PUBLIC_RESET_REDIRECT_TO ?? "http://localhost:8081";
+      const redirectTo = process.env.EXPO_PUBLIC_RESET_REDIRECT_TO;
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       if (error) throw error;
       setMsg("If that email exists, you will receive a reset link shortly.");
