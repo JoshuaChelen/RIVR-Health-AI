@@ -283,10 +283,14 @@ export default function HealthSummaryScreen({ navigation }: Props) {
         ) : null}
 
         {/* ── Disclaimer footer ─────────────────────────────── */}
-        {showContent && hasContent && disclaimer ? (
+        {showContent && hasContent ? (
           <View style={styles.disclaimerWrap}>
             <Ionicons name="information-circle-outline" size={12} color={colors.subtle} />
-            <AppText style={styles.disclaimerText}>{String(disclaimer)}</AppText>
+            <AppText style={styles.disclaimerText}>
+              {disclaimer
+                ? String(disclaimer)
+                : "This summary is AI-generated from the health data you provided and is for informational purposes only. It is not a medical diagnosis or substitute for professional medical advice. Always consult a qualified healthcare provider."}
+            </AppText>
           </View>
         ) : null}
 

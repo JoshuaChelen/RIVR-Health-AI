@@ -766,7 +766,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: c.dangerBorder,
     padding: spacing.xxl,
     width: "100%",
   },
@@ -811,7 +811,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: "#6EE7B7",
+    borderColor: c.successBorder,
   },
   successDot: {
     width: 7,

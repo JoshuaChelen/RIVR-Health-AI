@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Pressable, Text, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
+import { AppText } from "../Primitives/AppText";
 import { radius, spacing, typescale } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
 
@@ -27,9 +28,9 @@ export function OptionPills({ options, selected, onSelect }: Props) {
             pressed && { opacity: 0.7 },
           ]}
         >
-          <Text style={[styles.label, selected === opt && styles.labelSelected]}>
+          <AppText style={[styles.label, selected === opt && styles.labelSelected]}>
             {opt}
-          </Text>
+          </AppText>
         </Pressable>
       ))}
     </View>

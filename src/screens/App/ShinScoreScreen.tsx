@@ -240,6 +240,16 @@ useEffect(() => {
           </View>
         ) : null}
 
+        {/* ── Disclaimer ────────────────────────────────────── */}
+        {score != null && !loading ? (
+          <View style={styles.disclaimerWrap}>
+            <Ionicons name="information-circle-outline" size={12} color={colors.subtle} />
+            <AppText style={styles.disclaimerText}>
+              Your SHIN Score is an AI-generated wellness indicator based on the data you've provided. It is not a medical diagnosis, clinical assessment, or substitute for professional medical advice. Always consult a qualified healthcare provider about your health.
+            </AppText>
+          </View>
+        ) : null}
+
         {/* ── View full summary link ────────────────────────── */}
         {score != null && !loading ? (
           <Pressable
@@ -294,7 +304,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: c.dangerBorder,
   },
   errorText: {
     fontSize: typescale.size.sm,
@@ -500,5 +510,19 @@ const useStyles = createStyles((c) => StyleSheet.create({
   summaryLinkSub: {
     fontSize: typescale.size.xs,
     color: c.muted,
+  },
+
+  // Disclaimer
+  disclaimerWrap: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    color: c.subtle,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 }));

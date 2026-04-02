@@ -6,6 +6,7 @@ import { AuthLogo } from "../components/ui/Account/AuthLogo";
 import { AppText } from "../components/ui/Primitives/AppText";
 import { typescale } from "../theme/tokens";
 import { createStyles } from "../theme/createStyles";
+import { useTheme } from "../context/ThemeContext";
 
 type Props = {
   onFinish: () => void;
@@ -13,6 +14,7 @@ type Props = {
 
 export function SplashScreen({ onFinish }: Props) {
   const styles = useStyles();
+  const { colors } = useTheme();
   const logoOpacity   = useRef(new Animated.Value(0)).current;
   const logoScale     = useRef(new Animated.Value(0.8)).current;
   const nameOpacity   = useRef(new Animated.Value(0)).current;
@@ -68,7 +70,7 @@ export function SplashScreen({ onFinish }: Props) {
 
   return (
     <LinearGradient
-      colors={["#FFF9F5", "#F0FAFA"]}
+      colors={[colors.bg, colors.tealSoft]}
       style={styles.container}
     >
       <View style={styles.center}>

@@ -3,6 +3,92 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * List ALL files in a storage bucket/prefix, handling pagination.
+ * Supabase storage .list() returns at most `limit` items per call.
+ */
+async function listAllFiles(
+  admin: ReturnType<typeof createClient>,
+  bucket: string,
+  prefix: string,
+): Promise<string[]> {
+  const PAGE = 1000;
+  const allPaths: string[] = [];
+  let offset = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await admin.storage
+      .from(bucket)
+      .list(prefix, { limit: PAGE, offset });
+
+    if (error || !data || data.length === 0) break;
+
+    for (const f of data) {
+      // Supabase .list() may return "folder" entries (id === null).
+      // We skip those since .remove() only operates on files.
+      if (f.id != null) {
+        allPaths.push(`${prefix}${f.name}`);
+      }
+    }
+
+    if (data.length < PAGE) break;   // last page
+    offset += PAGE;
+  }
+
+  return allPaths;
+}
+
+/**
+ * Recursively delete all files under a bucket/prefix, including
+ * nested subdirectories of arbitrary depth.
+ */
+async function deleteStoragePrefix(
+  admin: ReturnType<typeof createClient>,
+  bucket: string,
+  prefix: string,
+): Promise<void> {
+  // Ensure prefix ends with /
+  const p = prefix.endsWith("/") ? prefix : `${prefix}/`;
+
+  // List items at this level
+  const { data } = await admin.storage.from(bucket).list(p, { limit: 1000 });
+  if (!data || data.length === 0) return;
+
+  const filePaths: string[] = [];
+  const subdirs: string[] = [];
+
+  for (const item of data) {
+    if (item.id == null) {
+      // This is a folder entry — recurse into it
+      subdirs.push(`${p}${item.name}/`);
+    } else {
+      filePaths.push(`${p}${item.name}`);
+    }
+  }
+
+  // Recurse into subdirectories first
+  for (const sub of subdirs) {
+    await deleteStoragePrefix(admin, bucket, sub);
+  }
+
+  // Delete files at this level (in batches of 1000)
+  for (let i = 0; i < filePaths.length; i += 1000) {
+    const batch = filePaths.slice(i, i + 1000);
+    await admin.storage.from(bucket).remove(batch);
+  }
+
+  // If there were more than 1000 items at this level, paginate
+  if (data.length >= 1000) {
+    // Recurse to catch remaining items after the first page was deleted
+    await deleteStoragePrefix(admin, bucket, p);
+  }
+}
+
+// ── Main handler ───────────────────────────────────────────────────────────────
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -38,49 +124,46 @@ Deno.serve(async (req) => {
 
     // ── Delete user data in dependency order ─────────────────────────────────
 
-    // 1. Share package items (FK → share_packages)
+    // 1. Share package items (FK → share_packages) + collect artifact paths
     const { data: packages } = await admin
       .from("share_packages")
-      .select("id")
+      .select("id, payload_json")
       .eq("owner_id", userId);
+
+    const artifactPaths: string[] = [];
     if (packages && packages.length > 0) {
       const pkgIds = packages.map((p: { id: string }) => p.id);
       await admin.from("share_package_items").delete().in("package_id", pkgIds);
+
+      // Collect share-artifact storage paths from payload_json
+      for (const pkg of packages) {
+        const payload = pkg.payload_json;
+        if (payload?.pdfs && typeof payload.pdfs === "object") {
+          for (const pdfPath of Object.values(payload.pdfs)) {
+            if (typeof pdfPath === "string" && pdfPath.length > 0) {
+              artifactPaths.push(pdfPath);
+            }
+          }
+        }
+      }
     }
 
     // 2. Share packages
     await admin.from("share_packages").delete().eq("owner_id", userId);
 
-    // 3. Storage: documents bucket
-    const { data: docFiles } = await admin.storage
-      .from("documents")
-      .list(`${userId}/`, { limit: 1000 });
-    if (docFiles && docFiles.length > 0) {
-      const paths = docFiles.map((f: { name: string }) => `${userId}/${f.name}`);
-      await admin.storage.from("documents").remove(paths);
-    }
-    // Also check subdirectories
-    for (const subdir of ["medical-documents", "medical-images"]) {
-      const { data: subFiles } = await admin.storage
-        .from("documents")
-        .list(`${userId}/${subdir}`, { limit: 1000 });
-      if (subFiles && subFiles.length > 0) {
-        const subPaths = subFiles.map(
-          (f: { name: string }) => `${userId}/${subdir}/${f.name}`
-        );
-        await admin.storage.from("documents").remove(subPaths);
-      }
-    }
+    // 3. Storage: documents bucket — all user files recursively
+    //    Covers: medical-documents, medical-images, voice-notes,
+    //    processed/{docId}/*, ai/evaluation/*, and any root-level files
+    await deleteStoragePrefix(admin, "documents", `${userId}/`);
 
     // 4. Storage: share-artifacts bucket
-    const { data: shareFiles } = await admin.storage
-      .from("share-artifacts")
-      .list(`${userId}/`, { limit: 1000 });
-    if (shareFiles && shareFiles.length > 0) {
-      const sharePaths = shareFiles.map(
-        (f: { name: string }) => `${userId}/${f.name}`
-      );
-      await admin.storage.from("share-artifacts").remove(sharePaths);
+    //    Share artifacts use random UUID folders (not userId-prefixed),
+    //    so we delete the specific paths collected from payload_json above.
+    if (artifactPaths.length > 0) {
+      for (let i = 0; i < artifactPaths.length; i += 1000) {
+        const batch = artifactPaths.slice(i, i + 1000);
+        await admin.storage.from("share-artifacts").remove(batch);
+      }
     }
 
     // 5. AI job events (FK → ai_jobs)
