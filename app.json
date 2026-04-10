@@ -43,7 +43,8 @@
         "NSHealthUpdateUsageDescription": "We may write to Apple Health only if you choose to export.",
         "NSPhotoLibraryUsageDescription": "Allow RIVR to access your photos to upload health documents.",
         "NSCameraUsageDescription": "Allow RIVR to use your camera to scan health documents.",
-        "NSMicrophoneUsageDescription": "Allow RIVR to use your microphone so you can record voice notes about your symptoms and health history."
+        "NSMicrophoneUsageDescription": "Allow RIVR to use your microphone so you can record voice notes about your symptoms and health history.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.rivrhealth.app"
     },
