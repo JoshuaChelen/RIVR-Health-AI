@@ -132,18 +132,6 @@ export default function HealthSummaryScreen({ navigation }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [loading, load]);
 
-  // ── Refresh handler: trigger re-evaluation then reload ──────────────────────
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await triggerProfileEvalAfterSave();
-    } catch {
-      // Eval enqueue failed — still reload in case data is already fresh
-    }
-    // Reload immediately so user sees current data while eval runs
-    await load();
-    setRefreshing(false);
-  }, [load]);
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const summaryJson  = profile?.summary_json ?? null;
@@ -177,6 +165,20 @@ export default function HealthSummaryScreen({ navigation }: Props) {
 
   const isStale = isStaleProfile || isStaleDoc;
 
+  // ── Auto-trigger re-evaluation when stale ──────────────────────────────────
+  const hasTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (isStale && !refreshing && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      setRefreshing(true);
+      triggerProfileEvalAfterSave()
+        .catch(() => {})
+        .finally(() => setRefreshing(false));
+    }
+    // Reset the guard when data becomes fresh so it can fire again next time
+    if (!isStale) hasTriggeredRef.current = false;
+  }, [isStale, refreshing]);
+
   // ── Source tags ─────────────────────────────────────────────────────────────
   const src = profile?.sources ?? null;
   const sourceTags: string[] = [];
@@ -209,28 +211,13 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        {/* ── Stale banner ──────────────────────────────────── */}
+        {/* ── Stale / updating banner ─────────────────────────── */}
         {showContent && isStale ? (
           <View style={styles.staleBanner}>
-            <Ionicons name="refresh-outline" size={13} color={colors.teal} />
+            <ActivityIndicator size="small" color={colors.teal} />
             <AppText style={styles.staleText}>
-              {isStaleProfile && isStaleDoc
-                ? "Your profile and documents have changed since your last summary."
-                : isStaleDoc
-                ? "New documents have been processed since your last summary."
-                : "Your medical profile has changed since your last summary."}
+              We're updating your health summary — give us a moment, please.
             </AppText>
-            <Pressable
-              style={({ pressed }) => [styles.staleBtn, pressed && { opacity: 0.75 }]}
-              onPress={handleRefresh}
-              disabled={refreshing}
-            >
-              {refreshing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <AppText style={styles.staleBtnText}>Refresh</AppText>
-              )}
-            </Pressable>
           </View>
         ) : null}
 
@@ -466,17 +453,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.xs,
     color: c.teal,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-  },
-  staleBtn: {
-    backgroundColor: c.teal,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-  },
-  staleBtnText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.bold,
-    color: "#fff",
   },
 
   // ── Loading ──────────────────────────────────────────────
