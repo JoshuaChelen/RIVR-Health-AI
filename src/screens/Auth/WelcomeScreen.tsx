@@ -140,7 +140,7 @@ export function WelcomeScreen({ navigation }: Props) {
   };
 
   return (
-    <LinearGradient colors={["#FFFBF7", colors.bg]} style={styles.root}>
+    <LinearGradient colors={[colors.surface, colors.bg]} style={styles.root}>
       {/* Skip button — hidden on last panel */}
       {page < panels.length - 1 && (
         <Pressable

@@ -616,7 +616,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.sm,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: c.dangerBorder,
   },
   errorText: {
     fontSize: typescale.size.sm,

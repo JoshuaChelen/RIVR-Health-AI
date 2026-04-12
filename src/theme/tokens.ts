@@ -24,8 +24,9 @@ export const lightColors = {
   dangerBorder: "#FECACA",
   warning:     "#D97706",
   warnSoft:    "#FFFBEB",
-  success:     "#059669",
-  successSoft: "#ECFDF5",
+  success:       "#059669",
+  successSoft:   "#ECFDF5",
+  successBorder: "#6EE7B7",
 
   // Primary accent — teal (medical palette)
   teal:       "#1FADA6",
@@ -68,8 +69,9 @@ export const darkColors: Colors = {
   dangerBorder: "#7F1D1D",
   warning:     "#D97706",
   warnSoft:    "#2D2510",
-  success:     "#059669",
-  successSoft: "#0D2D1B",
+  success:       "#059669",
+  successSoft:   "#0D2D1B",
+  successBorder: "#065F46",
 
   // Primary accent — teal
   teal:       "#1FADA6",

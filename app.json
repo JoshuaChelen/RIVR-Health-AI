@@ -42,7 +42,9 @@
         "NSHealthShareUsageDescription": "We read Apple Health data to show your vitals on the home screen.",
         "NSHealthUpdateUsageDescription": "We may write to Apple Health only if you choose to export.",
         "NSPhotoLibraryUsageDescription": "Allow RIVR to access your photos to upload health documents.",
-        "NSCameraUsageDescription": "Allow RIVR to use your camera to scan health documents."
+        "NSCameraUsageDescription": "Allow RIVR to use your camera to scan health documents.",
+        "NSMicrophoneUsageDescription": "Allow RIVR to use your microphone so you can record voice notes about your symptoms and health history.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.rivrhealth.app"
     },
@@ -60,6 +62,12 @@
     },
     "web": {
       "favicon": "./assets/branding/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0b17b39a-c1e6-49f9-95e3-71acea501e8f"
+      }
+    },
+    "owner": "darwashiom"
   }
 }

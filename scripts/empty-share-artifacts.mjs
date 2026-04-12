@@ -1,10 +1,33 @@
+/**
+ * Utility script: list share-artifacts bucket contents.
+ *
+ * Usage:
+ *   SUPABASE_URL=https://your-project.supabase.co \
+ *   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key \
+ *   node scripts/empty-share-artifacts.mjs
+ *
+ * Both environment variables are REQUIRED — this script will not start
+ * without them. Never hardcode credentials here.
+ */
 import { createClient } from "@supabase/supabase-js";
 
-const url = process.env.SUPABASE_URL || "https://vpzywhfrnyyztwylbbzf.supabase.co";
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwenl3aGZybnl5enR3eWxiYnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwNzYzMDIsImV4cCI6MjA4MTY1MjMwMn0.HaikV_Z5_qUYQoo2JRqAfLeGyaRF7tgz75i4qP4lVP8";
+const url = process.env.SUPABASE_URL;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!url || !key) {
+  console.error(
+    "ERROR: Missing required environment variables.\n" +
+    "  Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.\n" +
+    "  Example:\n" +
+    "    SUPABASE_URL=https://your-project.supabase.co \\\n" +
+    "    SUPABASE_SERVICE_ROLE_KEY=your-key \\\n" +
+    "    node scripts/empty-share-artifacts.mjs"
+  );
+  process.exit(1);
+}
 
 console.log("SUPABASE_URL =", url);
-console.log("KEY prefix =", key?.slice(0, 20));
+console.log("KEY prefix =", key?.slice(0, 20) + "…");
 
 const supabase = createClient(url, key, {
   auth: { persistSession: false },

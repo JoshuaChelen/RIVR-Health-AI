@@ -197,28 +197,34 @@ Deno.serve(async (req) => {
             };
           }
 
-          // Allergies backward-compat: manual items only
-          const manualAllergies = Array.isArray(userProfile.allergies)
-            ? userProfile.allergies.filter(
-                (a: any) => typeof a.id !== "string" || !a.id.startsWith("ai_")
-              )
-            : [];
-          if ((!card.allergies || card.allergies.length === 0) && manualAllergies.length > 0) {
-            card.allergies = manualAllergies
-              .map((a: any) => [a.allergen, a.reaction].filter(Boolean).join(" — "))
-              .filter(Boolean);
+          // Allergies backward-compat: prefer manual items, fall back to
+          // AI-backfilled items so document-extracted data isn't lost when
+          // card_json was saved by the older merge logic that wiped AI items.
+          if (!card.allergies || card.allergies.length === 0) {
+            const allAllergies = Array.isArray(userProfile.allergies) ? userProfile.allergies : [];
+            const manualAllergies = allAllergies.filter(
+              (a: any) => typeof a.id !== "string" || !a.id.startsWith("ai_")
+            );
+            const source = manualAllergies.length > 0 ? manualAllergies : allAllergies;
+            if (source.length > 0) {
+              card.allergies = source
+                .map((a: any) => [a.allergen, a.reaction].filter(Boolean).join(" — "))
+                .filter(Boolean);
+            }
           }
 
-          // Medications backward-compat: manual items only
-          const manualMedications = Array.isArray(userProfile.medications)
-            ? userProfile.medications.filter(
-                (m: any) => typeof m.id !== "string" || !m.id.startsWith("ai_")
-              )
-            : [];
-          if ((!card.current_meds || card.current_meds.length === 0) && manualMedications.length > 0) {
-            card.current_meds = manualMedications
-              .map((m: any) => [m.name, m.dose, m.frequency].filter(Boolean).join(" "))
-              .filter(Boolean);
+          // Medications backward-compat: same strategy as allergies above.
+          if (!card.current_meds || card.current_meds.length === 0) {
+            const allMeds = Array.isArray(userProfile.medications) ? userProfile.medications : [];
+            const manualMedications = allMeds.filter(
+              (m: any) => typeof m.id !== "string" || !m.id.startsWith("ai_")
+            );
+            const source = manualMedications.length > 0 ? manualMedications : allMeds;
+            if (source.length > 0) {
+              card.current_meds = source
+                .map((m: any) => [m.name, m.dose, m.frequency].filter(Boolean).join(" "))
+                .filter(Boolean);
+            }
           }
 
           if (patientFullName) card.patient_name = patientFullName;

@@ -204,7 +204,7 @@ export function HomeScreen({ navigation }: Props) {
                   </Pressable>
                 ) : null}
               </View>
-              <AppText style={styles.heroSub}>Overall health index</AppText>
+              <AppText style={styles.heroSub}>AI wellness indicator</AppText>
             </View>
             {scoreLoading ? null : score != null ? (
               <View style={styles.labelPill}>
@@ -320,21 +320,7 @@ export function HomeScreen({ navigation }: Props) {
           />
         </View>
 
-        {/* ── Sign out ──────────────────────────────────────── */}
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-          style={({ pressed }) => [
-            styles.signOut,
-            pressed && { opacity: 0.5 },
-          ]}
-          onPress={async () => {
-            await supabase.auth.signOut();
-          }}
-        >
-          <AppText style={styles.signOutText}>Sign out</AppText>
-        </Pressable>
+        
       </ScrollView>
     </Screen>
   );

@@ -326,9 +326,11 @@ function mergeCardWithProfile(
 
   // Allergies: user profile is the authoritative source.
   // - If the user has manual entries, write those into the card.
-  // - If the user has a profile row but NO entries (they deleted everything),
-  //   actively clear the card field so doc-extracted or AI-backfilled allergies
-  //   cannot survive a deliberate deletion.
+  // - If the user has a profile row and the raw array is truly empty (they
+  //   deleted everything), actively clear the card field.
+  // - If the raw array contains only AI-backfilled items (id starts with
+  //   "ai_") but no manual entries, the user never deleted anything — keep
+  //   the AI card's value so document-extracted data is preserved.
   // - If there is no profile row at all, leave the AI card's value untouched.
   if (manualCtx.allergies && manualCtx.allergies.length > 0) {
     merged.allergies = manualCtx.allergies.map((a) => {
@@ -338,7 +340,16 @@ function mergeCardWithProfile(
       return parts.join(" — ");
     });
   } else if (rawProfile !== null) {
-    merged.allergies = [];
+    const rawAllergies = Array.isArray(rawProfile.allergies) ? rawProfile.allergies : [];
+    const hasOnlyAiItems = rawAllergies.length > 0 && rawAllergies.every(
+      (a: any) => typeof a.id === "string" && a.id.startsWith("ai_")
+    );
+    // Only clear when the user genuinely has zero entries (deliberate deletion).
+    // If there are AI-backfilled items but no manual ones, the user didn't
+    // delete anything — preserve the AI card's extracted values.
+    if (!hasOnlyAiItems) {
+      merged.allergies = [];
+    }
   }
 
   // Medications: same authoritative-source rule as allergies above.
@@ -348,7 +359,13 @@ function mergeCardWithProfile(
       return detail ? `${m.name} (${detail})` : m.name;
     });
   } else if (rawProfile !== null) {
-    merged.current_meds = [];
+    const rawMeds = Array.isArray(rawProfile.medications) ? rawProfile.medications : [];
+    const hasOnlyAiMeds = rawMeds.length > 0 && rawMeds.every(
+      (m: any) => typeof m.id === "string" && m.id.startsWith("ai_")
+    );
+    if (!hasOnlyAiMeds) {
+      merged.current_meds = [];
+    }
   }
 
   // Emergency contact: use profile if present (not in ManualProfileContext

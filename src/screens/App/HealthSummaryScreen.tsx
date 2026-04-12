@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -13,6 +13,7 @@ import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
 import { getCurrentUserId } from "../../lib/auth";
+import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
 import { captureException } from "../../lib/sentry";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -59,12 +60,14 @@ type Props = NativeStackScreenProps<AppStackParamList, "HealthSummary">;
 
 export default function HealthSummaryScreen({ navigation }: Props) {
   const [loading, setLoading]         = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
   const [profile, setProfile]         = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [evaluation, setEval]         = useState<any>(null);
   const [evalCreatedAt, setEvalCreatedAt] = useState<string | null>(null);
   const [latestDocProcessedAt, setLatestDocProcessedAt] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
+  const userIdRef                     = useRef<string | null>(null);
 
   const styles = useStyles();
   const { colors } = useTheme();
@@ -74,6 +77,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
     setLoading(true);
     try {
       const userId = await getCurrentUserId();
+      userIdRef.current = userId;
       const [p, ev, up, latestDoc] = await Promise.all([
         getHealthProfile(userId),
         getLatestEvaluation(userId),
@@ -102,6 +106,44 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // ── Realtime: reload when health_profiles row is updated ────────────────────
+  useEffect(() => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`health-profile:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "health_profiles",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Health profile was updated (e.g. after a new evaluation) — reload.
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [loading, load]);
+
+  // ── Refresh handler: trigger re-evaluation then reload ──────────────────────
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await triggerProfileEvalAfterSave();
+    } catch {
+      // Eval enqueue failed — still reload in case data is already fresh
+    }
+    // Reload immediately so user sees current data while eval runs
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const summaryJson  = profile?.summary_json ?? null;
@@ -180,9 +222,14 @@ export default function HealthSummaryScreen({ navigation }: Props) {
             </AppText>
             <Pressable
               style={({ pressed }) => [styles.staleBtn, pressed && { opacity: 0.75 }]}
-              onPress={() => navigation.navigate("ManageDocuments")}
+              onPress={handleRefresh}
+              disabled={refreshing}
             >
-              <AppText style={styles.staleBtnText}>Refresh</AppText>
+              {refreshing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <AppText style={styles.staleBtnText}>Refresh</AppText>
+              )}
             </Pressable>
           </View>
         ) : null}
@@ -283,10 +330,14 @@ export default function HealthSummaryScreen({ navigation }: Props) {
         ) : null}
 
         {/* ── Disclaimer footer ─────────────────────────────── */}
-        {showContent && hasContent && disclaimer ? (
+        {showContent && hasContent ? (
           <View style={styles.disclaimerWrap}>
             <Ionicons name="information-circle-outline" size={12} color={colors.subtle} />
-            <AppText style={styles.disclaimerText}>{String(disclaimer)}</AppText>
+            <AppText style={styles.disclaimerText}>
+              {disclaimer
+                ? String(disclaimer)
+                : "This summary is AI-generated from the health data you provided and is for informational purposes only. It is not a medical diagnosis or substitute for professional medical advice. Always consult a qualified healthcare provider."}
+            </AppText>
           </View>
         ) : null}
 

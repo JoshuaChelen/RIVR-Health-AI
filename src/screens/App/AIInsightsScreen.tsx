@@ -119,10 +119,14 @@ export function AIInsightsScreen({ navigation }: Props) {
         ) : null}
 
         {/* ── Disclaimer footer ─────────────────────────────── */}
-        {!loading && !error && hasRecommendations && disclaimer ? (
+        {!loading && !error && hasRecommendations ? (
           <View style={styles.disclaimerRow}>
             <Ionicons name="information-circle-outline" size={12} color={colors.subtle} />
-            <AppText style={styles.disclaimerText}>{String(disclaimer)}</AppText>
+            <AppText style={styles.disclaimerText}>
+              {disclaimer
+                ? String(disclaimer)
+                : "These recommendations are AI-generated from the health data you provided and are for informational purposes only. They do not constitute medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider."}
+            </AppText>
           </View>
         ) : null}
 

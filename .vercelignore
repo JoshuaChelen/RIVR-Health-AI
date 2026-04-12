@@ -10,6 +10,8 @@ worker
 supabase
 supabaseSQL
 share-web
+reset-web
+verify-web
 scripts
 logo-concepts
 cat

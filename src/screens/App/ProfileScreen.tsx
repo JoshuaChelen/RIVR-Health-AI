@@ -28,6 +28,7 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { TextField } from "../../components/ui/Primitives/TextField";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
+import { Card } from "../../components/ui/Primitives/Card";
 import { safeList } from "../../lib/profileMedical";
 
 import { captureException } from "../../lib/sentry";
@@ -652,60 +653,108 @@ async function saveEmergency() {
             )}
           </SectionCard>
 
-          {/* ── Appearance toggle ─────────────────────────── */}
-          <View style={styles.appearanceSection}>
-            <AppText style={styles.appearanceLabel}>Appearance</AppText>
-            <View style={styles.segmentRow}>
-              {(["system", "light", "dark"] as const).map((opt) => (
-                <Pressable
-                  key={opt}
-                  accessible
-                  accessibilityRole="button"
-                  accessibilityLabel={`${opt.charAt(0).toUpperCase() + opt.slice(1)} theme`}
-                  accessibilityState={{ selected: preference === opt }}
-                  onPress={() => setPreference(opt)}
-                  style={[styles.segment, preference === opt && styles.segmentActive]}
-                >
-                  <AppText style={[styles.segmentText, preference === opt && styles.segmentTextActive]}>
-                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                  </AppText>
-                </Pressable>
-              ))}
+          {/* ── Preferences card ─────────────────────────── */}
+          <Card style={styles.settingsCard}>
+            <View style={styles.settingsCardHeader}>
+              <View style={styles.settingsIconWrap}>
+                <Ionicons name="color-palette-outline" size={18} color={colors.teal} />
+              </View>
+              <AppText style={styles.settingsCardTitle}>Appearance</AppText>
             </View>
-          </View>
+            <View style={styles.settingsDivider} />
+            <View style={styles.settingsCardBody}>
+              <AppText style={styles.settingsHint}>Choose how RIVR Health looks on your device.</AppText>
+              <View style={styles.segmentRow}>
+                {(["system", "light", "dark"] as const).map((opt, i, arr) => (
+                  <Pressable
+                    key={opt}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel={`${opt.charAt(0).toUpperCase() + opt.slice(1)} theme`}
+                    accessibilityState={{ selected: preference === opt }}
+                    onPress={() => setPreference(opt)}
+                    style={[
+                      styles.segment,
+                      preference === opt && styles.segmentActive,
+                      i === 0 && styles.segmentFirst,
+                      i === arr.length - 1 && styles.segmentLast,
+                    ]}
+                  >
+                    <Ionicons
+                      name={opt === "system" ? "phone-portrait-outline" : opt === "light" ? "sunny-outline" : "moon-outline"}
+                      size={14}
+                      color={preference === opt ? "#fff" : colors.muted}
+                      style={{ marginBottom: 2 }}
+                    />
+                    <AppText style={[styles.segmentText, preference === opt && styles.segmentTextActive]}>
+                      {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </Card>
 
-          {/* ── Sign out ───────────────────────────────────── */}
-          <Pressable
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-            style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.5 }]}
-            onPress={async () => { await supabase.auth.signOut(); }}
-          >
-            <AppText style={styles.signOutText}>Sign out</AppText>
-          </Pressable>
+          {/* ── Account card ─────────────────────────────── */}
+          <Card style={styles.settingsCard}>
+            <View style={styles.settingsCardHeader}>
+              <View style={styles.settingsIconWrap}>
+                <Ionicons name="settings-outline" size={18} color={colors.teal} />
+              </View>
+              <AppText style={styles.settingsCardTitle}>Account</AppText>
+            </View>
+            <View style={styles.settingsDivider} />
 
-          <Pressable
-            onPress={() => Linking.openURL("https://rivrhealth.ai/privacy-policy")}
-            style={({ pressed }) => [
-              { paddingVertical: spacing.sm, alignItems: "center" },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <AppText style={{ color: colors.teal, fontSize: typescale.size.sm, fontWeight: typescale.weight.medium as any }}>
-              Privacy Policy
-            </AppText>
-          </Pressable>
+            {/* Privacy Policy row */}
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Privacy Policy"
+              accessibilityHint="Opens privacy policy in your browser"
+              onPress={() => Linking.openURL("https://rivrhealth.ai/privacy-policy")}
+              style={({ pressed }) => [styles.settingsRow, pressed && styles.settingsRowPressed]}
+            >
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.muted} />
+              <View style={styles.settingsRowText}>
+                <AppText style={styles.settingsRowLabel}>Privacy Policy</AppText>
+                <AppText style={styles.settingsRowSub}>How we handle your data</AppText>
+              </View>
+              <Ionicons name="open-outline" size={14} color={colors.subtle} />
+            </Pressable>
 
-          {/* ── Delete account ─────────────────────────────── */}
-          <View style={styles.deleteSection}>
+            <View style={styles.settingsDividerInset} />
+
+            {/* Sign out row */}
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              accessibilityHint="Signs you out of your account"
+              onPress={async () => { await supabase.auth.signOut(); }}
+              style={({ pressed }) => [styles.settingsRow, styles.settingsRowLast, pressed && styles.settingsRowPressed]}
+            >
+              <Ionicons name="log-out-outline" size={18} color={colors.muted} />
+              <View style={styles.settingsRowText}>
+                <AppText style={styles.settingsRowLabel}>Sign Out</AppText>
+                <AppText style={styles.settingsRowSub}>You can sign back in any time</AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={colors.subtle} />
+            </Pressable>
+          </Card>
+
+          {/* ── Danger zone card ──────────────────────────── */}
+          <View style={styles.dangerCard}>
+            <View style={styles.dangerHeader}>
+              <Ionicons name="warning-outline" size={16} color={colors.danger} />
+              <AppText style={styles.dangerTitle}>Danger Zone</AppText>
+            </View>
+            <View style={styles.dangerDivider} />
             <Pressable
               accessible
               accessibilityRole="button"
               accessibilityLabel="Delete account"
               accessibilityHint="Permanently deletes your account and all data"
               disabled={deleting}
-              style={({ pressed }) => [styles.deleteBtn, pressed && !deleting && { opacity: 0.6 }]}
               onPress={() => {
                 Alert.alert(
                   "Delete Account?",
@@ -747,16 +796,21 @@ async function saveEmergency() {
                   ],
                 );
               }}
+              style={({ pressed }) => [styles.dangerRow, pressed && !deleting && styles.settingsRowPressed]}
             >
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+              <View style={styles.settingsRowText}>
+                <AppText style={styles.dangerRowLabel}>Delete Account</AppText>
+                <AppText style={styles.dangerRowSub}>
+                  Permanently remove your account, documents, and all health data
+                </AppText>
+              </View>
               {deleting ? (
                 <ActivityIndicator color={colors.danger} size="small" />
               ) : (
-                <AppText style={styles.deleteBtnText}>Delete Account</AppText>
+                <Ionicons name="chevron-forward" size={14} color={colors.danger} />
               )}
             </Pressable>
-            <AppText style={styles.deleteHint}>
-              Permanently delete your account and all health data
-            </AppText>
           </View>
 
         </ScrollView>
@@ -1016,77 +1070,161 @@ const useStyles = createStyles((colors) => StyleSheet.create({
     color: colors.muted,
   },
 
-  // ── Appearance ──
-  appearanceSection: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
+  // ── Settings cards (shared) ──
+  settingsCard: {
+    padding: 0,
+    overflow: "hidden",
+    borderRadius: radius.lg,
   },
-  appearanceLabel: {
-    fontSize: typescale.size.sm,
+  settingsCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  settingsIconWrap: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  settingsCardTitle: {
+    fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold as any,
-    color: colors.muted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    color: colors.text,
   },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: spacing.lg,
+  },
+  settingsDividerInset: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginLeft: spacing.lg + 18 + spacing.sm,
+    marginRight: spacing.lg,
+  },
+  settingsCardBody: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  settingsHint: {
+    fontSize: typescale.size.sm,
+    color: colors.muted,
+    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+  },
+
+  // ── Segmented control ──
   segmentRow: {
     flexDirection: "row",
     borderRadius: radius.md,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.bgSecondary,
+    padding: 3,
+    gap: 3,
   },
   segment: {
     flex: 1,
     paddingVertical: spacing.sm,
     alignItems: "center",
-    backgroundColor: colors.bgSecondary,
+    justifyContent: "center",
+    borderRadius: radius.md - 2,
+    gap: 1,
   },
+  segmentFirst: {},
+  segmentLast: {},
   segmentActive: {
     backgroundColor: colors.teal,
+    ...shadows.xs,
   },
   segmentText: {
-    fontSize: typescale.size.sm,
+    fontSize: typescale.size.xs,
     fontWeight: typescale.weight.semibold as any,
-    color: colors.textSub,
+    color: colors.muted,
   },
   segmentTextActive: {
     color: "#fff",
+    fontWeight: typescale.weight.bold as any,
   },
 
-  // ── Sign out ──
-  signOut: {
-    alignSelf: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xs,
-  },
-  signOutText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium as any,
-    color: colors.subtle,
-  },
-
-  // ── Delete account ──
-  deleteSection: {
+  // ── Settings rows ──
+  settingsRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: spacing.xxl,
-    marginBottom: spacing.xxl,
-    gap: spacing.xs,
-  },
-  deleteBtn: {
-    paddingVertical: spacing.sm,
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    minHeight: 56,
   },
-  deleteBtnText: {
+  settingsRowLast: {
+    // no extra style needed; placeholder for readability
+  },
+  settingsRowPressed: {
+    backgroundColor: colors.bgSecondary,
+  },
+  settingsRowText: {
+    flex: 1,
+    gap: 2,
+  },
+  settingsRowLabel: {
     fontSize: typescale.size.base,
-    fontWeight: typescale.weight.semibold as any,
-    color: colors.danger,
+    fontWeight: typescale.weight.medium as any,
+    color: colors.text,
   },
-  deleteHint: {
+  settingsRowSub: {
     fontSize: typescale.size.xs,
     color: colors.muted,
-    textAlign: "center",
-    paddingHorizontal: spacing.xl,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // ── Danger zone card ──
+  dangerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    overflow: "hidden",
+    marginBottom: spacing.xxl,
+    ...shadows.xs,
+  },
+  dangerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  dangerTitle: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.bold as any,
+    color: colors.danger,
+    letterSpacing: 0.3,
+  },
+  dangerDivider: {
+    height: 1,
+    backgroundColor: colors.dangerBorder,
+    opacity: 0.4,
+    marginHorizontal: spacing.lg,
+  },
+  dangerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    minHeight: 56,
+  },
+  dangerRowLabel: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.medium as any,
+    color: colors.danger,
+  },
+  dangerRowSub: {
+    fontSize: typescale.size.xs,
+    color: colors.muted,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
   // ── DOB calendar icon ──

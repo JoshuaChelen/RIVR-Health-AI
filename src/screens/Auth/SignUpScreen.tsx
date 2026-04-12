@@ -217,7 +217,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: c.dangerBorder,
   },
   errorText: {
     fontSize: typescale.size.sm,
@@ -231,7 +231,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderWidth: 1,
-    borderColor: "#6EE7B7",
+    borderColor: c.successBorder,
   },
   successText: {
     fontSize: typescale.size.sm,
