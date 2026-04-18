@@ -23,7 +23,6 @@
       ],
       "expo-font",
       "react-native-health",
-      "sentry-expo",
       [
         "expo-build-properties",
         {
