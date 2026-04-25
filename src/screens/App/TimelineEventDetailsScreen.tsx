@@ -143,6 +143,13 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
     // Validate against the selected precision. Accept either the canonical
     // YYYY-MM-DD form (what the DB stores) or the partial form matching the
     // precision pill (what the user might type). Both are fine.
+    //
+    // Note: date_precision is display metadata, not a constraint on
+    // occurred_at's specificity. A row with precision='year' and
+    // occurred_at='2024-03-15' is allowed — the UI will format it as "2024"
+    // based on precision. This matches worker/src/main.ts normalizeDate,
+    // which also preserves caller-supplied precision regardless of input
+    // specificity. We do not strip month/day to match coarser precision.
     let normalizedOccurredAt: string | null = null;
     {
       const v = draft.occurred_at.trim();
