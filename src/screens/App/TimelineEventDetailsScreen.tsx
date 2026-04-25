@@ -140,16 +140,39 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
     if (!item || !draft) return;
     setErr(null);
 
-    if (draft.occurred_at.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(draft.occurred_at.trim())) {
-      setErr("Date must be in YYYY-MM-DD format.");
-      return;
+    // Validate against the selected precision. Accept either the canonical
+    // YYYY-MM-DD form (what the DB stores) or the partial form matching the
+    // precision pill (what the user might type). Both are fine.
+    let normalizedOccurredAt: string | null = null;
+    {
+      const v = draft.occurred_at.trim();
+      if (v) {
+        const acceptable: Record<"day" | "month" | "year", RegExp[]> = {
+          day:   [/^\d{4}-\d{2}-\d{2}$/],
+          month: [/^\d{4}-\d{2}$/,  /^\d{4}-\d{2}-\d{2}$/],
+          year:  [/^\d{4}$/,        /^\d{4}-\d{2}-\d{2}$/],
+        };
+        if (!acceptable[draft.date_precision].some((re) => re.test(v))) {
+          setErr(
+            draft.date_precision === "year"  ? "Date must be in YYYY or YYYY-MM-DD format." :
+            draft.date_precision === "month" ? "Date must be in YYYY-MM or YYYY-MM-DD format." :
+                                               "Date must be in YYYY-MM-DD format."
+          );
+          return;
+        }
+        // Normalize partial input to canonical YYYY-MM-DD for storage.
+        normalizedOccurredAt =
+          /^\d{4}$/.test(v)             ? `${v}-01-01` :
+          /^\d{4}-\d{2}$/.test(v)       ? `${v}-01`    :
+                                          v;
+      }
     }
 
     const tags = draft.tagsCsv.split(",").map((t) => t.trim()).filter(Boolean);
     const payload: Partial<TimelineEventRow> = {
       title:          draft.title.trim() || null,
       summary:        draft.summary.trim() || null,
-      occurred_at:    draft.occurred_at.trim() || null,
+      occurred_at:    normalizedOccurredAt,
       date_precision: draft.date_precision,
       category:       draft.category.trim() || null,
       event_type:     draft.event_type.trim() || null,
