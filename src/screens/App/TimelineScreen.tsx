@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Pressable,
 } from "react-native";
+import { SetVisitDateModal } from "../../components/ui/Timeline/SetVisitDateModal";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
@@ -28,18 +29,21 @@ type DatePrecision = "day" | "month" | "year";
 
 type TimelineEventRow = {
   id: string;
-  occurred_at: string;
-  date_precision: DatePrecision;
+  occurred_at: string | null;
+  date_precision: DatePrecision | null;
   title: string;
   event_type: string;
   category: string;
   source: string;
   summary: string;
   included_in_previsit: boolean;
+  document_id: string | null;
+  documentTitle: string | null;
 };
 
 type RenderRow =
   | { kind: "month"; key: string; label: string }
+  | { kind: "unknownHeader"; key: string }
   | { kind: "event"; key: string; event: TimelineEventRow; isLastInGroup: boolean };
 
 const PAGE_SIZE = 30;
@@ -52,6 +56,14 @@ export function TimelineScreen({ navigation }: Props) {
   const [hasMore, setHasMore]       = useState(true);
   const [err, setErr]               = useState<string | null>(null);
 
+  const flatListRef = useRef<FlatList<RenderRow>>(null);
+
+  const [modalDoc, setModalDoc] = useState<{
+    documentId: string;
+    documentTitle: string;
+    count: number;
+  } | null>(null);
+
   const styles = useStyles();
   const { colors } = useTheme();
 
@@ -61,24 +73,46 @@ export function TimelineScreen({ navigation }: Props) {
       const { data, error } = await supabase
         .from("timeline_events")
         .select(
-          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit"
+          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit, document_id, documents(title)"
         )
         .neq("source", "apple_health")
-        .order("occurred_at", { ascending: false })
+        .order("occurred_at", { ascending: false, nullsFirst: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
       if (error) throw error;
 
-      const filtered = ((data ?? []) as TimelineEventRow[]).filter(
-        (e) => e.source !== "apple_health"
-      );
+      type RawRow = Omit<TimelineEventRow, "documentTitle"> & {
+        documents: { title: string | null } | { title: string | null }[] | null;
+      };
 
-      setHasMore(filtered.length === PAGE_SIZE);
+      const rows = ((data ?? []) as unknown as RawRow[])
+        .filter((e) => e.source !== "apple_health")
+        .map<TimelineEventRow>((e) => {
+          // Postgrest may return the join as a single object or as a 1-element
+          // array depending on the relationship metadata. Handle both shapes.
+          const doc = Array.isArray(e.documents) ? e.documents[0] : e.documents;
+          const documentTitle = doc?.title ?? null;
+          return {
+            id: e.id,
+            occurred_at: e.occurred_at,
+            date_precision: e.date_precision,
+            title: e.title,
+            event_type: e.event_type,
+            category: e.category,
+            source: e.source,
+            summary: e.summary,
+            included_in_previsit: e.included_in_previsit,
+            document_id: e.document_id,
+            documentTitle,
+          };
+        });
+
+      setHasMore(rows.length === PAGE_SIZE);
 
       if (append) {
-        setEvents((prev) => [...prev, ...filtered]);
+        setEvents((prev) => [...prev, ...rows]);
       } else {
-        setEvents(filtered);
+        setEvents(rows);
       }
     } catch (e: any) {
       captureException(e);
@@ -106,25 +140,83 @@ export function TimelineScreen({ navigation }: Props) {
 
   const rows: RenderRow[] = useMemo(() => {
     const out: RenderRow[] = [];
-    let lastMonthKey: string | null = null;
+    const dated   = events.filter((e) => !!e.occurred_at && !!e.date_precision);
+    const undated = events.filter((e) =>  !e.occurred_at ||  !e.date_precision);
 
-    for (let i = 0; i < events.length; i++) {
-      const ev = events[i];
-      const monthKey = monthBucketKey(ev.occurred_at, ev.date_precision);
+    // Dated rows with month dividers.
+    let lastMonthKey: string | null = null;
+    for (let i = 0; i < dated.length; i++) {
+      const ev = dated[i];
+      const monthKey = monthBucketKey(ev.occurred_at!, ev.date_precision!);
       if (monthKey !== lastMonthKey) {
-        out.push({ kind: "month", key: `m-${monthKey}`, label: monthDividerLabel(ev.occurred_at, ev.date_precision) });
+        out.push({
+          kind: "month",
+          key: `m-${monthKey}`,
+          label: monthDividerLabel(ev.occurred_at!, ev.date_precision!),
+        });
         lastMonthKey = monthKey;
       }
 
-      // isLastInGroup = next row is a month divider or we're at the end
-      const next = events[i + 1];
-      const isLastInGroup = !next || monthBucketKey(next.occurred_at, next.date_precision) !== monthKey;
+      const next = dated[i + 1];
+      const isLastInGroup =
+        !next ||
+        monthBucketKey(next.occurred_at!, next.date_precision!) !== monthKey;
 
       out.push({ kind: "event", key: `e-${ev.id}`, event: ev, isLastInGroup });
     }
 
+    // Unknown-date section pinned at the bottom.
+    if (undated.length > 0) {
+      out.push({ kind: "unknownHeader", key: "unknown-header" });
+      for (let i = 0; i < undated.length; i++) {
+        const ev = undated[i];
+        out.push({
+          kind: "event",
+          key: `e-${ev.id}`,
+          event: ev,
+          isLastInGroup: i === undated.length - 1,
+        });
+      }
+    }
+
     return out;
   }, [events]);
+
+  const undatedCount = useMemo(
+    () => events.filter((e) => !e.occurred_at || !e.date_precision).length,
+    [events],
+  );
+
+  const unknownHeaderIndex = useMemo(
+    () => rows.findIndex((r) => r.kind === "unknownHeader"),
+    [rows],
+  );
+
+  /**
+   * Return how many undated events currently belong to the same document_id
+   * as the given event. Used to populate the modal's count line.
+   */
+  const undatedCountForDoc = useCallback(
+    (documentId: string) =>
+      events.filter(
+        (e) =>
+          e.document_id === documentId &&
+          (!e.occurred_at || !e.date_precision),
+      ).length,
+    [events],
+  );
+
+  const openSetDate = useCallback(
+    (event: TimelineEventRow) => {
+      if (!event.document_id) return;
+      setModalDoc({
+        documentId:    event.document_id,
+        documentTitle: event.documentTitle ?? "Document",
+        count:         undatedCountForDoc(event.document_id),
+      });
+    },
+    [undatedCountForDoc],
+  );
 
   const onToggleIncluded = async (eventId: string, next: boolean) => {
     setEvents((prev) =>
@@ -149,8 +241,20 @@ export function TimelineScreen({ navigation }: Props) {
       return <MonthDivider label={row.label} style={styles.monthDivider} />;
     }
 
-    const ev   = row.event;
-    const meta = categoryMeta(ev.category, colors);
+    if (row.kind === "unknownHeader") {
+      return (
+        <View style={styles.unknownHeaderWrap}>
+          <View style={styles.unknownHeaderBadge}>
+            <AppText style={styles.unknownHeaderBadgeText}>Unknown date</AppText>
+          </View>
+          <View style={styles.unknownHeaderLine} />
+        </View>
+      );
+    }
+
+    const ev      = row.event;
+    const meta    = categoryMeta(ev.category, colors);
+    const undated = !ev.occurred_at || !ev.date_precision;
 
     return (
       <View style={styles.spineRow}>
@@ -167,26 +271,63 @@ export function TimelineScreen({ navigation }: Props) {
         </View>
         <TimelineCard
           title={ev.title}
-          dateLabel={formatEventDate(ev.occurred_at, ev.date_precision)}
+          dateLabel={
+            undated ? "Date unknown" : formatEventDate(ev.occurred_at!, ev.date_precision!)
+          }
           category={ev.category}
           source={ev.source}
           summary={ev.summary}
           included={ev.included_in_previsit}
           onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
           onPress={() => navigation.navigate("Details", { id: ev.id })}
+          onSetDate={undated && ev.document_id ? () => openSetDate(ev) : undefined}
           style={styles.card}
         />
       </View>
     );
-  }, [navigation, onToggleIncluded, styles, colors]);
+  }, [navigation, onToggleIncluded, openSetDate, styles, colors]);
+
+  const scrollToUnknown = useCallback(() => {
+    if (unknownHeaderIndex < 0) return;
+    flatListRef.current?.scrollToIndex({
+      index:    unknownHeaderIndex,
+      animated: true,
+      viewPosition: 0,
+    });
+  }, [unknownHeaderIndex]);
 
   const listHeader = useMemo(() => (
-    err ? (
-      <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}>
-        <ErrorBanner message="Couldn't load your timeline" onRetry={() => load()} />
-      </View>
-    ) : null
-  ), [err, load]);
+    <>
+      {err ? (
+        <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}>
+          <ErrorBanner message="Couldn't load your timeline" onRetry={() => load()} />
+        </View>
+      ) : null}
+
+      {undatedCount > 0 ? (
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={`${undatedCount} events need a date. Tap to scroll to them.`}
+          onPress={scrollToUnknown}
+          style={({ pressed }) => [styles.undatedBanner, pressed && { opacity: 0.85 }]}
+        >
+          <View style={styles.undatedBannerIcon}>
+            <Ionicons name="calendar-outline" size={16} color={colors.teal} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText style={styles.undatedBannerTitle}>
+              {undatedCount} event{undatedCount === 1 ? "" : "s"} need a date
+            </AppText>
+            <AppText style={styles.undatedBannerSub}>
+              Tap to set the visit date so they appear in order.
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.teal} />
+        </Pressable>
+      ) : null}
+    </>
+  ), [err, load, undatedCount, scrollToUnknown, styles, colors]);
 
   const listEmpty = useMemo(() => {
     if (loading) {
@@ -287,25 +428,58 @@ export function TimelineScreen({ navigation }: Props) {
   ), [loadingMore, includedEvents, previewItems, navigation, styles, colors]);
 
   return (
-    <FlatList
-      data={rows}
-      keyExtractor={(item) => item.key}
-      renderItem={renderItem}
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-      onEndReached={loadMore}
-      onEndReachedThreshold={0.3}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={refresh}
-          tintColor={colors.teal}
+    <>
+      <FlatList
+        ref={flatListRef}
+        data={rows}
+        keyExtractor={(item) => item.key}
+        renderItem={renderItem}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.teal}
+          />
+        }
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        ListFooterComponent={listFooter}
+        onScrollToIndexFailed={(info) => {
+          // Fallback when the row hasn't been measured yet (e.g. unknown
+          // section is below the viewport at first paint). Scroll to a
+          // best-effort offset, then retry the precise scroll.
+          flatListRef.current?.scrollToOffset({
+            offset:   info.averageItemLength * info.index,
+            animated: true,
+          });
+          setTimeout(() => {
+            flatListRef.current?.scrollToIndex({
+              index:    info.index,
+              animated: true,
+              viewPosition: 0,
+            });
+          }, 250);
+        }}
+      />
+
+      {modalDoc ? (
+        <SetVisitDateModal
+          visible
+          documentId={modalDoc.documentId}
+          documentTitle={modalDoc.documentTitle}
+          undatedEventCount={modalDoc.count}
+          onSaved={() => {
+            setHasMore(true);
+            load(0, false);
+          }}
+          onClose={() => setModalDoc(null)}
         />
-      }
-      ListHeaderComponent={listHeader}
-      ListEmptyComponent={listEmpty}
-      ListFooterComponent={listFooter}
-    />
+      ) : null}
+    </>
   );
 }
 
@@ -585,5 +759,70 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontWeight: typescale.weight.bold,
     fontSize: typescale.size.base,
     textAlign: "center",
+  },
+
+  // Undated banner
+  undatedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: c.tealSoft,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    borderRadius: radius.md,
+  },
+  undatedBannerIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  undatedBannerTitle: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.bold,
+    color: c.teal,
+  },
+  undatedBannerSub: {
+    fontSize: typescale.size.xs,
+    color: c.teal,
+    opacity: 0.85,
+    marginTop: 1,
+  },
+
+  // Unknown-date section header (appears once, between dated and undated rows)
+  unknownHeaderWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  unknownHeaderBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: c.bgSecondary,
+    borderWidth: 1,
+    borderColor: c.border,
+    flexShrink: 0,
+  },
+  unknownHeaderBadgeText: {
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  unknownHeaderLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: c.borderLight,
   },
 }));
