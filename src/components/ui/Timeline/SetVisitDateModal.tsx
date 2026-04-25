@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -54,12 +54,22 @@ export function SetVisitDateModal({
   const [saving, setSaving]       = useState(false);
   const [err, setErr]             = useState<string | null>(null);
 
+  const def = PRECISIONS.find((p) => p.key === precision)!;
+  if (undatedEventCount <= 0) return null;
+
   const reset = () => {
     setValue("");
     setPrecision("day");
     setSaving(false);
     setErr(null);
   };
+
+  // Reset draft state whenever the modal is dismissed externally so the next
+  // time it opens, the user starts fresh.
+  useEffect(() => {
+    if (!visible) reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const handleClose = () => {
     if (saving) return;
@@ -70,7 +80,6 @@ export function SetVisitDateModal({
   const handleSave = async () => {
     setErr(null);
     const trimmed = value.trim();
-    const def = PRECISIONS.find((p) => p.key === precision)!;
     if (!def.pattern.test(trimmed)) {
       setErr(`Date must be in ${def.hint} format.`);
       return;
@@ -180,14 +189,14 @@ export function SetVisitDateModal({
               setValue(t);
               setErr(null);
             }}
-            placeholder={PRECISIONS.find((p) => p.key === precision)!.hint}
+            placeholder={def.hint}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="numbers-and-punctuation"
             editable={!saving}
           />
           <AppText style={styles.hint}>
-            Format: {PRECISIONS.find((p) => p.key === precision)!.hint}. Set as close as
+            Format: {def.hint}. Set as close as
             you remember; you can leave events undated if you don't know.
           </AppText>
 
