@@ -119,6 +119,11 @@ type TimelineCardProps = {
   included: boolean;
   onToggleIncluded: (next: boolean) => void;
   onPress?: () => void;
+  /**
+   * When provided, the card replaces the static `dateLabel` slot with a
+   * tappable "Set date" CTA. Used for events whose occurred_at is null.
+   */
+  onSetDate?: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -133,6 +138,7 @@ export function TimelineCard({
   included,
   onToggleIncluded,
   onPress,
+  onSetDate,
   style,
 }: TimelineCardProps) {
   const styles = useStyles();
@@ -174,7 +180,21 @@ export function TimelineCard({
             ) : null}
           </View>
 
-          <AppText style={styles.date}>{dateLabel}</AppText>
+          {onSetDate ? (
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Set visit date"
+              onPress={onSetDate}
+              hitSlop={6}
+              style={({ pressed }) => [styles.setDateBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="calendar-outline" size={12} color={colors.teal} />
+              <AppText style={styles.setDateBtnText}>Set date</AppText>
+            </Pressable>
+          ) : (
+            <AppText style={styles.date}>{dateLabel}</AppText>
+          )}
         </View>
 
         {/* ── Summary ── */}
@@ -272,6 +292,23 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontWeight: typescale.weight.semibold,
     flexShrink: 0,
     paddingTop: 2,
+  },
+  setDateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: c.tealSoft,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexShrink: 0,
+  },
+  setDateBtnText: {
+    fontSize: typescale.size.xs,
+    color: c.teal,
+    fontWeight: typescale.weight.bold,
   },
 
   // Summary
