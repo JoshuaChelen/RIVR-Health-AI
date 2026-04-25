@@ -210,7 +210,6 @@ async function replaceDocTimelineEvents(
   userId: string,
   docId: string,
   events: any[],
-  fallbackDate: string
 ) {
   await supabaseAdmin
     .from("timeline_events")
@@ -221,11 +220,12 @@ async function replaceDocTimelineEvents(
 
   const safeEvents = (events || [])
     .map((ev) => {
-      // normalize date but do not drop if missing, DB needs NOT NULL occurred_at
+      // If no date can be inferred, persist null. The Timeline UI surfaces
+      // these as "Unknown date" and lets the user fill them in.
       const normalized = normalizeDate(ev);
 
-      const occurred_at = normalized?.occurred_at ?? fallbackDate;
-      const date_precision = normalized?.date_precision ?? "day";
+      const occurred_at = normalized?.occurred_at ?? null;
+      const date_precision = normalized?.date_precision ?? null;
 
       // turn data_kv into an object for jsonb
       const kv = Array.isArray(ev?.data_kv) ? ev.data_kv : [];
@@ -238,8 +238,8 @@ async function replaceDocTimelineEvents(
       return {
         user_id: userId,
         document_id: docId,
-        occurred_at, // NOT NULL in DB
-        date_precision, // NOT NULL in DB
+        occurred_at,
+        date_precision,
         title: String(ev?.title || "Medical event"),
 
         // DB requires NOT NULL
@@ -536,8 +536,6 @@ async function processJob(job: any) {
             const storagePath = String(d.pdf_path || "");
             const docId = String(d.id);
 
-            const fallbackDate = new Date(d.created_at ?? Date.now()).toISOString().slice(0, 10);
-
             // [2a] Before download
             await checkCancelled(jobId, abortController);
 
@@ -678,7 +676,6 @@ async function processJob(job: any) {
                 userId,
                 docId,
                 Array.isArray(facts.timeline_events) ? facts.timeline_events : [],
-                fallbackDate
               );
 
               // [2e] Before marking doc complete
