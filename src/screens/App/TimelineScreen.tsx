@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -63,6 +63,11 @@ export function TimelineScreen({ navigation }: Props) {
     documentTitle: string;
     count: number;
   } | null>(null);
+
+  // Live ref into the events array. Read from this inside identity-stable
+  // callbacks so they don't force renderItem rebuild on every events change.
+  const eventsRef = useRef<TimelineEventRow[]>([]);
+  useEffect(() => { eventsRef.current = events; }, [events]);
 
   const styles = useStyles();
   const { colors } = useTheme();
@@ -192,33 +197,26 @@ export function TimelineScreen({ navigation }: Props) {
     [rows],
   );
 
-  /**
-   * Return how many undated events currently belong to the same document_id
-   * as the given event. Used to populate the modal's count line.
-   */
-  const undatedCountForDoc = useCallback(
-    (documentId: string) =>
-      events.filter(
-        (e) =>
-          e.document_id === documentId &&
-          (!e.occurred_at || !e.date_precision),
-      ).length,
-    [events],
-  );
-
   const openSetDate = useCallback(
     (event: TimelineEventRow) => {
       if (!event.document_id) return;
+      // Read events via ref so this callback's identity stays stable across
+      // events changes — avoids cascading renderItem rebuilds.
+      const count = eventsRef.current.filter(
+        (e) =>
+          e.document_id === event.document_id &&
+          (!e.occurred_at || !e.date_precision),
+      ).length;
       setModalDoc({
         documentId:    event.document_id,
         documentTitle: event.documentTitle ?? "Document",
-        count:         undatedCountForDoc(event.document_id),
+        count,
       });
     },
-    [undatedCountForDoc],
+    [],
   );
 
-  const onToggleIncluded = async (eventId: string, next: boolean) => {
+  const onToggleIncluded = useCallback(async (eventId: string, next: boolean) => {
     setEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: next } : e))
     );
@@ -231,7 +229,7 @@ export function TimelineScreen({ navigation }: Props) {
         prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: !next } : e))
       );
     }
-  };
+  }, []);
 
   const includedEvents = events.filter((e) => !!e.included_in_previsit);
   const previewItems   = includedEvents.slice(0, 3);
@@ -243,7 +241,12 @@ export function TimelineScreen({ navigation }: Props) {
 
     if (row.kind === "unknownHeader") {
       return (
-        <View style={styles.unknownHeaderWrap}>
+        <View
+          accessible
+          accessibilityRole="header"
+          accessibilityLabel="Unknown date section"
+          style={styles.unknownHeaderWrap}
+        >
           <View style={styles.unknownHeaderBadge}>
             <AppText style={styles.unknownHeaderBadgeText}>Unknown date</AppText>
           </View>
