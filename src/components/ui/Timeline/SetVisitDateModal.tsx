@@ -54,9 +54,6 @@ export function SetVisitDateModal({
   const [saving, setSaving]       = useState(false);
   const [err, setErr]             = useState<string | null>(null);
 
-  const def = PRECISIONS.find((p) => p.key === precision)!;
-  if (undatedEventCount <= 0) return null;
-
   const reset = () => {
     setValue("");
     setPrecision("day");
@@ -70,6 +67,9 @@ export function SetVisitDateModal({
     if (!visible) reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  const def = PRECISIONS.find((p) => p.key === precision)!;
+  if (undatedEventCount <= 0) return null;
 
   const handleClose = () => {
     if (saving) return;
