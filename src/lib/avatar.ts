@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import * as FileSystem from "expo-file-system/legacy";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 import { supabase } from "./supabase";
@@ -15,8 +16,21 @@ const JPEG_QUALITY = 0.8;
 /** TTL for signed URLs. Long enough for a typical screen session, short enough to limit blast radius. */
 const SIGNED_URL_TTL_S = 600;
 
-/** Re-sign this many seconds before expiry to avoid a flash of broken image. */
-const REFRESH_LEAD_S = 60;
+/** Local on-disk cache dir for downloaded avatar bytes. Survives app restart. */
+const CACHE_DIR = `${FileSystem.cacheDirectory}avatar-cache/`;
+
+/** File-name-safe version of a storage path used as the cache key. */
+function cacheFileFor(avatarPath: string): string {
+  return `${CACHE_DIR}${avatarPath.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+}
+
+async function ensureCacheDir(): Promise<void> {
+  try {
+    await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+  } catch {
+    // Already exists — ignore.
+  }
+}
 
 /**
  * Resize + re-encode the source image to a 512x512 JPEG, upload it to
@@ -47,6 +61,16 @@ export async function uploadAvatar(userId: string, sourceUri: string): Promise<s
 
   await upsertProfile(userId, { avatar_path: path });
 
+  // Warm the local cache with the bytes we just uploaded so the avatar shows
+  // instantly on the next render without a round-trip to download what we
+  // already have on disk.
+  try {
+    await ensureCacheDir();
+    await FileSystem.copyAsync({ from: manipulated.uri, to: cacheFileFor(path) });
+  } catch {
+    // Cache warm is best-effort — the hook will fall back to a network fetch.
+  }
+
   return path;
 }
 
@@ -59,57 +83,103 @@ export async function removeAvatar(userId: string, currentPath: string | null): 
   if (currentPath) {
     const { error: rmErr } = await supabase.storage.from(BUCKET).remove([currentPath]);
     if (rmErr) throw rmErr;
+
+    // Best-effort: also clear the on-disk cache so the next load doesn't
+    // briefly show the deleted photo before the hook realizes it's gone.
+    try {
+      await FileSystem.deleteAsync(cacheFileFor(currentPath), { idempotent: true });
+    } catch {
+      // Idempotent — ignore.
+    }
   }
 
   await upsertProfile(userId, { avatar_path: null });
 }
 
 /**
- * Returns a signed URL for the given avatar path and refreshes before expiry.
+ * Returns a stable URI to display the avatar. The hook prefers a locally
+ * cached file (instant display + survives app restart) and refreshes the
+ * bytes in the background by re-downloading via a short-lived signed URL.
+ *
+ * Behaviour by case:
+ *
+ *   - avatarPath is null / undefined            → returns null
+ *   - cached file exists                        → return file:// URI immediately,
+ *                                                 then refresh bytes in background
+ *   - no cached file                            → wait for sign + download,
+ *                                                 then return file:// URI
+ *   - download fails and we have a cached file  → keep showing the cached file
+ *   - download fails and no cached file         → returns null
+ *
+ * The returned URI carries a `?v=…` query param so RN's <Image> reloads when
+ * the underlying file is rewritten by a background refresh.
  */
 export function useAvatarUrl(avatarPath: string | null | undefined): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelledRef = useRef(false);
+  const [uri, setUri] = useState<string | null>(null);
 
   useEffect(() => {
-    cancelledRef.current = false;
+    let cancelled = false;
 
-    const sign = async () => {
+    (async () => {
       if (!avatarPath) {
-        setUrl(null);
+        setUri(null);
         return;
       }
 
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(avatarPath, SIGNED_URL_TTL_S);
+      const cacheFile = cacheFileFor(avatarPath);
 
-      if (cancelledRef.current) return;
-      if (error || !data?.signedUrl) {
-        setUrl(null);
-        return;
+      // 1. Show cached file immediately if it exists.
+      let cachedExists = false;
+      try {
+        const info = await FileSystem.getInfoAsync(cacheFile);
+        if (cancelled) return;
+        if (info.exists) {
+          cachedExists = true;
+          const mtime =
+            "modificationTime" in info && typeof info.modificationTime === "number"
+              ? info.modificationTime
+              : 0;
+          setUri(`${cacheFile}?v=${Math.floor(mtime)}`);
+        }
+      } catch {
+        // Treat as not-cached.
       }
 
-      setUrl(data.signedUrl);
+      // 2. Refresh the cache in the background by signing + downloading
+      //    fresh bytes. If we had no cache, this is the only path that
+      //    sets the URI; if we did, the new URI's `?v=` differs so RN
+      //    reloads the image after the file is rewritten.
+      try {
+        await ensureCacheDir();
+        const { data, error } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(avatarPath, SIGNED_URL_TTL_S);
+        if (cancelled) return;
+        if (error || !data?.signedUrl) {
+          if (!cachedExists) setUri(null);
+          return;
+        }
 
-      const ms = Math.max(1000, (SIGNED_URL_TTL_S - REFRESH_LEAD_S) * 1000);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        sign();
-      }, ms);
-    };
-
-    sign();
+        const result = await FileSystem.downloadAsync(data.signedUrl, cacheFile);
+        if (cancelled) return;
+        if (result.status === 200) {
+          setUri(`${cacheFile}?v=${Date.now()}`);
+        } else if (!cachedExists) {
+          // Couldn't write the cache and we have nothing on disk — fall back
+          // to the signed URL directly so the user still sees their photo.
+          setUri(data.signedUrl);
+        }
+      } catch {
+        // Background refresh failure: if we already showed a cached file,
+        // leave the URI alone; otherwise null out.
+        if (!cachedExists) setUri(null);
+      }
+    })();
 
     return () => {
-      cancelledRef.current = true;
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
+      cancelled = true;
     };
   }, [avatarPath]);
 
-  return url;
+  return uri;
 }
