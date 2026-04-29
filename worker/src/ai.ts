@@ -134,8 +134,10 @@ Rules:
 - Only use what is present in the text. If missing, use null or empty arrays.
 - Be conservative. Do not guess blood type.
 - timeline_events: include only high confidence events (diagnoses, surgeries, lab results, medications).
-- occurred_at should be YYYY-MM-DD if present.
-- data_kv must always be present. If nothing, return [] (not {})..
+- For occurred_at, look carefully for dates anywhere in the document: visit/encounter dates, signature dates, lab collection/draw dates, prescription dates, discharge dates, headers, footers, and report-generated dates.
+- Accept partial dates. Use YYYY-MM-DD when known precisely, YYYY-MM when only month is known, YYYY when only year is known. Set date_precision accordingly ("day" / "month" / "year").
+- If no event date can be found in the document, return occurred_at: null and date_precision: null. Do NOT use today's date. Do NOT invent a date.
+- data_kv must always be present. If nothing, return [] (not {}).
 Return JSON only in the required schema.`;
 
   const userContent = `Document ID: ${input.document_id}\nTitle: ${input.title ?? ""}\n\nTEXT:\n${input.text}`;

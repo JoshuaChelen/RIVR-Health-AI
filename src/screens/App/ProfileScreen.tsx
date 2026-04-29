@@ -11,7 +11,9 @@ import {
   Keyboard,
   Modal,
   Alert,
+  Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -19,6 +21,7 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { supabase } from "../../lib/supabase";
 import { getProfile, upsertProfile, type UserProfile } from "../../lib/profile";
+import { uploadAvatar, removeAvatar, useAvatarUrl } from "../../lib/avatar";
 import { getCurrentUserId } from "../../lib/auth";
 import { parseDob, dobIsoToInput, dobIsoToDisplay, computeAge, formatDobAsTyped } from "../../lib/profileUtils";
 import { PhoneField, parseStoredPhone, COUNTRIES, type Country } from "../../components/ui/Primitives/PhoneField";
@@ -28,6 +31,7 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { TextField } from "../../components/ui/Primitives/TextField";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
+import { AvatarPickerSheet } from "../../components/ui/Profile/AvatarPickerSheet";
 import { Card } from "../../components/ui/Primitives/Card";
 import { safeList } from "../../lib/profileMedical";
 
@@ -123,6 +127,10 @@ export function ProfileScreen({ navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarUrl = useAvatarUrl(profile?.avatar_path ?? null);
 
   // ── Edit drafts (one per section) ──────────────────────────
   const [basicDraft, setBasicDraft] = useState({
@@ -147,6 +155,12 @@ export function ProfileScreen({ navigation }: Props) {
   });
 
   // ── Load ────────────────────────────────────────────────────
+  const reloadProfile = useCallback(async () => {
+    const userId = await getCurrentUserId();
+    const p = await getProfile(userId);
+    setProfile(p);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -237,6 +251,74 @@ export function ProfileScreen({ navigation }: Props) {
     }
   }
 
+  const launchPicker = useCallback(async (mode: "camera" | "library") => {
+    setPickerOpen(false);
+    setAvatarError(null);
+
+    if (Platform.OS !== "web") {
+      const perm = mode === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setAvatarError(
+          mode === "camera"
+            ? "Allow camera access in your device settings to take a photo."
+            : "Allow photo library access in your device settings.",
+        );
+        return;
+      }
+    }
+
+    const result = mode === "camera"
+      ? await ImagePicker.launchCameraAsync({
+          mediaTypes: "images",
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.9,
+        })
+      : await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: "images",
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.9,
+        });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    if (!profile?.user_id) {
+      setAvatarError("Sign in to update your photo.");
+      return;
+    }
+
+    setAvatarBusy(true);
+    try {
+      await uploadAvatar(profile.user_id, result.assets[0].uri);
+      await reloadProfile();
+    } catch (e: any) {
+      captureException(e);
+      setAvatarError(e?.message ?? "Failed to upload photo.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }, [profile?.user_id, reloadProfile]);
+
+  const handleRemoveAvatar = useCallback(async () => {
+    setPickerOpen(false);
+    setAvatarError(null);
+    if (!profile?.user_id) return;
+
+    setAvatarBusy(true);
+    try {
+      await removeAvatar(profile.user_id, profile.avatar_path ?? null);
+      await reloadProfile();
+    } catch (e: any) {
+      captureException(e);
+      setAvatarError(e?.message ?? "Failed to remove photo.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }, [profile?.user_id, profile?.avatar_path, reloadProfile]);
+
   // ── Section save handlers ───────────────────────────────────
   async function saveBasic() {
     const dobIso = parseDob(basicDraft.dob);
@@ -323,11 +405,36 @@ async function saveEmergency() {
 
           {/* ── Profile header ──────────────────────────────── */}
           <View style={styles.header}>
-            <View style={styles.avatarCircle}>
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              onPress={() => setPickerOpen(true)}
+              style={({ pressed }) => [
+                styles.avatarCircle,
+                pressed && !avatarBusy && { opacity: 0.82 },
+              ]}
+              disabled={avatarBusy}
+            >
               <AppText style={styles.avatarText}>
                 {initials || "?"}
               </AppText>
-            </View>
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={styles.avatarImage}
+                  accessibilityLabel="Profile photo"
+                />
+              ) : null}
+              {avatarBusy ? (
+                <View style={styles.avatarBusyOverlay}>
+                  <ActivityIndicator color="#fff" size="small" />
+                </View>
+              ) : null}
+            </Pressable>
+            {avatarError ? (
+              <AppText style={styles.avatarError}>{avatarError}</AppText>
+            ) : null}
 
             <View style={styles.headerText}>
               <AppText style={styles.headerName}>{fullName}</AppText>
@@ -832,6 +939,14 @@ async function saveEmergency() {
         }}
         onCancel={() => setShowDobPicker(false)}
       />
+      <AvatarPickerSheet
+        visible={pickerOpen}
+        hasPhoto={!!profile?.avatar_path}
+        onTakePhoto={() => launchPicker("camera")}
+        onChooseFromLibrary={() => launchPicker("library")}
+        onRemovePhoto={handleRemoveAvatar}
+        onClose={() => setPickerOpen(false)}
+      />
     </Screen>
   );
 }
@@ -893,6 +1008,7 @@ const useStyles = createStyles((colors) => StyleSheet.create({
     backgroundColor: colors.teal,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     ...shadows.xs,
   },
   avatarText: {
@@ -900,6 +1016,33 @@ const useStyles = createStyles((colors) => StyleSheet.create({
     fontWeight: typescale.weight.bold as any,
     color: "#fff",
     letterSpacing: 1,
+  },
+  avatarImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    borderRadius: 9999,
+  },
+  avatarBusyOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 9999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarError: {
+    fontSize: typescale.size.xs,
+    color: colors.danger,
+    textAlign: "center",
+    marginTop: -spacing.xs,
   },
   headerText: {
     alignItems: "center",

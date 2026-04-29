@@ -439,6 +439,15 @@ export function UploadFile({ onUploaded }: Props) {
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [scanError,  setScanError]  = useState(false);
 
+  // Duplicate-detection prompt state. handlePdf awaits a Promise whose
+  // resolve() is stashed here; the modal calls it with true / false based on
+  // the user's choice and then setDuplicateConfirm(null) closes the modal.
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    fileName: string;
+    dupDate: string;
+    resolve: (proceed: boolean) => void;
+  } | null>(null);
+
   // ── PDF upload ────────────────────────────────────────────────────────────────
   // expo-document-picker opens a native file picker on iOS/Android and a
   // browser file input on web — no platform split needed here.
@@ -463,6 +472,8 @@ export function UploadFile({ onUploaded }: Props) {
       if (userErr) throw userErr;
       if (!user) throw new Error("Not signed in");
 
+      let uploaded = 0;
+
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         if (!asset?.uri) continue;
@@ -470,24 +481,18 @@ export function UploadFile({ onUploaded }: Props) {
         const fileName = asset.name ?? `document_${Date.now()}.pdf`;
         const fileSize = typeof asset.size === "number" ? asset.size : 0;
 
-        // Duplicate check (skip if size is unknown)
+        // Duplicate check (skip if size is unknown). Uses the in-app
+        // DuplicateConfirmModal so the prompt is styled consistently and works
+        // on web (Alert.alert renders nothing on web, leaving the upload hung).
         if (fileSize > 0) {
           const dup = await checkDuplicateDocument(user.id, fileName, fileSize);
           if (dup) {
             const dupDate = new Date(dup.created_at).toLocaleDateString(undefined, {
               month: "short", day: "numeric", year: "numeric",
             });
-            const proceed = await new Promise<boolean>((resolve) =>
-              Alert.alert(
-                "Possible duplicate",
-                `A document named "${fileName}" with the same file size was uploaded on ${dupDate}.`,
-                [
-                  { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-                  { text: "Upload Anyway", onPress: () => resolve(true) },
-                ],
-                { cancelable: true, onDismiss: () => resolve(false) },
-              )
-            );
+            const proceed = await new Promise<boolean>((resolve) => {
+              setDuplicateConfirm({ fileName, dupDate, resolve });
+            });
             if (!proceed) continue;
           }
         }
@@ -500,10 +505,14 @@ export function UploadFile({ onUploaded }: Props) {
           mimeType:   asset.mimeType ?? "application/pdf",
           sourceType: "pdf",
         });
+        uploaded += 1;
       }
 
-      setPdfStatus(`${assets.length} file${assets.length === 1 ? "" : "s"} ready to process.`);
-      onUploaded?.();
+      // Clear the status either way. The new files appear in the list below
+      // and the Process button at the bottom shows the live pending count —
+      // duplicating that count here would just go stale on add/remove.
+      setPdfStatus(null);
+      if (uploaded > 0) onUploaded?.();
     } catch (e: any) {
       setPdfStatus(e?.message ?? String(e));
       setPdfError(true);
@@ -850,7 +859,75 @@ export function UploadFile({ onUploaded }: Props) {
           onClose={handleScanClose}
         />
       )}
+
+      {duplicateConfirm ? (
+        <DuplicateConfirmModal
+          fileName={duplicateConfirm.fileName}
+          dupDate={duplicateConfirm.dupDate}
+          onCancel={() => {
+            duplicateConfirm.resolve(false);
+            setDuplicateConfirm(null);
+          }}
+          onConfirm={() => {
+            duplicateConfirm.resolve(true);
+            setDuplicateConfirm(null);
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+// ─── Duplicate confirmation modal ─────────────────────────────────────────────
+// Styled to match the ConfirmModal pattern in ListDocuments — translucent
+// backdrop, bottom-anchored sheet with a teal accent bar, two buttons.
+
+function DuplicateConfirmModal({
+  fileName,
+  dupDate,
+  onCancel,
+  onConfirm,
+}: {
+  fileName: string;
+  dupDate: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { duplicateModalStyles } = useStyles();
+  return (
+    <Modal transparent visible animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={duplicateModalStyles.backdrop} onPress={onCancel}>
+        <Pressable style={duplicateModalStyles.sheet} onPress={() => {}}>
+          <View style={duplicateModalStyles.accentBar} />
+          <View style={duplicateModalStyles.body}>
+            <AppText style={duplicateModalStyles.title}>Possible duplicate</AppText>
+            <AppText style={duplicateModalStyles.message}>
+              A document named "{fileName}" with the same file size was uploaded on {dupDate}.
+            </AppText>
+            <View style={duplicateModalStyles.btnRow}>
+              <Pressable
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                onPress={onCancel}
+                style={({ pressed }) => [duplicateModalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
+              >
+                <AppText style={duplicateModalStyles.btnSecondaryText}>Cancel</AppText>
+              </Pressable>
+              <Pressable
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Upload anyway"
+                onPress={onConfirm}
+                style={({ pressed }) => [duplicateModalStyles.btnPrimary, pressed && { opacity: 0.85 }]}
+              >
+                <AppText style={duplicateModalStyles.btnPrimaryText}>Upload anyway</AppText>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -1167,5 +1244,77 @@ const useStyles = createStyles((c) => ({
       fontWeight: typescale.weight.medium,
     },
     statusError: { color: c.danger },
+  }),
+
+  // Duplicate-confirmation modal — mirrors the ConfirmModal style in
+  // ListDocuments (translucent backdrop, bottom-anchored sheet with a teal
+  // accent bar and two buttons) so the visual language stays consistent.
+  duplicateModalStyles: StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: "rgba(13,27,42,0.45)",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      paddingBottom: spacing.xxl,
+      paddingHorizontal: spacing.lg,
+    },
+    sheet: {
+      width: "100%",
+      backgroundColor: c.surface,
+      borderRadius: radius.xl,
+      overflow: "hidden",
+      ...shadows.lg,
+    },
+    accentBar: {
+      height: 4,
+      backgroundColor: c.teal,
+    },
+    body: {
+      padding: spacing.lg,
+      gap: spacing.sm,
+    },
+    title: {
+      fontSize: typescale.size.lg,
+      fontWeight: typescale.weight.bold,
+      color: c.text,
+    },
+    message: {
+      fontSize: typescale.size.sm,
+      color: c.textSub,
+      lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
+    },
+    btnRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    btnSecondary: {
+      flex: 1,
+      height: 46,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.bgSecondary,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    btnSecondaryText: {
+      fontSize: typescale.size.sm,
+      fontWeight: typescale.weight.semibold,
+      color: c.textSub,
+    },
+    btnPrimary: {
+      flex: 1.4,
+      height: 46,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.teal,
+    },
+    btnPrimaryText: {
+      fontSize: typescale.size.sm,
+      fontWeight: typescale.weight.bold,
+      color: "#fff",
+    },
   }),
 }));

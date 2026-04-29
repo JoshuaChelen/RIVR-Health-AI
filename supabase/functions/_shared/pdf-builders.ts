@@ -180,15 +180,18 @@ function yearMonthLabel(ymd: string, precision: string): string {
 // Full Summary PDF
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function buildFullSummaryPdf(data: {
-  score?: number | null;
-  label?: string | null;
-  overview?: string | null;
-  full_summary_markdown?: string | null;
-  disclaimer?: string | null;
-  patient_name?: string | null;
-  patient_demographics?: string | null;  // e.g. "42 y/o  ·  Female"
-}): Promise<Uint8Array> {
+export async function buildFullSummaryPdf(
+  data: {
+    score?: number | null;
+    label?: string | null;
+    overview?: string | null;
+    full_summary_markdown?: string | null;
+    disclaimer?: string | null;
+    patient_name?: string | null;
+    patient_demographics?: string | null;  // e.g. "42 y/o  ·  Female"
+  },
+  opts?: { avatarDataUri?: string | null },
+): Promise<Uint8Array> {
   const doc     = await PDFDocument.create();
   const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
@@ -207,6 +210,28 @@ export async function buildFullSummaryPdf(data: {
 
   let page = newPage();
   let y    = drawPageHeader(page, "AI Health Summary", subtitleParts.join("  ·  "), bold, regular);
+
+  // Profile photo on page 1 only — top-right of the header, mirroring how it
+  // sits on the 3x5 card. Best-effort: any failure leaves the page text-only.
+  if (opts?.avatarDataUri) {
+    try {
+      const m = opts.avatarDataUri.match(/^data:image\/[a-zA-Z+.-]+;base64,(.+)$/);
+      if (m?.[1]) {
+        const bytes = Uint8Array.from(atob(m[1]), (c) => c.charCodeAt(0));
+        const img   = await doc.embedJpg(bytes);
+        const SIZE  = 60;
+        const X     = PW - M - SIZE;          // right-aligned to the page margin
+        const Y     = PH - 18 - SIZE;          // 18pt below the top edge — clears the teal top bar
+        page.drawImage(img, { x: X, y: Y, width: SIZE, height: SIZE });
+        page.drawRectangle({
+          x: X, y: Y, width: SIZE, height: SIZE,
+          borderColor: BORDER, borderWidth: 1,
+        });
+      }
+    } catch (_e) {
+      // Continue without the photo if embedding fails.
+    }
+  }
 
   // ── SHIN Score ──────────────────────────────────────────────────────────────
   if (typeof data.score === "number") {
@@ -314,7 +339,10 @@ export async function buildFullSummaryPdf(data: {
 // 3×5 Health Card PDF
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
+export async function buildCard3x5Pdf(
+  cardData: any,
+  opts?: { avatarDataUri?: string | null },
+): Promise<Uint8Array> {
   const doc     = await PDFDocument.create();
   const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
@@ -340,6 +368,38 @@ export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
   const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const dW = regular.widthOfTextAtSize(dateStr, 8);
 
+  // Profile photo lives entirely inside the teal header band so the card has
+  // a clean ID-badge feel — photo + brand on top, clinical fields below the
+  // band. Best-effort: any failure leaves the card text-only.
+  const AVA_SIZE   = 38;                          // fits in 50pt band with 6pt margin
+  const AVA_INSET  = 6;
+  const AVA_X      = CX + CW2 - 14 - AVA_SIZE;     // 14pt from card right edge
+  const AVA_Y      = CY + CH - AVA_INSET - AVA_SIZE;
+  let avatarDrawn  = false;
+  if (opts?.avatarDataUri) {
+    try {
+      const m = opts.avatarDataUri.match(/^data:image\/[a-zA-Z+.-]+;base64,(.+)$/);
+      if (m?.[1]) {
+        const bytes = Uint8Array.from(atob(m[1]), (c) => c.charCodeAt(0));
+        const img   = await doc.embedJpg(bytes);
+        page.drawImage(img, { x: AVA_X, y: AVA_Y, width: AVA_SIZE, height: AVA_SIZE });
+        page.drawRectangle({
+          x: AVA_X, y: AVA_Y,
+          width: AVA_SIZE, height: AVA_SIZE,
+          borderColor: WHITE, borderWidth: 1,
+        });
+        avatarDrawn = true;
+      }
+    } catch (_e) {
+      // Keep share creation resilient when the avatar cannot be embedded.
+    }
+  }
+
+  // When the avatar takes the right end of the band, shift the generation
+  // date left to leave room for it. Otherwise it sits in the original spot.
+  const dateRightEdge = avatarDrawn ? (AVA_X - 8) : (CX + CW2 - 16);
+  const dateX         = dateRightEdge - dW;
+
   page.drawText("RIVR HEALTH", {
     x: CX + 16, y: CY + CH - 18, size: 7, font: bold, color: TEAL_SOFT, characterSpacing: 1.5,
   });
@@ -352,7 +412,7 @@ export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
     });
   }
   page.drawText(dateStr, {
-    x: CX + CW2 - dW - 16, y: CY + CH - 18, size: 8, font: regular, color: TEAL_SOFT,
+    x: dateX, y: CY + CH - 18, size: 8, font: regular, color: TEAL_SOFT,
   });
 
   // Content area

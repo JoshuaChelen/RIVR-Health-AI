@@ -41,6 +41,28 @@ type Row =
   | { kind: "header"; key: string; label: string }
   | { kind: "doc"; key: string; doc: DocRow };
 
+// ─── Job stage → user-facing label + progress percent ─────────────────────────
+// Mirrors the setStage() calls in worker/src/main.ts. Single-doc jobs progress
+// smoothly through these. Multi-doc jobs reuse the per-doc percentages until
+// all docs are done, then move into the job-level evaluation/backfill stages.
+type StageInfo = { label: string; percent: number };
+
+const STAGE_INFO: Record<string, StageInfo> = {
+  started:                { label: "Starting",             percent: 1  },
+  fetching_documents:     { label: "Reading record",       percent: 5  },
+  downloading_file:       { label: "Downloading",          percent: 15 },
+  transcribing_audio:     { label: "Transcribing audio",   percent: 35 },
+  extracting_text:        { label: "Extracting text",      percent: 30 },
+  ocr_pdf:                { label: "Reading scanned text", percent: 45 },
+  openai_extract:         { label: "Analyzing with AI",    percent: 65 },
+  document_done:          { label: "Almost done",          percent: 80 },
+  loading_manual_profile: { label: "Loading profile",      percent: 85 },
+  openai_eval:            { label: "Evaluating health",    percent: 90 },
+  saving_profile:         { label: "Saving",               percent: 95 },
+  ai_backfill:            { label: "Updating profile",     percent: 98 },
+  safe_quitting:          { label: "Stopping",             percent: 50 },
+};
+
 // ─── Processing animation ─────────────────────────────────────────────────────
 
 const PROCESSING_MESSAGES = [
@@ -81,12 +103,20 @@ function useProcessingMessage(isStopping: boolean, isManual = false): string {
   return messages[idx % messages.length];
 }
 
+const SHIMMER_HIGHLIGHT_WIDTH = 90;
+
 function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
   const { shimmerStyles } = useStyles();
   const position = useRef(new Animated.Value(0)).current;
   const brightness = useRef(new Animated.Value(0.6)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
 
   useEffect(() => {
+    // Wait for the first onLayout measurement before starting so the
+    // outputRange is correct on the first frame and we never see the
+    // highlight pause inside the visible track.
+    if (trackWidth <= 0) return;
+
     const slideDuration = stopping ? 2800 : 1400;
     const slide = Animated.loop(
       Animated.timing(position, {
@@ -104,11 +134,55 @@ function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
     slide.start();
     breathe.start();
     return () => { slide.stop(); breathe.stop(); };
-  }, [position, brightness, stopping]);
+  }, [position, brightness, stopping, trackWidth]);
 
+  // Always L → R: start the highlight just off the left edge and end it just
+  // past the right edge so the reset (position 1 → 0) happens entirely
+  // off-screen. No visible R → L snap, no pause at the right edge.
   const translateX = position.interpolate({
     inputRange: [0, 1],
-    outputRange: [-90, 320],
+    outputRange: [-SHIMMER_HIGHLIGHT_WIDTH, trackWidth || SHIMMER_HIGHLIGHT_WIDTH],
+  });
+
+  return (
+    <View
+      style={shimmerStyles.track}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && w !== trackWidth) setTrackWidth(w);
+      }}
+    >
+      {trackWidth > 0 ? (
+        <Animated.View
+          style={[
+            shimmerStyles.highlight,
+            stopping && shimmerStyles.highlightStopping,
+            { opacity: brightness, transform: [{ translateX }] },
+          ]}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+// Real progress bar bound to the job's stage percentage. Used in place of
+// the indeterminate ShimmerBar once the worker has emitted at least one stage
+// update, so the user sees the bar actually advance through the job.
+function ProgressBar({ percent, stopping = false }: { percent: number; stopping?: boolean }) {
+  const { shimmerStyles } = useStyles();
+  const animPercent = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(animPercent, {
+      toValue: Math.max(0, Math.min(100, percent)),
+      duration: 600,
+      useNativeDriver: false, // width animation requires JS driver
+    }).start();
+  }, [percent, animPercent]);
+
+  const width = animPercent.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
   });
 
   return (
@@ -117,7 +191,7 @@ function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
         style={[
           shimmerStyles.highlight,
           stopping && shimmerStyles.highlightStopping,
-          { opacity: brightness, transform: [{ translateX }] },
+          { width }, // overrides the shimmer's fixed 90px width
         ]}
       />
     </View>
@@ -281,12 +355,16 @@ function DocCard({
   onDelete,
   onCancel,
   isStopping,
+  stageInfo,
 }: {
   doc: DocRow;
   anim: DocAnim;
   onDelete: () => void;
   onCancel: () => void;
   isStopping?: boolean;
+  /** Live stage info from the worker via ai_jobs realtime. Undefined until the
+   *  first stage update arrives (or for cards loaded from a stale job). */
+  stageInfo?: StageInfo;
 }) {
   const { cardStyles } = useStyles();
   const { colors } = useTheme();
@@ -339,12 +417,21 @@ function DocCard({
           <StatusBadge status={st} />
         </View>
 
-        {/* Processing / stopping progress */}
+        {/* Processing / stopping progress.
+         *  Real progress bar + worker stage label when stageInfo is available
+         *  (ai_jobs realtime has fired at least once); otherwise fall back to
+         *  the indeterminate ShimmerBar + rotating placeholder messages. */}
         {(st === "processing" || st === "stopping") ? (
           <View style={cardStyles.progressBlock}>
-            <ShimmerBar stopping={st === "stopping"} />
+            {stageInfo && st !== "stopping" ? (
+              <ProgressBar percent={stageInfo.percent} />
+            ) : (
+              <ShimmerBar stopping={st === "stopping"} />
+            )}
             <AppText style={[cardStyles.processingMsg, st === "stopping" && cardStyles.stoppingMsg]}>
-              {processingMsg}
+              {st === "stopping"
+                ? processingMsg
+                : (stageInfo ? `${stageInfo.label}…` : processingMsg)}
             </AppText>
           </View>
         ) : null}
@@ -438,6 +525,9 @@ export function ListDocuments({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Per-doc job stage info, populated by the ai_jobs realtime subscription.
+  // Keyed by document_id so each card can display its own progress bar.
+  const [jobStage, setJobStage] = useState<Map<string, StageInfo>>(new Map());
 
   useEffect(() => {
     const pending = docs.filter((d) => (d.status ?? "") === "uploaded").length;
@@ -631,6 +721,100 @@ export function ListDocuments({
     return () => { supabase.removeChannel(channel); };
   }, [userId]);
 
+  // Realtime subscription on ai_jobs so each processing doc card can render
+  // a real progress bar (and stage label) bound to the worker's setStage()
+  // calls. We attach the stage to a specific doc when progress.currentDocId
+  // is set (per-doc stages); otherwise we attach to every doc in the job
+  // (job-level stages like loading_manual_profile / openai_eval / saving_profile).
+  useEffect(() => {
+    if (!userId) return;
+
+    const handleJobUpdate = (payload: any) => {
+      const job = payload.new ?? payload.record ?? null;
+      if (!job) return;
+      const stage: string = String(job.stage ?? "");
+      const info = STAGE_INFO[stage];
+      if (!info) return; // unknown stage — leave existing progress in place
+      const docIds: string[] = Array.isArray(job.document_ids) ? job.document_ids : [];
+      const currentDocId: string | null =
+        job.progress && typeof job.progress === "object"
+          ? (job.progress.currentDocId ?? null)
+          : null;
+
+      setJobStage((prev) => {
+        const next = new Map(prev);
+        if (currentDocId) {
+          next.set(currentDocId, info);
+        } else {
+          for (const id of docIds) next.set(id, info);
+        }
+        return next;
+      });
+    };
+
+    const channel = supabase
+      .channel(`ai-jobs-stage:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "ai_jobs", filter: `user_id=eq.${userId}` },
+        handleJobUpdate,
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "ai_jobs", filter: `user_id=eq.${userId}` },
+        handleJobUpdate,
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
+  // Polling fallback for ai_jobs stage — runs only while at least one doc is
+  // in 'processing'. The realtime subscription above is faster when it works,
+  // but if ai_jobs isn't in the supabase_realtime publication on this project
+  // we'd never get any events, so the bar would stay stuck. Polling ensures
+  // the bar advances regardless of realtime config.
+  const hasProcessingDocs = docs.some((d) => (d.status ?? "") === "processing");
+  useEffect(() => {
+    if (!userId || !hasProcessingDocs) return;
+
+    const tick = async () => {
+      const { data } = await supabase
+        .from("ai_jobs")
+        .select("id, document_ids, stage, progress")
+        .eq("user_id", userId)
+        .in("status", ["queued", "running"]);
+
+      if (!data || data.length === 0) return;
+
+      setJobStage((prev) => {
+        const next = new Map(prev);
+        for (const job of data) {
+          const stage = String((job as any).stage ?? "");
+          const info = STAGE_INFO[stage];
+          if (!info) continue;
+          const docIds: string[] = Array.isArray((job as any).document_ids)
+            ? ((job as any).document_ids as string[])
+            : [];
+          const progress = (job as any).progress;
+          const currentDocId: string | null =
+            progress && typeof progress === "object" ? (progress.currentDocId ?? null) : null;
+          if (currentDocId) {
+            next.set(currentDocId, info);
+          } else {
+            for (const id of docIds) next.set(id, info);
+          }
+        }
+        return next;
+      });
+    };
+
+    // Tick once immediately so the bar updates without waiting a full interval.
+    tick();
+    const interval = setInterval(tick, 1500);
+    return () => clearInterval(interval);
+  }, [userId, hasProcessingDocs]);
+
   function handleDelete(doc: DocRow) { setConfirm({ mode: "delete", doc }); }
   function handleCancel(doc: DocRow) { setConfirm({ mode: "cancel", doc }); }
 
@@ -706,10 +890,18 @@ export function ListDocuments({
   }, [userId, hasProcessing]);
 
   const rows: Row[] = useMemo(() => {
-    const uploaded   = docs.filter((d) => (d.status ?? "") === "uploaded");
-    const processing = docs.filter((d) => (d.status ?? "") === "processing");
-    const failed     = docs.filter((d) => (d.status ?? "") === "failed");
-    const other      = docs.filter((d) => !["uploaded", "processing", "failed"].includes(d.status ?? ""));
+    // Dedupe by id. Race between the realtime INSERT subscription and the
+    // post-upload refetch (or strict-mode-induced double subscriptions in dev)
+    // can occasionally leave the same doc twice in local state, which would
+    // produce duplicate FlatList keys. Map.set keeps the most recent entry.
+    const uniqueDocs = Array.from(
+      new Map(docs.map((d) => [d.id, d])).values(),
+    );
+
+    const uploaded   = uniqueDocs.filter((d) => (d.status ?? "") === "uploaded");
+    const processing = uniqueDocs.filter((d) => (d.status ?? "") === "processing");
+    const failed     = uniqueDocs.filter((d) => (d.status ?? "") === "failed");
+    const other      = uniqueDocs.filter((d) => !["uploaded", "processing", "failed"].includes(d.status ?? ""));
 
     const out: Row[] = [];
     const pushSection = (label: string, items: DocRow[], key: string) => {
@@ -798,6 +990,7 @@ export function ListDocuments({
               onDelete={() => handleDelete(d)}
               onCancel={() => handleCancel(d)}
               isStopping={stoppingIds.has(d.id)}
+              stageInfo={jobStage.get(d.id)}
             />
           );
         }}

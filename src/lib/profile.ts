@@ -94,6 +94,9 @@ export type UserProfile = {
   // perspective — only the worker writes this field.
   ai_backfill_meta?: AiBackfillMeta | null;
 
+  /** Storage path inside the `profile-pictures` bucket. e.g. `{user_id}/avatar.jpg`. */
+  avatar_path?: string | null;
+
   created_at: string;
   updated_at: string;
 };
@@ -103,12 +106,9 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
     .from("user_profiles")
     .select("*")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw error;
-  }
+  if (error) throw error;
   return data;
 }
 

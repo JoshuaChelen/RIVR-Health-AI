@@ -27,8 +27,8 @@ type DatePrecision = "day" | "month" | "year";
 
 type TimelineEventRow = {
   id: string;
-  occurred_at: string;
-  date_precision: DatePrecision;
+  occurred_at: string | null;
+  date_precision: DatePrecision | null;
   title: string;
   category: string;
   source: string;
@@ -43,7 +43,8 @@ function parseYMD(ymd: string) {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
-function formatEventDate(ymd: string, precision: DatePrecision) {
+function formatEventDate(ymd: string | null, precision: DatePrecision | null) {
+  if (!ymd || !precision) return "Date unknown";
   const dt = parseYMD(ymd);
   if (precision === "year")  return `${dt.getFullYear()}`;
   if (precision === "month") return dt.toLocaleDateString(undefined, { month: "short", year: "numeric" });
@@ -158,7 +159,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
         .select("id, occurred_at, date_precision, title, category, source, summary, included_in_previsit")
         .eq("user_id", userData.user.id)
         .eq("included_in_previsit", true)
-        .order("occurred_at", { ascending: false });
+        .order("occurred_at", { ascending: false, nullsFirst: false });
 
       if (error) throw error;
       setRows((data ?? []) as TimelineEventRow[]);

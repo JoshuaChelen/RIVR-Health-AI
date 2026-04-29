@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -12,6 +13,7 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
+import { useAvatarUrl } from "../../lib/avatar";
 import { captureException } from "../../lib/sentry";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -59,6 +61,8 @@ export function HomeScreen({ navigation }: Props) {
   const [score, setScore] = useState<number | null>(null);
   const [label, setLabel] = useState<string | null>(null);
   const [profileInitials, setProfileInitials] = useState<string | null>(null);
+  const [avatarPath, setAvatarPath]           = useState<string | null>(null);
+  const avatarUrl                             = useAvatarUrl(avatarPath);
   const [aiRecommendations, setAiRecommendations] = useState<RecommendationItem[]>([]);
   const [error, setError] = useState(false);
   const [isScoreStale, setIsScoreStale] = useState(false);
@@ -109,6 +113,8 @@ export function HomeScreen({ navigation }: Props) {
         const last = userProfile.last_name?.[0]?.toUpperCase() ?? "";
         setProfileInitials(first + last);
       }
+
+      setAvatarPath(userProfile?.avatar_path ?? null);
 
       // Staleness: check if docs were processed after the last evaluation
       const latestDocAt = latestDocRes.data?.processed_at ?? null;
@@ -164,6 +170,13 @@ export function HomeScreen({ navigation }: Props) {
             <AppText style={styles.profileAvatarText}>
               {profileInitials ?? "·"}
             </AppText>
+            {avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={styles.profileAvatarImage}
+                accessibilityLabel="Profile photo"
+              />
+            ) : null}
           </Pressable>
         </View>
 
@@ -677,6 +690,17 @@ const useStyles = createStyles((c) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    overflow: "hidden",
+  },
+  profileAvatarImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    borderRadius: 9999,
   },
   profileAvatarText: {
     fontSize: typescale.size.sm,

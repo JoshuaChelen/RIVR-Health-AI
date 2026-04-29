@@ -250,14 +250,48 @@ Deno.serve(async (req) => {
       const artifactFolder = crypto.randomUUID();
       const pdfPaths: Record<string, string> = {};
 
+      // Fetch the avatar once for any share type that embeds it (currently
+      // full_summary and card_3x5). Best-effort: a missing or unreadable
+      // avatar produces text-only PDFs and never blocks share creation.
+      let avatarDataUri: string | null = null;
+      const needsAvatar = shareTypes.includes("full_summary") || shareTypes.includes("card_3x5");
+      if (needsAvatar) {
+        try {
+          const { data: prof } = await admin
+            .from("user_profiles")
+            .select("avatar_path")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          const path = (prof as { avatar_path?: string | null } | null)?.avatar_path ?? null;
+          if (path) {
+            const { data: blob, error: dlErr } = await admin.storage
+              .from("profile-pictures")
+              .download(path);
+
+            if (!dlErr && blob) {
+              const buf = new Uint8Array(await blob.arrayBuffer());
+              let binary = "";
+              const CHUNK = 0x8000;
+              for (let i = 0; i < buf.length; i += CHUNK) {
+                binary += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+              }
+              avatarDataUri = `data:image/jpeg;base64,${btoa(binary)}`;
+            }
+          }
+        } catch (_e) {
+          avatarDataUri = null;
+        }
+      }
+
       for (const type of shareTypes) {
         let pdfBytes: Uint8Array | null = null;
 
         try {
           if (type === "full_summary" && snapshots.full_summary) {
-            pdfBytes = await buildFullSummaryPdf(snapshots.full_summary);
+            pdfBytes = await buildFullSummaryPdf(snapshots.full_summary, { avatarDataUri });
           } else if (type === "card_3x5" && snapshots.card_3x5) {
-            pdfBytes = await buildCard3x5Pdf(snapshots.card_3x5);
+            pdfBytes = await buildCard3x5Pdf(snapshots.card_3x5, { avatarDataUri });
           } else if (type === "pre_visit_note" && snapshots.pre_visit_note) {
             pdfBytes = await buildPreVisitNotePdf(snapshots.pre_visit_note);
           } else if (type === "full_timeline" && snapshots.full_timeline) {
@@ -337,10 +371,14 @@ Deno.serve(async (req) => {
     }
 
     // ── Build share URL ───────────────────────────────────────────────────────
+    // Points at the public share-web site (Vercel-hosted), not the Supabase
+    // edge function. The recipient lands on the static page, which then calls
+    // the /share/resolve edge function over XHR to fetch the actual share data.
+    // Override via the SHARE_PUBLIC_URL secret if you ever change domains.
 
-    const functionsBase = Deno.env.get("SUPABASE_FUNCTIONS_URL")
-      ?? new URL(req.url).origin;
-    const shareUrl = `${functionsBase}/share?token=${encodeURIComponent(token)}`;
+    const sharePublicBase = (Deno.env.get("SHARE_PUBLIC_URL") ?? "https://share.rivrhealth.ai")
+      .replace(/\/+$/, "");
+    const shareUrl = `${sharePublicBase}/?token=${encodeURIComponent(token)}`;
 
     return new Response(
       JSON.stringify({ packageId: pkg.id, shareUrl, expiresAt: pkg.expires_at }),
