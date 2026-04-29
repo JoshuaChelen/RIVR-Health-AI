@@ -472,6 +472,8 @@ export function UploadFile({ onUploaded }: Props) {
       if (userErr) throw userErr;
       if (!user) throw new Error("Not signed in");
 
+      let uploaded = 0;
+
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         if (!asset?.uri) continue;
@@ -503,10 +505,17 @@ export function UploadFile({ onUploaded }: Props) {
           mimeType:   asset.mimeType ?? "application/pdf",
           sourceType: "pdf",
         });
+        uploaded += 1;
       }
 
-      setPdfStatus(`${assets.length} file${assets.length === 1 ? "" : "s"} ready to process.`);
-      onUploaded?.();
+      if (uploaded > 0) {
+        setPdfStatus(`${uploaded} file${uploaded === 1 ? "" : "s"} ready to process.`);
+        onUploaded?.();
+      } else {
+        // Every picked file was skipped (e.g. user cancelled the duplicate
+        // prompt). Don't show a misleading "ready to process" message.
+        setPdfStatus(null);
+      }
     } catch (e: any) {
       setPdfStatus(e?.message ?? String(e));
       setPdfError(true);
