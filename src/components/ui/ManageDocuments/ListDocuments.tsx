@@ -706,10 +706,18 @@ export function ListDocuments({
   }, [userId, hasProcessing]);
 
   const rows: Row[] = useMemo(() => {
-    const uploaded   = docs.filter((d) => (d.status ?? "") === "uploaded");
-    const processing = docs.filter((d) => (d.status ?? "") === "processing");
-    const failed     = docs.filter((d) => (d.status ?? "") === "failed");
-    const other      = docs.filter((d) => !["uploaded", "processing", "failed"].includes(d.status ?? ""));
+    // Dedupe by id. Race between the realtime INSERT subscription and the
+    // post-upload refetch (or strict-mode-induced double subscriptions in dev)
+    // can occasionally leave the same doc twice in local state, which would
+    // produce duplicate FlatList keys. Map.set keeps the most recent entry.
+    const uniqueDocs = Array.from(
+      new Map(docs.map((d) => [d.id, d])).values(),
+    );
+
+    const uploaded   = uniqueDocs.filter((d) => (d.status ?? "") === "uploaded");
+    const processing = uniqueDocs.filter((d) => (d.status ?? "") === "processing");
+    const failed     = uniqueDocs.filter((d) => (d.status ?? "") === "failed");
+    const other      = uniqueDocs.filter((d) => !["uploaded", "processing", "failed"].includes(d.status ?? ""));
 
     const out: Row[] = [];
     const pushSection = (label: string, items: DocRow[], key: string) => {
