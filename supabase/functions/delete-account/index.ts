@@ -156,6 +156,10 @@ Deno.serve(async (req) => {
     //    processed/{docId}/*, ai/evaluation/*, and any root-level files
     await deleteStoragePrefix(admin, "documents", `${userId}/`);
 
+    // 3b. Storage: profile-pictures bucket — at most one file per user today,
+    //     but sweep the prefix so future variants are cleaned up too.
+    await deleteStoragePrefix(admin, "profile-pictures", `${userId}/`);
+
     // 4. Storage: share-artifacts bucket
     //    Share artifacts use random UUID folders (not userId-prefixed),
     //    so we delete the specific paths collected from payload_json above.

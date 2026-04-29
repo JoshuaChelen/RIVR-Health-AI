@@ -314,7 +314,10 @@ export async function buildFullSummaryPdf(data: {
 // 3×5 Health Card PDF
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
+export async function buildCard3x5Pdf(
+  cardData: any,
+  opts?: { avatarDataUri?: string | null },
+): Promise<Uint8Array> {
   const doc     = await PDFDocument.create();
   const bold    = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
@@ -354,6 +357,33 @@ export async function buildCard3x5Pdf(cardData: any): Promise<Uint8Array> {
   page.drawText(dateStr, {
     x: CX + CW2 - dW - 16, y: CY + CH - 18, size: 8, font: regular, color: TEAL_SOFT,
   });
+
+  // Profile photo is best-effort: if the data URI is malformed or embedding
+  // fails, the card remains useful without the image.
+  if (opts?.avatarDataUri) {
+    try {
+      const AVA_SIZE = 56;
+      const AVA_X = CX + CW2 - 14 - AVA_SIZE;
+      const AVA_Y = CY + CH - 14 - AVA_SIZE;
+
+      const m = opts.avatarDataUri.match(/^data:image\/[a-zA-Z+.-]+;base64,(.+)$/);
+      if (m?.[1]) {
+        const bytes = Uint8Array.from(atob(m[1]), (c) => c.charCodeAt(0));
+        const img = await doc.embedJpg(bytes);
+        page.drawImage(img, { x: AVA_X, y: AVA_Y, width: AVA_SIZE, height: AVA_SIZE });
+        page.drawRectangle({
+          x: AVA_X,
+          y: AVA_Y,
+          width: AVA_SIZE,
+          height: AVA_SIZE,
+          borderColor: BORDER,
+          borderWidth: 1,
+        });
+      }
+    } catch (_e) {
+      // Keep share creation resilient when the avatar cannot be embedded.
+    }
+  }
 
   // Content area
   const INR  = CX + 18;

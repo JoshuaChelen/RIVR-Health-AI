@@ -257,7 +257,35 @@ Deno.serve(async (req) => {
           if (type === "full_summary" && snapshots.full_summary) {
             pdfBytes = await buildFullSummaryPdf(snapshots.full_summary);
           } else if (type === "card_3x5" && snapshots.card_3x5) {
-            pdfBytes = await buildCard3x5Pdf(snapshots.card_3x5);
+            let avatarDataUri: string | null = null;
+            try {
+              const { data: prof } = await admin
+                .from("user_profiles")
+                .select("avatar_path")
+                .eq("user_id", userId)
+                .maybeSingle();
+
+              const path = (prof as { avatar_path?: string | null } | null)?.avatar_path ?? null;
+              if (path) {
+                const { data: blob, error: dlErr } = await admin.storage
+                  .from("profile-pictures")
+                  .download(path);
+
+                if (!dlErr && blob) {
+                  const buf = new Uint8Array(await blob.arrayBuffer());
+                  let binary = "";
+                  const CHUNK = 0x8000;
+                  for (let i = 0; i < buf.length; i += CHUNK) {
+                    binary += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+                  }
+                  avatarDataUri = `data:image/jpeg;base64,${btoa(binary)}`;
+                }
+              }
+            } catch (_e) {
+              avatarDataUri = null;
+            }
+
+            pdfBytes = await buildCard3x5Pdf(snapshots.card_3x5, { avatarDataUri });
           } else if (type === "pre_visit_note" && snapshots.pre_visit_note) {
             pdfBytes = await buildPreVisitNotePdf(snapshots.pre_visit_note);
           } else if (type === "full_timeline" && snapshots.full_timeline) {

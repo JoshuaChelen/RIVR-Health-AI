@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -12,6 +13,7 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
+import { useAvatarUrl } from "../../lib/avatar";
 import { getCurrentUserId } from "../../lib/auth";
 import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
 import { captureException } from "../../lib/sentry";
@@ -139,6 +141,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const overview     = summaryJson?.overview ?? null;
   const fullSummary  = summaryJson?.full_summary_markdown ?? evaluation?.full_summary_markdown ?? null;
   const card         = profile?.card_json ?? evaluation?.three_by_five_card ?? null;
+  const avatarUrl    = useAvatarUrl(userProfile?.avatar_path ?? null);
 
   const hasContent = !!(fullSummary || card);
 
@@ -242,6 +245,20 @@ export default function HealthSummaryScreen({ navigation }: Props) {
                   <AppText style={styles.shareBtnText}>Share</AppText>
                 </Pressable>
               </View>
+              {avatarUrl ? (
+                <View style={styles.cardAvatarRow}>
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.cardAvatar}
+                    accessibilityLabel="Profile photo"
+                  />
+                  {card?.one_line_summary ? (
+                    <AppText style={styles.cardAvatarLabel} numberOfLines={2}>
+                      {String(card.one_line_summary)}
+                    </AppText>
+                  ) : null}
+                </View>
+              ) : null}
               <View style={styles.essentialsList}>
                 <EssentialRow label="Blood type"  value={card?.blood_type ?? "Unknown"} />
                 <EssentialRow label="Conditions"  value={safeJoin(card?.major_conditions) || "None listed"} />
@@ -521,6 +538,25 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
     color: c.text,
+  },
+  cardAvatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  cardAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: c.bgSecondary,
+  },
+  cardAvatarLabel: {
+    flex: 1,
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold,
+    color: c.text,
+    lineHeight: typescale.size.sm * typescale.lineHeight.normal,
   },
   shareBtn: {
     flexDirection: "row",
