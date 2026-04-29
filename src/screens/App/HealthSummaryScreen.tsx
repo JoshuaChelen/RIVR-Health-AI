@@ -228,6 +228,15 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           <>
             <SectionEyebrow label="Health Essentials" />
             <View style={styles.contentCard}>
+              {avatarUrl ? (
+                <View style={styles.cardAvatarRow}>
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.cardAvatar}
+                    accessibilityLabel="Profile photo"
+                  />
+                </View>
+              ) : null}
               <View style={styles.cardTitleRow}>
                 <AppText
                   style={styles.cardTitle}
@@ -245,20 +254,6 @@ export default function HealthSummaryScreen({ navigation }: Props) {
                   <AppText style={styles.shareBtnText}>Share</AppText>
                 </Pressable>
               </View>
-              {avatarUrl ? (
-                <View style={styles.cardAvatarRow}>
-                  <Image
-                    source={{ uri: avatarUrl }}
-                    style={styles.cardAvatar}
-                    accessibilityLabel="Profile photo"
-                  />
-                  {card?.one_line_summary ? (
-                    <AppText style={styles.cardAvatarLabel} numberOfLines={2}>
-                      {String(card.one_line_summary)}
-                    </AppText>
-                  ) : null}
-                </View>
-              ) : null}
               <View style={styles.essentialsList}>
                 <EssentialRow label="Blood type"  value={card?.blood_type ?? "Unknown"} />
                 <EssentialRow label="Conditions"  value={safeJoin(card?.major_conditions) || "None listed"} />
@@ -540,9 +535,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     color: c.text,
   },
   cardAvatarRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   cardAvatar: {
@@ -550,13 +543,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     height: 64,
     borderRadius: 32,
     backgroundColor: c.bgSecondary,
-  },
-  cardAvatarLabel: {
-    flex: 1,
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold,
-    color: c.text,
-    lineHeight: typescale.size.sm * typescale.lineHeight.normal,
   },
   shareBtn: {
     flexDirection: "row",
