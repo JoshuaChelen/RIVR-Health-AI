@@ -5,11 +5,6 @@
  * and rebuild — no code changes needed.
  */
 
-// Horizontal lockup (wordmark + icon, landscape)
-export const logoHorizontalFullcolor = require("../../assets/branding/logo-horizontal-fullcolor.png");
-export const logoHorizontalWhite     = require("../../assets/branding/logo-horizontal-white.png");
-export const logoHorizontalBlack     = require("../../assets/branding/logo-horizontal-black.png");
-
 // Square icon tile (for app icon, badges, avatars)
 export const logoIconFullcolor = require("../../assets/branding/logo-icon-fullcolor.png");
 export const logoIconWhite     = require("../../assets/branding/logo-icon-white.png");
