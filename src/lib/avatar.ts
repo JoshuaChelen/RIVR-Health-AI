@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
@@ -97,22 +98,19 @@ export async function removeAvatar(userId: string, currentPath: string | null): 
 }
 
 /**
- * Returns a stable URI to display the avatar. The hook prefers a locally
- * cached file (instant display + survives app restart) and refreshes the
- * bytes in the background by re-downloading via a short-lived signed URL.
+ * Returns a stable URI to display the avatar.
  *
- * Behaviour by case:
+ * On native (iOS / Android): caches bytes locally via expo-file-system and
+ * returns a file:// URI for instant display across mounts and app restarts.
+ * Refreshes the cache in the background after returning.
  *
- *   - avatarPath is null / undefined            → returns null
- *   - cached file exists                        → return file:// URI immediately,
- *                                                 then refresh bytes in background
- *   - no cached file                            → wait for sign + download,
- *                                                 then return file:// URI
- *   - download fails and we have a cached file  → keep showing the cached file
- *   - download fails and no cached file         → returns null
+ * On web: expo-file-system's cacheDirectory is null and downloadAsync is not
+ * supported, so the cache layer is skipped entirely. Returns the signed URL
+ * directly; the browser's HTTP cache handles repeat loads.
  *
- * The returned URI carries a `?v=…` query param so RN's <Image> reloads when
- * the underlying file is rewritten by a background refresh.
+ * In every case, if the filesystem cache flow fails for any reason, we fall
+ * back to the signed URL the hook already obtained — the user always sees
+ * their photo when one exists, even if local caching is unavailable.
  */
 export function useAvatarUrl(avatarPath: string | null | undefined): string | null {
   const [uri, setUri] = useState<string | null>(null);
@@ -126,9 +124,28 @@ export function useAvatarUrl(avatarPath: string | null | undefined): string | nu
         return;
       }
 
-      const cacheFile = cacheFileFor(avatarPath);
+      // Sign first — we need this URL on every platform: directly on web, and
+      // as the source for the cache refresh + the fallback path on native.
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(avatarPath, SIGNED_URL_TTL_S);
+      if (cancelled) return;
+      if (error || !data?.signedUrl) {
+        setUri(null);
+        return;
+      }
+      const signedUrl = data.signedUrl;
 
-      // 1. Show cached file immediately if it exists.
+      // Web: no filesystem available — show the signed URL directly. Browser
+      // HTTP cache handles repeat loads, and we avoid the entire failure mode
+      // where downloadAsync throws on web and we lose the URL we already have.
+      if (Platform.OS === "web") {
+        setUri(signedUrl);
+        return;
+      }
+
+      // Native: prefer a locally cached file for instant display.
+      const cacheFile = cacheFileFor(avatarPath);
       let cachedExists = false;
       try {
         const info = await FileSystem.getInfoAsync(cacheFile);
@@ -145,35 +162,26 @@ export function useAvatarUrl(avatarPath: string | null | undefined): string | nu
         // Treat as not-cached.
       }
 
-      // 2. Refresh the cache in the background by signing + downloading
-      //    fresh bytes. If we had no cache, this is the only path that
-      //    sets the URI; if we did, the new URI's `?v=` differs so RN
-      //    reloads the image after the file is rewritten.
+      // Refresh the cache in the background. If anything in this chain fails,
+      // we fall back to the signed URL we obtained above so the user still
+      // sees their photo. The cached `?v=` stamp differs from the refreshed
+      // one, so RN reloads the <Image> after the file is rewritten.
       try {
         await ensureCacheDir();
-        const { data, error } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrl(avatarPath, SIGNED_URL_TTL_S);
-        if (cancelled) return;
-        if (error || !data?.signedUrl) {
-          if (!cachedExists) setUri(null);
-          return;
-        }
-
-        const result = await FileSystem.downloadAsync(data.signedUrl, cacheFile);
+        const result = await FileSystem.downloadAsync(signedUrl, cacheFile);
         if (cancelled) return;
         if (result.status === 200) {
           setUri(`${cacheFile}?v=${Date.now()}`);
-        } else if (!cachedExists) {
-          // Couldn't write the cache and we have nothing on disk — fall back
-          // to the signed URL directly so the user still sees their photo.
-          setUri(data.signedUrl);
+          return;
         }
       } catch {
-        // Background refresh failure: if we already showed a cached file,
-        // leave the URI alone; otherwise null out.
-        if (!cachedExists) setUri(null);
+        // Fall through to the signed-URL fallback below.
       }
+
+      // Cache write failed (or returned non-200). If we had no cached copy to
+      // show, display the signed URL directly so the user still sees their
+      // photo; otherwise leave the cached URI in place.
+      if (!cachedExists && !cancelled) setUri(signedUrl);
     })();
 
     return () => {
