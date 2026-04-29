@@ -566,8 +566,10 @@ async function processJob(job: any) {
 
               const summaryPath = `${userId}/processed/${docId}/summary.json`;
               await uploadJson(summaryPath, fallback);
+              // Don't mark 'processed' yet — see the unified batch update right
+              // before markJob(succeeded). The doc stays 'processing' so the UI
+              // card stays visible until the whole job is done.
               await updateDocument(docId, userId, {
-                status: "processed",
                 summary_path: summaryPath,
                 processed_at: nowIso(),
                 processing_error: null,
@@ -681,8 +683,12 @@ async function processJob(job: any) {
               // [2e] Before marking doc complete
               await checkCancelled(jobId, abortController);
 
+              // Don't mark the doc 'processed' yet — that happens in the unified
+              // batch update right before the job is marked 'succeeded'. Keeping
+              // status='processing' here means the document card stays visible in
+              // the UI for the rest of the job (evaluation, backfill, etc.)
+              // instead of disappearing as soon as extraction completes.
               await updateDocument(docId, userId, {
-                status: "processed",
                 summary_path: summaryPath,
                 processed_at: nowIso(),
                 processing_error: null,
@@ -968,30 +974,9 @@ async function processJob(job: any) {
       manuallyEnteredFields,
     });
 
-    // ── Mark manual-input documents as processed ──────────────────────────────
-    // Mark exactly the manual doc rows that are linked to this job (from
-    // job.document_ids) as processed. Background profile_evaluation jobs that
-    // were not triggered by the Process button have manualDocIds = [], so this
-    // block is skipped for them — no docs to mark.
-    // Non-fatal: failure here must not fail the job.
-    if (manualDocIds.length > 0) {
-      try{
-          await supabaseAdmin
-            .from("documents")
-            .update({
-              status: "processed",
-              processed_at: nowIso(),
-              updated_at: nowIso(),
-              processing_error: null,
-            })
-            .eq("user_id", userId)
-            .in("id", manualDocIds);
-        } catch (manualDocErr: any) {
-        await logEvent(jobId, "warn", "Could not mark manual-input doc processed (non-fatal)", {
-          error: manualDocErr?.message,
-        });
-      }
-    }
+    // Note: manual-input docs used to be marked 'processed' here (right before
+    // the AI backfill). They're now handled by the unified batch update right
+    // before markJob(succeeded), alongside the file docs.
 
     // ── [5] AI backfill into user_profiles ────────────────────────────────────
     // Only runs when document facts are available — profile_evaluation jobs with
@@ -1038,6 +1023,29 @@ async function processJob(job: any) {
         }
       } else {
         await logEvent(jobId, "info", "AI backfill: no new items to add");
+      }
+    }
+
+    // ── Mark all docs from this job as processed ─────────────────────────────
+    // Done at the very end (rather than per-doc during extraction) so the
+    // document card stays visible in the UI for the entire duration of the
+    // worker's job — extraction, evaluation, backfill — instead of disappearing
+    // as soon as a single doc's extraction completes. Failed docs are not
+    // affected because the WHERE clause filters by status='processing'.
+    // Non-fatal: failure here must not fail the whole job.
+    const allJobDocIds = [...limitedDocIds, ...manualDocIds];
+    if (allJobDocIds.length > 0) {
+      try {
+        await supabaseAdmin
+          .from("documents")
+          .update({ status: "processed", updated_at: nowIso() })
+          .eq("user_id", userId)
+          .in("id", allJobDocIds)
+          .eq("status", "processing");
+      } catch (markErr: any) {
+        await logEvent(jobId, "warn", "Batch mark processed failed (non-fatal)", {
+          error: markErr?.message,
+        });
       }
     }
 
