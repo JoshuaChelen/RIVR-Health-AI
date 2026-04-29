@@ -477,17 +477,29 @@ export function UploadFile({ onUploaded }: Props) {
             const dupDate = new Date(dup.created_at).toLocaleDateString(undefined, {
               month: "short", day: "numeric", year: "numeric",
             });
-            const proceed = await new Promise<boolean>((resolve) =>
-              Alert.alert(
-                "Possible duplicate",
-                `A document named "${fileName}" with the same file size was uploaded on ${dupDate}.`,
-                [
-                  { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-                  { text: "Upload Anyway", onPress: () => resolve(true) },
-                ],
-                { cancelable: true, onDismiss: () => resolve(false) },
-              )
-            );
+            const message = `A document named "${fileName}" with the same file size was uploaded on ${dupDate}.`;
+            // Alert.alert doesn't render reliably on web (the buttons never
+            // appear and the promise never resolves), so the upload would
+            // hang at "Checking auth…" forever. Fall back to window.confirm.
+            let proceed: boolean;
+            if (Platform.OS === "web") {
+              proceed =
+                typeof window !== "undefined" && typeof window.confirm === "function"
+                  ? window.confirm(`${message}\n\nUpload anyway?`)
+                  : true; // last-resort: skip the prompt and let the user upload
+            } else {
+              proceed = await new Promise<boolean>((resolve) =>
+                Alert.alert(
+                  "Possible duplicate",
+                  message,
+                  [
+                    { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                    { text: "Upload Anyway", onPress: () => resolve(true) },
+                  ],
+                  { cancelable: true, onDismiss: () => resolve(false) },
+                )
+              );
+            }
             if (!proceed) continue;
           }
         }
