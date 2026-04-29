@@ -103,12 +103,9 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
     .from("user_profiles")
     .select("*")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw error;
-  }
+  if (error) throw error;
   return data;
 }
 
