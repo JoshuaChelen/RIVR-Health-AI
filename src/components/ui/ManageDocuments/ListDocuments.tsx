@@ -750,6 +750,52 @@ export function ListDocuments({
     return () => { supabase.removeChannel(channel); };
   }, [userId]);
 
+  // Polling fallback for ai_jobs stage — runs only while at least one doc is
+  // in 'processing'. The realtime subscription above is faster when it works,
+  // but if ai_jobs isn't in the supabase_realtime publication on this project
+  // we'd never get any events, so the bar would stay stuck. Polling ensures
+  // the bar advances regardless of realtime config.
+  const hasProcessingDocs = docs.some((d) => (d.status ?? "") === "processing");
+  useEffect(() => {
+    if (!userId || !hasProcessingDocs) return;
+
+    const tick = async () => {
+      const { data } = await supabase
+        .from("ai_jobs")
+        .select("id, document_ids, stage, progress")
+        .eq("user_id", userId)
+        .in("status", ["queued", "running"]);
+
+      if (!data || data.length === 0) return;
+
+      setJobStage((prev) => {
+        const next = new Map(prev);
+        for (const job of data) {
+          const stage = String((job as any).stage ?? "");
+          const info = STAGE_INFO[stage];
+          if (!info) continue;
+          const docIds: string[] = Array.isArray((job as any).document_ids)
+            ? ((job as any).document_ids as string[])
+            : [];
+          const progress = (job as any).progress;
+          const currentDocId: string | null =
+            progress && typeof progress === "object" ? (progress.currentDocId ?? null) : null;
+          if (currentDocId) {
+            next.set(currentDocId, info);
+          } else {
+            for (const id of docIds) next.set(id, info);
+          }
+        }
+        return next;
+      });
+    };
+
+    // Tick once immediately so the bar updates without waiting a full interval.
+    tick();
+    const interval = setInterval(tick, 1500);
+    return () => clearInterval(interval);
+  }, [userId, hasProcessingDocs]);
+
   function handleDelete(doc: DocRow) { setConfirm({ mode: "delete", doc }); }
   function handleCancel(doc: DocRow) { setConfirm({ mode: "cancel", doc }); }
 
