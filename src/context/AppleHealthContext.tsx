@@ -232,9 +232,9 @@ export function AppleHealthProvider({
       const userId = auth.user?.id;
       if (userId) {
         await supabase
-          .from("profiles")
+          .from("user_profiles")
           .update({ health_linked_at: new Date().toISOString() })
-          .eq("id", userId);
+          .eq("user_id", userId);
       }
 
       await refresh();
@@ -262,9 +262,9 @@ export function AppleHealthProvider({
       const userId = auth.user?.id;
       if (userId) {
         await supabase
-          .from("profiles")
+          .from("user_profiles")
           .update({ health_linked_at: null })
-          .eq("id", userId);
+          .eq("user_id", userId);
       }
     } catch {
       // Local state is already cleared. DB update is best-effort.
@@ -280,10 +280,10 @@ export function AppleHealthProvider({
         const userId = auth.user?.id;
         if (userId) {
           const { data: profile } = await supabase
-            .from("profiles")
+            .from("user_profiles")
             .select("health_linked_at")
-            .eq("id", userId)
-            .single();
+            .eq("user_id", userId)
+            .maybeSingle();
 
           // health_linked_at is set iff the user has previously authorized.
           // null means never connected or explicitly disconnected.
