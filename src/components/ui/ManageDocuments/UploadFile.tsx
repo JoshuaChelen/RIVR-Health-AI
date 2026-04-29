@@ -508,14 +508,11 @@ export function UploadFile({ onUploaded }: Props) {
         uploaded += 1;
       }
 
-      if (uploaded > 0) {
-        setPdfStatus(`${uploaded} file${uploaded === 1 ? "" : "s"} ready to process.`);
-        onUploaded?.();
-      } else {
-        // Every picked file was skipped (e.g. user cancelled the duplicate
-        // prompt). Don't show a misleading "ready to process" message.
-        setPdfStatus(null);
-      }
+      // Clear the status either way. The new files appear in the list below
+      // and the Process button at the bottom shows the live pending count —
+      // duplicating that count here would just go stale on add/remove.
+      setPdfStatus(null);
+      if (uploaded > 0) onUploaded?.();
     } catch (e: any) {
       setPdfStatus(e?.message ?? String(e));
       setPdfError(true);
