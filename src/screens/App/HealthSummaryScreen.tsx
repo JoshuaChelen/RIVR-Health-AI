@@ -211,16 +211,6 @@ export default function HealthSummaryScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        {/* ── Stale / updating banner ─────────────────────────── */}
-        {showContent && isStale ? (
-          <View style={styles.staleBanner}>
-            <ActivityIndicator size="small" color={colors.teal} />
-            <AppText style={styles.staleText}>
-              We're updating your health summary — give us a moment, please.
-            </AppText>
-          </View>
-        ) : null}
-
         {/* ── Context card (overview + sources) ─────────────── */}
         {showContent && overview ? (
           <OverviewCard
