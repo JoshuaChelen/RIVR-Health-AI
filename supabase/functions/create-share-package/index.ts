@@ -337,10 +337,14 @@ Deno.serve(async (req) => {
     }
 
     // ── Build share URL ───────────────────────────────────────────────────────
+    // Points at the public share-web site (Vercel-hosted), not the Supabase
+    // edge function. The recipient lands on the static page, which then calls
+    // the /share/resolve edge function over XHR to fetch the actual share data.
+    // Override via the SHARE_PUBLIC_URL secret if you ever change domains.
 
-    const functionsBase = Deno.env.get("SUPABASE_FUNCTIONS_URL")
-      ?? new URL(req.url).origin;
-    const shareUrl = `${functionsBase}/share?token=${encodeURIComponent(token)}`;
+    const sharePublicBase = (Deno.env.get("SHARE_PUBLIC_URL") ?? "https://share.rivrhealth.ai")
+      .replace(/\/+$/, "");
+    const shareUrl = `${sharePublicBase}/?token=${encodeURIComponent(token)}`;
 
     return new Response(
       JSON.stringify({ packageId: pkg.id, shareUrl, expiresAt: pkg.expires_at }),
