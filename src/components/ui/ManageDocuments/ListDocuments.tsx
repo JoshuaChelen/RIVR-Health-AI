@@ -103,12 +103,20 @@ function useProcessingMessage(isStopping: boolean, isManual = false): string {
   return messages[idx % messages.length];
 }
 
+const SHIMMER_HIGHLIGHT_WIDTH = 90;
+
 function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
   const { shimmerStyles } = useStyles();
   const position = useRef(new Animated.Value(0)).current;
   const brightness = useRef(new Animated.Value(0.6)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
 
   useEffect(() => {
+    // Wait for the first onLayout measurement before starting so the
+    // outputRange is correct on the first frame and we never see the
+    // highlight pause inside the visible track.
+    if (trackWidth <= 0) return;
+
     const slideDuration = stopping ? 2800 : 1400;
     const slide = Animated.loop(
       Animated.timing(position, {
@@ -126,22 +134,33 @@ function ShimmerBar({ stopping = false }: { stopping?: boolean }) {
     slide.start();
     breathe.start();
     return () => { slide.stop(); breathe.stop(); };
-  }, [position, brightness, stopping]);
+  }, [position, brightness, stopping, trackWidth]);
 
+  // Always L → R: start the highlight just off the left edge and end it just
+  // past the right edge so the reset (position 1 → 0) happens entirely
+  // off-screen. No visible R → L snap, no pause at the right edge.
   const translateX = position.interpolate({
     inputRange: [0, 1],
-    outputRange: [-90, 320],
+    outputRange: [-SHIMMER_HIGHLIGHT_WIDTH, trackWidth || SHIMMER_HIGHLIGHT_WIDTH],
   });
 
   return (
-    <View style={shimmerStyles.track}>
-      <Animated.View
-        style={[
-          shimmerStyles.highlight,
-          stopping && shimmerStyles.highlightStopping,
-          { opacity: brightness, transform: [{ translateX }] },
-        ]}
-      />
+    <View
+      style={shimmerStyles.track}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && w !== trackWidth) setTrackWidth(w);
+      }}
+    >
+      {trackWidth > 0 ? (
+        <Animated.View
+          style={[
+            shimmerStyles.highlight,
+            stopping && shimmerStyles.highlightStopping,
+            { opacity: brightness, transform: [{ translateX }] },
+          ]}
+        />
+      ) : null}
     </View>
   );
 }
