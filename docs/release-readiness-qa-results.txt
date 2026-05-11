@@ -18,6 +18,7 @@ Release-readiness commits:
 - ba1ebf2 document and patch iOS simulator build
 - b9b7829 expand release QA and fix web offline state
 - ca72951 fix web auth input field ids
+- current: document repeated mobile timeline save QA
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -90,6 +91,8 @@ Requirement-to-artifact checklist:
   - iOS Timeline event details opened from the list and rendered full incident date, reported date, patient age sentence, summary, details rows, and clinical chips.
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed and returned to read-only details without freezing or crashing.
+  - Additional iOS Timeline QA captured two complete no-op edit/save cycles on the same Penicillin allergy event. Each verified cycle showed populated normalized edit fields after tapping Edit and returned to read-only Details after Save without freezing or crashing.
+  - A third additional save was performed from an already-open edit state after an inconsistent automation loop left the event in edit mode. That save returned to read-only Details without freezing or crashing.
   - iOS Timeline Pre-Visit switch toggled on from the list without navigating or freezing, then was toggled back off to preserve the QA account state.
   - iOS Health Summary opened from Home and rendered the overview, emergency card, conditions, medications, allergies, and Share control without crashing.
   - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
@@ -271,7 +274,7 @@ Manual QA attempt:
 - Mobile Share Records opened, allowed selecting the 3x5 Card, generated a secure link, showed the QR code and included item, and Copy Link placed a share.rivrhealth.ai URL on the simulator pasteboard.
 - Mobile AI Recommendations opened and rendered personalised recommendation cards with priority labels and Add Data actions.
 - Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
-- Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save and typed-search checks. CGEvent fallback was enough for tap-only checks but not enough to complete the remaining mobile checklist.
+- Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save and typed-search checks. CGEvent fallback was enough for some tap-only checks, but tap delivery became inconsistent during the repeated-cycle run, so the reliable 5+ edit/save requirement remains open.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 
 7. Code quality requirements
@@ -288,7 +291,7 @@ Manual QA attempt:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
-- Mobile timeline edit/save has been smoke-tested on simulator without a freeze; Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Repeated 5+ edit/save, typed mobile search, and seeded old/malformed timeline rows still need completion.
+- Mobile timeline edit/save has been smoke-tested on simulator without a freeze, including two captured complete no-op edit/save cycles and one additional save from edit mode. Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Reliable repeated 5+ edit/save, typed mobile search, and seeded old/malformed timeline rows still need completion.
 - The new fmt workaround should be verified in a fresh Expo prebuild/pod install or CI/EAS build. The local ignored ios/Pods tree was patched to prove the simulator build path.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
