@@ -155,6 +155,18 @@ Requirement-to-artifact checklist:
     - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
   - npx expo config --type introspect --json
     - Passed after @expo/config-plugins override; Expo evaluated the config including react-native-health plugin.
+  - xcrun simctl list devices available
+    - Passed: available iOS simulators are present, including iPhone 17 Pro.
+  - xcodebuild -version
+    - Passed: Xcode 26.4.1, build 17E202.
+  - npx expo run:ios --no-bundler --device "iPhone 17"
+    - Failed before app launch: xcodebuild error 70, selected iOS 26.4 destination reported unavailable/not installed.
+  - npx expo run:ios --no-bundler --device C6432A17-83CF-4DAE-94C0-D808280935ED
+    - Failed before app launch: xcodebuild error 70, simulator destination not visible to the RIVRHealthAI scheme.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -showdestinations
+    - Failed to expose simulator destinations; only ineligible Any iOS Device placeholder was listed, with iOS 26.4 runtime error.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Debug -sdk iphonesimulator -destination 'id=C6432A17-83CF-4DAE-94C0-D808280935ED' build
+    - Failed before compilation: xcodebuild error 70, unable to find simulator destination for the scheme.
   - git diff --check
     - Re-run after voice-search changes: passed.
     - Re-run after dependency cleanup: passed.
@@ -179,6 +191,7 @@ Manual QA attempt:
 - Chrome DevTools MCP could not attach because its browser profile was already locked by an existing Chrome process.
 - The repo has no Playwright, Puppeteer, Detox, Jest, or Vitest dependency configured for browser/device flow automation.
 - Authenticated end-to-end QA was not performed to avoid creating or mutating data against the configured Supabase environment without test credentials and seeded test records.
+- iOS simulator QA was attempted, but Xcode could not resolve simulator destinations for the RIVRHealthAI scheme. The app did not launch on simulator, so mobile edit/save freeze verification remains unperformed.
 
 7. Code quality requirements
 - Evidence:
