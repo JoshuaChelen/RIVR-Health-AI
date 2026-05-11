@@ -53,9 +53,12 @@ Requirement-to-artifact checklist:
   - src/screens/App/TimelineScreen.tsx adds typed natural search across timeline event text, dates, tags, data payload, document title, clinical tags, and health card / AI summary JSON.
   - Search result count and no-result state are implemented.
   - Health card matches show a small result card linking to Health Summary.
+  - Voice search has a release-safe UI entry point behind EXPO_PUBLIC_ENABLE_VOICE_SEARCH=true.
+  - When voice search is disabled or unavailable, the app shows a typed-search fallback instead of adding native speech permissions/dependencies.
+  - The enabled path uses platform speech support on web only; native mobile keeps the typed-search fallback for App Store safety.
 - Status:
   - Typed search implemented.
-  - Voice search deferred. No existing speech-input dependency was present, and adding one late in release hardening would increase App Store/native permission risk.
+  - Voice search is feature-flagged with a clear fallback.
 
 5. App-wide release quality audit
 - Evidence:
@@ -105,7 +108,7 @@ Requirement-to-artifact checklist:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
-- Voice search remains deferred by design for release safety.
+- Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - react-native-health currently brings duplicate @expo/fingerprint and vulnerable nested @xmldom via old @expo/config-plugins. Upstream latest react-native-health is 1.19.0, so there is no non-breaking package upgrade available from npm at the time checked.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
 - npm audit still reports high vulnerabilities that require a breaking react-native-health downgrade if using npm's suggested fix.

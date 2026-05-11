@@ -7,6 +7,8 @@ import {
   RefreshControl,
   Pressable,
   TextInput,
+  Alert,
+  Platform,
 } from "react-native";
 import { SetVisitDateModal } from "../../components/ui/Timeline/SetVisitDateModal";
 import { useFocusEffect } from "@react-navigation/native";
@@ -43,6 +45,7 @@ type RenderRow =
   | { kind: "event"; key: string; event: TimelineEventRow; isLastInGroup: boolean };
 
 const PAGE_SIZE = 30;
+const VOICE_SEARCH_ENABLED = process.env.EXPO_PUBLIC_ENABLE_VOICE_SEARCH === "true";
 
 export function TimelineScreen({ navigation }: Props) {
   const [events, setEvents]         = useState<TimelineEventRow[]>([]);
@@ -54,6 +57,7 @@ export function TimelineScreen({ navigation }: Props) {
   const [patientDob, setPatientDob] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [healthCard, setHealthCard] = useState<any>(null);
+  const [voiceListening, setVoiceListening] = useState(false);
 
   const flatListRef = useRef<FlatList<RenderRow>>(null);
 
@@ -318,6 +322,46 @@ export function TimelineScreen({ navigation }: Props) {
     });
   }, [unknownHeaderIndex]);
 
+  const startVoiceSearch = useCallback(() => {
+    if (!VOICE_SEARCH_ENABLED) {
+      Alert.alert("Voice search unavailable", "Typed search is available in this release.");
+      return;
+    }
+
+    if (Platform.OS !== "web") {
+      Alert.alert("Voice search unavailable", "Typed search is available on this device.");
+      return;
+    }
+
+    const speechApi =
+      (globalThis as any).SpeechRecognition ??
+      (globalThis as any).webkitSpeechRecognition;
+    if (!speechApi) {
+      Alert.alert("Voice search unavailable", "Typed search is available in this browser.");
+      return;
+    }
+
+    try {
+      const recognition = new speechApi();
+      recognition.lang = "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => setVoiceListening(true);
+      recognition.onerror = () => setVoiceListening(false);
+      recognition.onend = () => setVoiceListening(false);
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript;
+        if (typeof transcript === "string" && transcript.trim()) {
+          setSearchQuery(transcript.trim());
+        }
+      };
+      recognition.start();
+    } catch (_e) {
+      setVoiceListening(false);
+      Alert.alert("Voice search unavailable", "Typed search is available in this browser.");
+    }
+  }, []);
+
   const listHeader = useMemo(() => (
     <>
       {err ? (
@@ -374,6 +418,21 @@ export function TimelineScreen({ navigation }: Props) {
               <Ionicons name="close-circle" size={16} color={colors.subtle} />
             </Pressable>
           ) : null}
+          <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={voiceListening ? "Listening for voice search" : "Start voice search"}
+            accessibilityState={{ selected: voiceListening }}
+            onPress={startVoiceSearch}
+            hitSlop={8}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons
+              name={voiceListening ? "mic" : "mic-outline"}
+              size={17}
+              color={voiceListening ? colors.teal : colors.subtle}
+            />
+          </Pressable>
         </View>
         {searchQuery ? (
           <AppText style={styles.searchResultText}>
@@ -409,7 +468,7 @@ export function TimelineScreen({ navigation }: Props) {
         </View>
       ) : null}
     </>
-  ), [err, load, undatedCount, scrollToUnknown, styles, colors, searchQuery, visibleEvents.length, hasHealthCardSearchMatch, navigation]);
+  ), [err, load, undatedCount, scrollToUnknown, styles, colors, searchQuery, visibleEvents.length, hasHealthCardSearchMatch, navigation, startVoiceSearch, voiceListening]);
 
   const listEmpty = useMemo(() => {
     if (loading) {
