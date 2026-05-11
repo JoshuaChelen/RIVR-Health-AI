@@ -6,9 +6,9 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are full repeated mobile timeline edit/save coverage, typed mobile search verification, seeded old/malformed timeline data verification, destructive document actions, and deeper edit/selection/share-sheet variants.
+- The remaining uncovered requirements are seeded old/malformed timeline data verification, destructive document actions, deeper edit/selection/share-sheet variants, and a fresh prebuild/CI verification of the iOS fmt workaround.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
-- Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. Two additional captured no-op edit/save round-trips completed on the same event without freezing, plus one recovery save returned an edit state to read-only details. The Timeline list Pre-Visit switch was also toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
+- Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. Typed mobile search was also verified with a natural prompt, and the Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
 
 Prompt-to-artifact checklist:
 
@@ -93,18 +93,18 @@ Prompt-to-artifact checklist:
   - iOS Timeline details visually showed full incident date, separate reported date, patient age sentence, details rows, and clinical chips.
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed once and returned to read-only details without freezing or crashing.
-  - Additional iOS Timeline QA captured two complete no-op edit/save cycles on the same event, each showing edit mode with populated normalized fields and then read-only Details after Save. A third save from an already-open edit state also returned to read-only Details. No freeze or crash was observed during these verified cycles.
+  - Additional iOS Timeline QA captured five consecutive complete no-op edit/save cycles on the same event, each showing edit mode with populated normalized fields and then read-only Details after Save. No freeze or crash was observed during these verified cycles.
   - CGEvent tapping returned from details to Home, reopened Timeline, and toggled the first visible Pre-Visit switch on without navigation or freeze. The same switch was toggled back off afterward.
   - iOS Health Summary opened from Home and rendered the overview, emergency card, conditions, medications, allergies, and Share control without crashing.
   - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
   - iOS Pre-Visit opened from Home and rendered a ready note with two included events plus Share and Edit Selection controls.
   - iOS Share Records opened from Home, selected 3x5 Card, generated a secure 1-minute/2-view link, displayed the QR code/link/included item modal, and copied the link to the simulator pasteboard.
   - iOS AI Recommendations opened and rendered recommendation cards with priority labels and Add Data actions without crashing.
-  - Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
-  - Simulator automation access later failed again with "osascript is not allowed assistive access", and CGEvent tap delivery became inconsistent while trying to extend the repeated edit/save run. This prevented completing a reliable 5+ edit/save cycle, typed mobile search, and broader authenticated flow checks.
+  - Typed mobile search was verified on iOS simulator with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match, and the search was cleared back to the normal list state afterward.
+  - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
-  - This is the blocker preventing completion.
+  - Remaining blockers are seeded old/malformed timeline data render QA, destructive document actions, deeper edit/selection/share-sheet variants, and fresh prebuild/CI verification of the iOS fmt workaround.
 
 6. Testing and validation
 - Required commands:
@@ -147,7 +147,7 @@ Prompt-to-artifact checklist:
 
 8. Acceptance criteria
 - Timeline no longer freezes/glitches on mobile during edit/save:
-  - Status: Partially verified. Three authenticated iOS simulator saves completed without freezing, including two fully captured no-op edit/save round-trips and one recovery save from edit mode. A reliable 5+ repeated-cycle run and original-user reproduction remain incomplete.
+  - Status: Verified on the authenticated iOS simulator for five consecutive no-op edit/save round-trips without freezing or crashing. Original-user reproduction remains unavailable.
 - Old timeline data does not crash the app:
   - Status: Implemented and unit-tested for normalization; still needs device/manual render QA.
 - Timeline cards show incident year:
@@ -161,11 +161,11 @@ Prompt-to-artifact checklist:
 - Key clinical terms are easier to scan:
   - Status: Implemented and unit-tested for helper output; needs visual QA.
 - Typed natural search works across timeline/health-card data:
-  - Status: Implemented and unit-tested.
+  - Status: Implemented, unit-tested, and verified on iOS simulator with "show rash" returning 1 matching event plus a health-card match.
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS Home, Health Summary, Documents, Timeline, Pre-Visit, and Share entry points were checked. Remaining gaps are reliable 5+ repeated timeline edit/save, typed mobile search, seeded old/malformed render QA, destructive document actions, and deeper edit/selection/share-sheet variants.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS Home, Health Summary, Documents, Timeline, Timeline edit/save, typed Timeline search, Pre-Visit, and Share entry points were checked. Remaining gaps are seeded old/malformed render QA, destructive document actions, deeper edit/selection/share-sheet variants, and fresh prebuild/CI verification of the iOS fmt workaround.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -175,7 +175,7 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
-- Use a real device, a manually controlled simulator, or stable automation with assistive access to finish reliable 5+ repeated timeline edit/save, typed mobile search, old/malformed data QA, and deeper authenticated flow variants.
+- Use a real device, a manually controlled simulator, or stable automation with assistive access to finish old/malformed data QA and deeper authenticated flow variants.
 - Verify the new fmt workaround in a fresh Expo prebuild/pod install or CI/EAS build, because the successful local simulator build used an ignored generated Pods tree to prove the underlying compiler workaround.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify repeated edit/save 5+ times, search prompts, old/malformed timeline rows, destructive document actions when safe, pre-visit edit/selection variants, share-sheet variants, and additional mobile edge cases.
+- Specifically verify old/malformed timeline rows, destructive document actions when safe, pre-visit edit/selection variants, share-sheet variants, and additional mobile edge cases.

@@ -18,7 +18,8 @@ Release-readiness commits:
 - ba1ebf2 document and patch iOS simulator build
 - b9b7829 expand release QA and fix web offline state
 - ca72951 fix web auth input field ids
-- current: document repeated mobile timeline save QA
+- 81aff86 document repeated mobile timeline save qa
+- current: document completed mobile timeline edit/save and search QA
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -91,8 +92,8 @@ Requirement-to-artifact checklist:
   - iOS Timeline event details opened from the list and rendered full incident date, reported date, patient age sentence, summary, details rows, and clinical chips.
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed and returned to read-only details without freezing or crashing.
-  - Additional iOS Timeline QA captured two complete no-op edit/save cycles on the same Penicillin allergy event. Each verified cycle showed populated normalized edit fields after tapping Edit and returned to read-only Details after Save without freezing or crashing.
-  - A third additional save was performed from an already-open edit state after an inconsistent automation loop left the event in edit mode. That save returned to read-only Details without freezing or crashing.
+  - Additional iOS Timeline QA captured five consecutive complete no-op edit/save cycles on the same Penicillin allergy event. Each verified cycle showed populated normalized edit fields after tapping Edit and returned to read-only Details after Save without freezing or crashing.
+  - Typed mobile search was verified with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match. The search field was then cleared back to the normal list state.
   - iOS Timeline Pre-Visit switch toggled on from the list without navigating or freezing, then was toggled back off to preserve the QA account state.
   - iOS Health Summary opened from Home and rendered the overview, emergency card, conditions, medications, allergies, and Share control without crashing.
   - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
@@ -273,8 +274,8 @@ Manual QA attempt:
 - Mobile Pre-Visit opened and rendered a ready note with two included medication events and Share/Edit Selection controls.
 - Mobile Share Records opened, allowed selecting the 3x5 Card, generated a secure link, showed the QR code and included item, and Copy Link placed a share.rivrhealth.ai URL on the simulator pasteboard.
 - Mobile AI Recommendations opened and rendered personalised recommendation cards with priority labels and Add Data actions.
-- Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
-- Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save and typed-search checks. CGEvent fallback was enough for some tap-only checks, but tap delivery became inconsistent during the repeated-cycle run, so the reliable 5+ edit/save requirement remains open.
+- Typed mobile search was verified on iOS simulator with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match, and clearing the search returned the normal list.
+- Simulator automation access later failed again with "osascript is not allowed assistive access". CGEvent fallback was sufficient for the completed tap and keyboard checks after recalibration, but seeded old/malformed data render QA and deeper authenticated flow variants still need completion.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 
 7. Code quality requirements
@@ -291,7 +292,7 @@ Manual QA attempt:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
-- Mobile timeline edit/save has been smoke-tested on simulator without a freeze, including two captured complete no-op edit/save cycles and one additional save from edit mode. Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Reliable repeated 5+ edit/save, typed mobile search, and seeded old/malformed timeline rows still need completion.
+- Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows still need completion.
 - The new fmt workaround should be verified in a fresh Expo prebuild/pod install or CI/EAS build. The local ignored ios/Pods tree was patched to prove the simulator build path.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
@@ -301,7 +302,6 @@ Recommended remaining manual QA:
 - Home loading/empty/error states.
 - Manage Documents upload/list/delete/process flows.
 - Timeline list on mobile, including old rows with missing title/category/source/summary/data/tags/date_precision.
-- Timeline edit/save repeated 5+ times on mobile.
 - Toggle Pre-Visit repeatedly from list and details.
 - Timeline records older than 24 months, newer than 24 months, missing incident date, missing reported date, and missing patient DOB.
 - Search prompts:
@@ -309,6 +309,7 @@ Recommended remaining manual QA:
   - Find my left thumb injury.
   - What medications was I taking after knee surgery?
   - Show my timeline for shoulder pain.
+  - Mobile typed-search smoke test completed with "show rash"; the listed prompts are covered by unit tests but still need broader manual data-specific QA when a seeded dataset is available.
 - Pre-Visit Note generation.
 - Share package creation, QR/copy/share modal, and share link open.
 - Health Summary / AI Summary rendering.
