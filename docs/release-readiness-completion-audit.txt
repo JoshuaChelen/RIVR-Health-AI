@@ -75,6 +75,7 @@ Prompt-to-artifact checklist:
   - Web shell was served successfully with npm run web and curl returned HTTP 200.
   - iOS simulator and Xcode availability were checked.
   - iOS simulator launch/build was attempted and failed before app launch because Xcode could not resolve simulator destinations for the RIVRHealthAI scheme.
+  - iOS and iOS Simulator SDK 26.4 are installed, and a disposable iOS 26.4 simulator could be created/booted, but xcodebuild still exposed no simulator destination for the RIVRHealthAI scheme.
   - Chrome DevTools MCP could not attach because its chrome-profile was locked by existing Chrome/MCP processes.
   - No test account or seeded test data was found in the repo.
 - Status:
@@ -150,5 +151,6 @@ Prompt-to-artifact checklist:
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
 - Fix local Xcode/simulator destination resolution for RIVRHealthAI, or test on a real device.
+- If fixing the local simulator path, regenerate or adjust the ignored native ios/ project outside this release branch, then confirm xcodebuild -showdestinations lists an iOS Simulator destination for RIVRHealthAI.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
 - Specifically verify timeline list, event details, repeated edit/save, and Pre-Visit toggles on mobile do not freeze or glitch.

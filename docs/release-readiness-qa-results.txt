@@ -159,6 +159,8 @@ Requirement-to-artifact checklist:
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
     - Passed: Xcode 26.4.1, build 17E202.
+  - xcodebuild -showsdks / xcrun --sdk iphonesimulator --show-sdk-version
+    - Passed: iOS and iOS Simulator SDK 26.4 are installed.
   - npx expo run:ios --no-bundler --device "iPhone 17"
     - Failed before app launch: xcodebuild error 70, selected iOS 26.4 destination reported unavailable/not installed.
   - npx expo run:ios --no-bundler --device C6432A17-83CF-4DAE-94C0-D808280935ED
@@ -167,6 +169,9 @@ Requirement-to-artifact checklist:
     - Failed to expose simulator destinations; only ineligible Any iOS Device placeholder was listed, with iOS 26.4 runtime error.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Debug -sdk iphonesimulator -destination 'id=C6432A17-83CF-4DAE-94C0-D808280935ED' build
     - Failed before compilation: xcodebuild error 70, unable to find simulator destination for the scheme.
+  - xcrun simctl create RIVR-QA-iPhone-17 com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-4
+    - Passed and the disposable simulator booted, proving CoreSimulator can create an iOS 26.4 device.
+    - xcodebuild still did not list simulator destinations for RIVRHealthAI afterward, so the disposable simulator was shut down and deleted.
   - git diff --check
     - Re-run after voice-search changes: passed.
     - Re-run after dependency cleanup: passed.
@@ -192,6 +197,7 @@ Manual QA attempt:
 - The repo has no Playwright, Puppeteer, Detox, Jest, or Vitest dependency configured for browser/device flow automation.
 - Authenticated end-to-end QA was not performed to avoid creating or mutating data against the configured Supabase environment without test credentials and seeded test records.
 - iOS simulator QA was attempted, but Xcode could not resolve simulator destinations for the RIVRHealthAI scheme. The app did not launch on simulator, so mobile edit/save freeze verification remains unperformed.
+- Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 
 7. Code quality requirements
 - Evidence:
