@@ -38,10 +38,11 @@ const PRECISIONS = new Set(["day", "month", "year"]);
 
 export function normalizeTimelineEvent(row: TimelineLike): NormalizedTimelineEvent {
   const data = isRecord(row.data) ? row.data : {};
+  const occurredAt = normalizeStoredDate(row.occurred_at);
   return {
     id: stringOr(row.id, ""),
-    occurred_at: normalizeStoredDate(row.occurred_at),
-    date_precision: normalizePrecision(row.date_precision, row.occurred_at),
+    occurred_at: occurredAt,
+    date_precision: occurredAt ? normalizePrecision(row.date_precision, row.occurred_at) : null,
     title: stringOr(row.title, "Untitled event"),
     event_type: stringOr(row.event_type, "other"),
     category: stringOr(row.category, "Other"),
@@ -73,9 +74,21 @@ export function normalizePrecision(
 export function normalizeStoredDate(value?: string | null): string | null {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-  if (/^\d{4}-\d{2}$/.test(raw)) return `${raw}-01`;
-  if (/^\d{4}$/.test(raw)) return `${raw}-01-01`;
+  const day = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (day) {
+    const [, y, m, d] = day;
+    return isValidYmd(Number(y), Number(m), Number(d)) ? `${y}-${m}-${d}` : null;
+  }
+  const month = raw.match(/^(\d{4})-(\d{2})$/);
+  if (month) {
+    const [, y, m] = month;
+    return isValidYmd(Number(y), Number(m), 1) ? `${y}-${m}-01` : null;
+  }
+  const year = raw.match(/^(\d{4})$/);
+  if (year) {
+    const y = Number(year[1]);
+    return y > 0 ? `${year[1]}-01-01` : null;
+  }
   return null;
 }
 
@@ -173,7 +186,7 @@ export function clinicalTagsForEvent(
   if (wordIncludes(text, "injury") || wordIncludes(text, "fracture")) tags.push({ label: "Injury", value: "Injury" });
   if (wordIncludes(text, "pain") || wordIncludes(text, "symptom")) tags.push({ label: "Symptom", value: "Symptom" });
 
-  return dedupeTags(tags).slice(0, 5);
+  return dedupeTags(tags).slice(0, 6);
 }
 
 export function normalizeClinicalLabel(label: string): string {
@@ -249,6 +262,16 @@ function parseYmd(value?: string | null): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+function isValidYmd(year: number, month: number, day: number): boolean {
+  if (!year || !month || !day) return false;
+  const dt = new Date(year, month - 1, day);
+  return (
+    dt.getFullYear() === year &&
+    dt.getMonth() === month - 1 &&
+    dt.getDate() === day
+  );
+}
+
 function normalizeTags(tags: unknown): string[] {
   return Array.isArray(tags)
     ? tags.map((tag) => String(tag ?? "").trim()).filter(Boolean)
@@ -298,6 +321,11 @@ function normalizeSearchText(value: string): string {
     .toLowerCase()
     .replace(/\bleft\b/g, "left l")
     .replace(/\bright\b/g, "right r")
+    .replace(/\binjuries\b/g, "injury")
+    .replace(/\bdiagnoses\b/g, "diagnosis")
+    .replace(/\bsurgeries\b/g, "surgery")
+    .replace(/\bmedications\b/g, "medication")
+    .replace(/\bsymptoms\b/g, "symptom")
     .replace(/[^a-z0-9\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

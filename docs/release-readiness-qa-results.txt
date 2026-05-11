@@ -64,6 +64,7 @@ Requirement-to-artifact checklist:
 - Status:
   - Typed search implemented.
   - Voice search is feature-flagged with a clear fallback.
+  - Automated tests now cover representative natural prompts for timeline and health-card matching.
 
 5. App-wide release quality audit
 - Evidence:
@@ -82,9 +83,17 @@ Requirement-to-artifact checklist:
   - npm run typecheck
     - Failed: package.json has no typecheck script.
     - Re-run at final verification: still missing script.
+    - Added script and re-run after timeline helper tests: passed.
   - npm test -- --watch=false
     - Failed: package.json has no test script.
     - Re-run at final verification: still missing script.
+    - Re-run after adding Vitest/tests: passed, 1 test file and 8 tests.
+  - npm test
+    - Added Vitest and timeline helper coverage.
+    - Passed: 1 test file, 8 tests.
+  - npm test -- src/lib/timeline.test.ts
+    - Red run failed on malformed date handling, plural injury search, and clinical chip coverage.
+    - Green run passed after helper fixes: 8 tests passed.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
     - Re-run after 7bc02b0: passed.
@@ -99,12 +108,14 @@ Requirement-to-artifact checklist:
     - 16/17 checks passed before dependency cleanup; prior remaining failure was duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
     - Re-run after @expo/config-plugins override: 17/17 checks passed.
     - Re-run at final verification: 17/17 checks passed.
+    - Re-run after adding Vitest/tests: 17/17 checks passed.
   - npm audit fix
     - Reduced audit findings.
   - npm audit --audit-level=moderate
     - Previously reported 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
     - Re-run after @expo/config-plugins override: found 0 vulnerabilities.
     - Re-run at final verification: found 0 vulnerabilities.
+    - Re-run after adding Vitest/tests: found 0 vulnerabilities.
   - npm ls react-native-health @expo/fingerprint @expo/config-plugins @expo/plist @xmldom/xmldom --all
     - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
   - npx expo config --type introspect --json
@@ -113,6 +124,7 @@ Requirement-to-artifact checklist:
     - Re-run after voice-search changes: passed.
     - Re-run after dependency cleanup: passed.
     - Re-run at final verification: passed.
+    - Re-run after adding Vitest/tests: passed.
   - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local
     - Passed: no output; local key/env files are ignored and not tracked.
   - npm run web
@@ -136,6 +148,7 @@ Manual QA attempt:
 7. Code quality requirements
 - Evidence:
   - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
+  - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, natural timeline search, health-card search, and impossible-age fallbacks.
   - No secrets were added.
   - Local AuthKey_ST6W9U8FZ5.p8, .env, and .env.local files are ignored by .gitignore and not tracked by git.
   - No destructive database migrations were added.
