@@ -176,6 +176,7 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
+- The previously authenticated simulator session did not persist after app relaunch; further authenticated QA now requires a safe test credential, persisted QA account session, or non-production seed path.
 - Use a real device, a manually controlled simulator, or stable automation with assistive access to finish old/malformed data QA and deeper authenticated flow variants.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
 - Specifically verify old/malformed timeline rows, destructive document actions when safe, pre-visit edit/selection variants, share-sheet variants, and additional mobile edge cases.
