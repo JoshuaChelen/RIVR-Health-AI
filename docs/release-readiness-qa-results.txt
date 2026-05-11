@@ -78,26 +78,33 @@ Requirement-to-artifact checklist:
     - Passed after dependency updates.
   - npm run lint
     - Failed: package.json has no lint script.
+    - Re-run at final verification: still missing script.
   - npm run typecheck
     - Failed: package.json has no typecheck script.
+    - Re-run at final verification: still missing script.
   - npm test -- --watch=false
     - Failed: package.json has no test script.
+    - Re-run at final verification: still missing script.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
     - Re-run after 7bc02b0: passed.
+    - Re-run at final verification: passed.
   - npx tsc --noEmit --pretty false 2>&1 | rg '^src/' || true
     - Passed: no src/ app TypeScript errors reported.
   - npm run build in worker/
     - Passed.
     - Re-run after 7bc02b0: passed.
+    - Re-run at final verification: passed.
   - npx expo-doctor
     - 16/17 checks passed before dependency cleanup; prior remaining failure was duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
     - Re-run after @expo/config-plugins override: 17/17 checks passed.
+    - Re-run at final verification: 17/17 checks passed.
   - npm audit fix
     - Reduced audit findings.
   - npm audit --audit-level=moderate
     - Previously reported 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
     - Re-run after @expo/config-plugins override: found 0 vulnerabilities.
+    - Re-run at final verification: found 0 vulnerabilities.
   - npm ls react-native-health @expo/fingerprint @expo/config-plugins @expo/plist @xmldom/xmldom --all
     - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
   - npx expo config --type introspect --json
@@ -105,6 +112,7 @@ Requirement-to-artifact checklist:
   - git diff --check
     - Re-run after voice-search changes: passed.
     - Re-run after dependency cleanup: passed.
+    - Re-run at final verification: passed.
   - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local
     - Passed: no output; local key/env files are ignored and not tracked.
   - npm run web
