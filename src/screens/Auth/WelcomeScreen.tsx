@@ -124,6 +124,8 @@ export function WelcomeScreen({ navigation }: Props) {
   // Animate the first panel on mount
   useEffect(() => {
     animatePanel(0);
+    // Run only once so returning to this screen does not replay panel setup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const finish = async () => {

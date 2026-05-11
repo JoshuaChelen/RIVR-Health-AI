@@ -19,7 +19,7 @@ export function OfflineBanner() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [isOffline]);
+  }, [isOffline, slideAnim]);
 
   return (
     <Animated.View

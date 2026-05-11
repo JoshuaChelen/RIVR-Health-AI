@@ -66,6 +66,8 @@ export function SplashScreen({ onFinish }: Props) {
     ]).start(() => {
       onFinish();
     });
+    // Run the splash sequence once on mount; onFinish is the initial app bootstrap callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

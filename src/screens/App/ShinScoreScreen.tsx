@@ -100,8 +100,10 @@ useEffect(() => {
   };
 }, [load]);
 
+const jobStatus = job?.status;
+
 useEffect(() => {
-  const isRunning = !!(job && (job.status === "queued" || job.status === "running"));
+  const isRunning = jobStatus === "queued" || jobStatus === "running";
 
   if (!isRunning) {
     if (pollRef.current) {
@@ -126,7 +128,7 @@ useEffect(() => {
       pollRef.current = null;
     }
   };
-}, [job?.status, load]);
+}, [jobStatus, load]);
 
 
   const score    = profile?.score ?? evaluation?.score_0_to_100;

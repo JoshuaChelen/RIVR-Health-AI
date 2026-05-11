@@ -55,6 +55,8 @@ export function SignUpScreen({ navigation }: Props) {
       ]),
       Animated.timing(footerOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
     ]).start();
+    // Run the entrance animation only once when the screen mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSignUp = async () => {

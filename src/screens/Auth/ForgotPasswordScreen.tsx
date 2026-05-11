@@ -53,6 +53,8 @@ export function ForgotPasswordScreen({ navigation }: Props) {
       ]),
       Animated.timing(footerOpacity, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
+    // Run the entrance animation only once when the screen mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sendReset = async () => {

@@ -551,11 +551,13 @@ export function ListDocuments({
   const animsRef = useRef<Map<string, DocAnim>>(new Map());
   const animatingOutRef = useRef<Set<string>>(new Set());
   const docsRef = useRef<DocRow[]>([]);
+  const onStatusChangeRef = useRef(onStatusChange);
   const deleteInFlightRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { docsRef.current = docs; }, [docs]);
+  useEffect(() => { onStatusChangeRef.current = onStatusChange; }, [onStatusChange]);
 
-  function getAnim(id: string, fadeIn = false): DocAnim {
+  const getAnim = useCallback((id: string, fadeIn = false): DocAnim => {
     if (!animsRef.current.has(id)) {
       const a: DocAnim = {
         opacity:    new Animated.Value(fadeIn ? 0 : 1),
@@ -573,13 +575,13 @@ export function ListDocuments({
       }
     }
     return animsRef.current.get(id)!;
-  }
+  }, []);
 
-  function animateOut(
+  const animateOut = useCallback((
     id: string,
     opts: { kind?: "processed" | "delete"; speed?: "fast" | "normal" } = {},
     onDone: () => void
-  ) {
+  ) => {
     if (animatingOutRef.current.has(id)) return;
     animatingOutRef.current.add(id);
 
@@ -606,7 +608,7 @@ export function ListDocuments({
       animatingOutRef.current.delete(id);
       onDone();
     });
-  }
+  }, [getAnim]);
 
   // Resolve userId once
   useEffect(() => {
@@ -699,7 +701,7 @@ export function ListDocuments({
             });
           }
 
-          onStatusChange?.();
+          onStatusChangeRef.current?.();
         }
       )
       .on(
@@ -713,13 +715,13 @@ export function ListDocuments({
             if (prev.some((d) => d.id === newDoc.id)) return prev;
             return [newDoc, ...prev];
           });
-          onStatusChange?.();
+          onStatusChangeRef.current?.();
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [userId]);
+  }, [animateOut, getAnim, userId]);
 
   // Realtime subscription on ai_jobs so each processing doc card can render
   // a real progress bar (and stage label) bound to the worker's setStage()
@@ -872,7 +874,7 @@ export function ListDocuments({
           animateOut(updated.id, { kind: "processed", speed: "normal" }, () => {
             setDocs((prev) => prev.filter((d) => d.id !== updated.id));
             animsRef.current.delete(updated.id);
-            onStatusChange?.();
+            onStatusChangeRef.current?.();
           });
         } else if (updated.status !== current.status) {
           if (updated.status === "uploaded" || updated.status === "failed") {
@@ -881,13 +883,13 @@ export function ListDocuments({
           setDocs((prev) =>
             prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d))
           );
-          onStatusChange?.();
+          onStatusChangeRef.current?.();
         }
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [userId, hasProcessing]);
+  }, [animateOut, hasProcessing, userId]);
 
   const rows: Row[] = useMemo(() => {
     // Dedupe by id. Race between the realtime INSERT subscription and the
