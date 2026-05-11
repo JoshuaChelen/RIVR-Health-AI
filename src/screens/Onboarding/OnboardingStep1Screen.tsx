@@ -39,7 +39,7 @@ const SEX_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function OnboardingStep1Screen({ navigation }: Props) {
-  const { styles, dp } = useStyles();
+  const { styles } = useStyles();
   const { colors } = useTheme();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName]   = useState("");
@@ -285,6 +285,7 @@ export function OnboardingStep1Screen({ navigation }: Props) {
 
 let DateTimePicker: any = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   DateTimePicker = require("@react-native-community/datetimepicker").default;
 } catch {
   // package not installed — fallback renders below

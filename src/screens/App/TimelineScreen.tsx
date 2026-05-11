@@ -356,7 +356,7 @@ export function TimelineScreen({ navigation }: Props) {
         }
       };
       recognition.start();
-    } catch (_e) {
+    } catch {
       setVoiceListening(false);
       Alert.alert("Voice search unavailable", "Typed search is available in this browser.");
     }

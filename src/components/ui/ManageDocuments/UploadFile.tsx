@@ -555,7 +555,7 @@ export function UploadFile({ onUploaded }: Props) {
         width:  asset.width  ?? 0,
         height: asset.height ?? 0,
       };
-    } catch (e: any) {
+    } catch {
       // On web, launchCameraAsync throws if the browser can't access a camera
       // (e.g. no camera connected on desktop, or permission denied in browser).
       if (Platform.OS === "web") {

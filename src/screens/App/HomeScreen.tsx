@@ -32,7 +32,6 @@ import {
   PRIORITY_ACCENT,
   type RecommendationItem,
 } from "../../lib/recommendations";
-import { SectionHeader } from "../../components/ui/Timeline/SectionHeader";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Home">;
 type MetricKey = "sleep" | "steps" | "heartRate";

@@ -85,16 +85,19 @@ Requirement-to-artifact checklist:
     - Re-run at final verification: still missing script.
     - Added Expo ESLint config and re-run after escaping JSX text errors: passed with 0 errors and 25 warnings.
     - Re-run after eslint --fix cleanup: passed with 0 errors and 16 warnings.
+    - Re-run after safe warning cleanup: passed with 0 errors and 9 warnings.
   - npm run typecheck
     - Failed: package.json has no typecheck script.
     - Re-run at final verification: still missing script.
     - Added script and re-run after timeline helper tests: passed.
     - Re-run after lint configuration and JSX text fixes: passed.
+    - Re-run after safe warning cleanup: passed.
   - npm test -- --watch=false
     - Failed: package.json has no test script.
     - Re-run at final verification: still missing script.
     - Re-run after adding Vitest/tests: passed, 1 test file and 8 tests.
     - Re-run after lint configuration and JSX text fixes: passed, 1 test file and 8 tests.
+    - Re-run after safe warning cleanup: passed, 1 test file and 8 tests.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
@@ -112,12 +115,14 @@ Requirement-to-artifact checklist:
     - Re-run after 7bc02b0: passed.
     - Re-run at final verification: passed.
     - Re-run after lint configuration and JSX text fixes: passed.
+    - Re-run after safe warning cleanup: passed.
   - npx expo-doctor
     - 16/17 checks passed before dependency cleanup; prior remaining failure was duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
     - Re-run after @expo/config-plugins override: 17/17 checks passed.
     - Re-run at final verification: 17/17 checks passed.
     - Re-run after adding Vitest/tests: 17/17 checks passed.
     - Re-run after lint configuration and JSX text fixes: 17/17 checks passed.
+    - Re-run after safe warning cleanup: 17/17 checks passed.
   - npm audit fix
     - Reduced audit findings.
   - npm audit --audit-level=moderate
@@ -126,6 +131,7 @@ Requirement-to-artifact checklist:
     - Re-run at final verification: found 0 vulnerabilities.
     - Re-run after adding Vitest/tests: found 0 vulnerabilities.
     - Re-run after lint configuration and JSX text fixes: found 0 vulnerabilities.
+    - Re-run after safe warning cleanup: found 0 vulnerabilities.
   - npm ls react-native-health @expo/fingerprint @expo/config-plugins @expo/plist @xmldom/xmldom --all
     - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
   - npx expo config --type introspect --json

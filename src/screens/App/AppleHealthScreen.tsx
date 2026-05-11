@@ -49,13 +49,6 @@ function fmtLastSync(d: Date | null): string {
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
-function fmtSleepMins(n: number | null): string {
-  if (n == null) return "—";
-  const h = Math.floor(n / 60);
-  const m = n % 60;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
-}
-
 // ─── SVG Charts ───────────────────────────────────────────────────────────────
 
 const CHART_BASE_W = 240;

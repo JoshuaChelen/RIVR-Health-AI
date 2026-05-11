@@ -1380,6 +1380,7 @@ const useStyles = createStyles((colors) => StyleSheet.create({
 // available and falls back to an arrow-based spinner otherwise.
 
 let NativeDatePicker: any = null;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 try { NativeDatePicker = require("@react-native-community/datetimepicker").default; } catch { /* not installed */ }
 
 const DP_MONTHS = [
