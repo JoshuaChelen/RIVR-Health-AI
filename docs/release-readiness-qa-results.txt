@@ -8,7 +8,7 @@ Release-readiness commits:
 - 0d8f499 document release readiness verification gaps
 - f903abf scope app typecheck for release validation
 - 7bc02b0 feature-flag timeline voice search
-- Dependency cleanup commit follows this evidence update in git history.
+- c386691 dedupe expo config plugin dependency
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -104,6 +104,9 @@ Requirement-to-artifact checklist:
     - Passed after @expo/config-plugins override; Expo evaluated the config including react-native-health plugin.
   - git diff --check
     - Re-run after voice-search changes: passed.
+    - Re-run after dependency cleanup: passed.
+  - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local
+    - Passed: no output; local key/env files are ignored and not tracked.
   - npm run web
     - Passed: Expo web bundle compiled.
     - Re-run after 7bc02b0: passed; Metro served the web app.
@@ -126,6 +129,7 @@ Manual QA attempt:
 - Evidence:
   - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
   - No secrets were added.
+  - Local AuthKey_ST6W9U8FZ5.p8, .env, and .env.local files are ignored by .gitignore and not tracked by git.
   - No destructive database migrations were added.
   - Existing Supabase query paths remain in place.
   - Changes are scoped to timeline/search/release-health files.
