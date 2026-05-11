@@ -6,11 +6,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Pressable,
+  Share as NativeShare,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import { buildShareLinkMessage } from "../../lib/share";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -86,6 +88,7 @@ export function ShareScreen() {
   const [shareError, setShareError]   = useState<string | null>(null);
   const [shareUrl, setShareUrl]       = useState<string | null>(null);
   const [copied, setCopied]           = useState(false);
+  const [nativeShareBusy, setNativeShareBusy] = useState(false);
 
   const toggle = (type: ShareType) => {
     setSelected((prev) => {
@@ -140,12 +143,26 @@ export function ShareScreen() {
     setTimeout(() => setCopied(false), 2200);
   };
 
+  const openNativeShare = async () => {
+    if (!shareUrl || nativeShareBusy) return;
+    setNativeShareBusy(true);
+    try {
+      await NativeShare.share(buildShareLinkMessage(shareUrl));
+    } catch (e: any) {
+      captureException(e);
+      setShareError(e?.message ?? "Could not open the share sheet.");
+    } finally {
+      setNativeShareBusy(false);
+    }
+  };
+
   const closeModal = () => {
     setModalVisible(false);
     setShareLoading(false);
     setShareError(null);
     setShareUrl(null);
     setCopied(false);
+    setNativeShareBusy(false);
   };
 
   const canGenerate = selected.size > 0;
@@ -361,6 +378,31 @@ export function ShareScreen() {
                   )}
                   <AppText style={styles.copyBtnText}>
                     {copied ? "Copied to clipboard" : "Copy Link"}
+                  </AppText>
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Open system share sheet"
+                accessibilityState={{ busy: nativeShareBusy }}
+                onPress={openNativeShare}
+                disabled={nativeShareBusy}
+                style={({ pressed }) => [
+                  styles.nativeShareBtn,
+                  pressed && !nativeShareBusy && { opacity: 0.85 },
+                  nativeShareBusy && { opacity: 0.7 },
+                ]}
+              >
+                <View style={styles.copyBtnContent}>
+                  {nativeShareBusy ? (
+                    <ActivityIndicator color={colors.teal} size="small" />
+                  ) : (
+                    <Ionicons name="share-outline" size={16} color={colors.teal} />
+                  )}
+                  <AppText style={styles.nativeShareBtnText}>
+                    {nativeShareBusy ? "Opening…" : "Share Link"}
                   </AppText>
                 </View>
               </Pressable>
@@ -875,6 +917,21 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.bold,
     color: "#fff",
+  },
+  nativeShareBtn: {
+    width: "100%",
+    height: 50,
+    backgroundColor: c.bgSecondary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nativeShareBtnText: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.bold,
+    color: c.teal,
   },
   includedBlock: {
     width: "100%",

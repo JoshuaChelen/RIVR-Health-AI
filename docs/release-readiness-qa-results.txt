@@ -22,7 +22,8 @@ Release-readiness commits:
 - f05db5d document completed mobile timeline qa
 - 53685d9 fix mobile auth persistence and keyboards
 - 6c1aa97 fix legacy timeline save defaults
-- current: document dark theme authenticated web scan
+- 5b49f65 document dark theme qa scan
+- current: add native share sheet action
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -119,6 +120,7 @@ Requirement-to-artifact checklist:
     - Re-run after safe warning cleanup: passed with 0 errors and 9 warnings.
     - Re-run after hook lint cleanup: passed with 0 errors and 0 warnings.
     - Re-run after timeline save-payload tests: passed with 0 errors and 0 warnings.
+    - Re-run after native share-sheet action: passed with 0 errors and 0 warnings.
   - npm run typecheck
     - Failed: package.json has no typecheck script.
     - Re-run at final verification: still missing script.
@@ -127,6 +129,7 @@ Requirement-to-artifact checklist:
     - Re-run after safe warning cleanup: passed.
     - Re-run after hook lint cleanup: passed.
     - Re-run after timeline save-payload tests: passed.
+    - Re-run after native share-sheet action: passed.
   - npm test -- --watch=false
     - Failed: package.json has no test script.
     - Re-run at final verification: still missing script.
@@ -135,6 +138,7 @@ Requirement-to-artifact checklist:
     - Re-run after safe warning cleanup: passed, 1 test file and 8 tests.
     - Re-run after hook lint cleanup: passed, 1 test file and 8 tests.
     - Re-run after timeline save-payload tests: passed, 1 test file and 10 tests.
+    - Re-run after native share-sheet helper: passed, 2 test files and 11 tests.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
@@ -144,6 +148,9 @@ Requirement-to-artifact checklist:
     - Green run passed after helper fixes: 8 tests passed.
     - Red run failed when buildTimelineEventSavePayload did not exist.
     - Green run passed after extracting timeline edit-save normalization: 10 tests passed.
+  - npm test -- src/lib/share.test.ts
+    - Red run failed because src/lib/share.ts did not exist.
+    - Green run passed after adding buildShareLinkMessage.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
     - Re-run after 7bc02b0: passed.
@@ -188,6 +195,7 @@ Requirement-to-artifact checklist:
     - Verified that the source-controlled ./plugins/with-ios-fmt-xcode-fix plugin injects the RIVR fmt Apple clang post_install patch into the ignored generated ios/Podfile.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'id=719A2948-505A-4897-B603-1F270D286F8F' build CODE_SIGNING_ALLOWED=NO
     - Passed after the local generated fmt header workaround.
+    - Re-run after native share-sheet action: passed with BUILD SUCCEEDED.
     - Output ended with BUILD SUCCEEDED.
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
@@ -305,11 +313,14 @@ Manual QA attempt:
 - Pre-Visit deeper flow QA: Edit selection navigated from Pre-Visit Note back to Timeline with the selected medication switches still checked.
 - Share deeper flow QA: Pre-Visit Note share variant selected "Pre-Visit Note", generated the secure link modal, showed "Pre-Visit Note" under What's Included, and Copy link was clickable. The share token is intentionally not documented.
 - Dark theme QA: set the stored app preference to dark mode in the authenticated web session and visually scanned Home, Timeline, Documents, Pre-Visit Note, Share Records, and AI Health Summary. The screens rendered without crashes, obvious overlap, unreadable primary text, or broken navigation. The only console error observed during this dark-mode pass was a local dev-server connection-refused entry caused by reloading an older localhost:8081 tab after that server had stopped; it was not produced by an app screen action.
+- Share-sheet hardening: Share Records now offers a "Share Link" action in the link-ready modal in addition to Copy Link. The action uses React Native's native Share API with the generated secure URL in both the message and url fields, so iOS can open the system share sheet without adding a new dependency.
 
 7. Code quality requirements
 - Evidence:
   - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
+  - Shared share-link payload construction lives in src/lib/share.ts.
   - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, natural timeline search, health-card search, edit-save payload construction, and impossible-age fallbacks.
+  - src/lib/share.test.ts covers native share payload construction without embedding a real share token.
   - No secrets were added.
   - Local AuthKey_ST6W9U8FZ5.p8, .env, and .env.local files are ignored by .gitignore and not tracked by git.
   - No destructive database migrations were added.
@@ -322,7 +333,7 @@ Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
 - Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
-- Some app-wide manual QA remains partial: native document upload/scan/voice-recording permission flows, real iOS share sheet behavior, Apple Health permission behavior, and account/auth recovery flows with real email links. Dark theme has been scanned on authenticated web screens, but a final native dark-mode pass is still useful before App Store submission.
+- Some app-wide manual QA remains partial: native document upload/scan/voice-recording permission flows, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, and account/auth recovery flows with real email links. Dark theme has been scanned on authenticated web screens, but a final native dark-mode pass is still useful before App Store submission.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
