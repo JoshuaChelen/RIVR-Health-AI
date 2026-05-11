@@ -50,6 +50,11 @@
     "typescript": "~5.9.2"
   },
   "private": true,
+  "overrides": {
+    "@expo/metro-config": {
+      "postcss": "^8.5.10"
+    }
+  },
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {

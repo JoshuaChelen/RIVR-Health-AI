@@ -1,0 +1,129 @@
+RIVR Health AI release-readiness implementation evidence
+
+Objective source:
+- docs/release-readiness-agent-plan.txt
+
+Implementation commit:
+- 167c450 harden timeline UX and release checks
+
+Follow-up dependency hardening:
+- Expo SDK patch versions aligned to Expo Doctor expected versions.
+- assets/branding/adaptive-icon.png padded to a square 264x264 canvas.
+- package.json adds Expo Doctor React Native Directory exclusions for:
+  - react-native-health
+  - react-native-document-picker
+- package.json adds a postcss override for @expo/metro-config to remove the moderate PostCSS audit finding without downgrading Expo.
+
+Requirement-to-artifact checklist:
+
+1. Timeline stability and backward compatibility
+- Evidence:
+  - src/lib/timeline.ts adds normalizeTimelineEvent, normalizeStoredDate, normalizePrecision, tag/data coercion, and safe defaults for missing title/category/source/summary/included_in_previsit/document fields.
+  - src/screens/App/TimelineScreen.tsx normalizes rows from Supabase before render.
+  - src/screens/App/TimelineEventDetailsScreen.tsx normalizes rows from Supabase before edit/display and saves date_precision as null when occurred_at is cleared.
+  - src/components/ui/Timeline/TimelineCard.tsx separates the navigation Pressable from the Pre-Visit Switch footer. This removes the nested switch-inside-navigation press target that is a likely mobile gesture conflict/freeze source.
+- Status:
+  - Implemented.
+  - Needs authenticated device/simulator QA to prove the reported mobile freeze is fully resolved.
+
+2. Timeline date and patient age UX
+- Evidence:
+  - src/lib/timeline.ts adds ageAtIncident, formatTimelineDateMain, and formatTimelineDateDetail.
+  - Timeline main view shows incident year by default for older/coarser events.
+  - Timeline main view shows detailed date only for day-precision events within the last 24 months.
+  - Details screen shows full incident date detail and a sentence including age when DOB is available.
+  - Details screen separates Incident date and Reported date rows.
+  - Missing incident/reported dates fall back to explicit unknown text.
+- Status:
+  - Implemented.
+  - Needs manual QA with seeded old/new records for exact display confirmation.
+
+3. Clinical highlighting and formatting
+- Evidence:
+  - src/lib/timeline.ts adds clinicalTagsForEvent and normalizeClinicalLabel.
+  - Timeline cards render clinical scan chips for side, body part, diagnosis, surgery, procedure, injury, medication, and symptom signals when detected.
+  - Details screen renders the same clinical chips and normalizes clinical data labels from legacy data keys.
+- Status:
+  - Implemented as deterministic, low-risk local formatting.
+  - Detection is intentionally conservative; it does not use AI or broad NLP.
+
+4. Multimodal search UX
+- Evidence:
+  - src/lib/timeline.ts adds timelineMatchesQuery and healthCardMatchesQuery.
+  - src/screens/App/TimelineScreen.tsx adds typed natural search across timeline event text, dates, tags, data payload, document title, clinical tags, and health card / AI summary JSON.
+  - Search result count and no-result state are implemented.
+  - Health card matches show a small result card linking to Health Summary.
+- Status:
+  - Typed search implemented.
+  - Voice search deferred. No existing speech-input dependency was present, and adding one late in release hardening would increase App Store/native permission risk.
+
+5. App-wide release quality audit
+- Evidence:
+  - Static/code checks run below.
+  - Web dev server compiled and served the Expo web shell.
+- Status:
+  - Incomplete. Full authenticated manual QA across login, signup, documents, upload, share package, QR/copy/share modal, and timeline edit/save flows requires a simulator/device and test credentials or seeded data.
+
+6. Testing and validation
+- Commands run and results:
+  - npm install
+    - Passed after dependency updates.
+  - npm run lint
+    - Failed: package.json has no lint script.
+  - npm run typecheck
+    - Failed: package.json has no typecheck script.
+  - npm test -- --watch=false
+    - Failed: package.json has no test script.
+  - npx tsc --noEmit --pretty false
+    - Fails on known project-wide root TypeScript config issues involving Deno Edge Functions, npm:/jsr: imports, and worker pdf-parse declarations.
+  - npx tsc --noEmit --pretty false 2>&1 | rg '^src/' || true
+    - Passed: no src/ app TypeScript errors reported.
+  - npm run build in worker/
+    - Passed.
+  - npx expo-doctor
+    - 16/17 checks passed.
+    - Remaining failure: duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
+  - npm audit fix
+    - Reduced audit findings.
+  - npm audit --audit-level=moderate
+    - Still reports 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
+    - npm's available fix is npm audit fix --force, which would install react-native-health@1.13.0 and is a breaking native dependency change. Not applied.
+  - npm run web
+    - Passed: Expo web bundle compiled.
+  - curl -I http://localhost:8081
+    - Passed while dev server was running: HTTP/1.1 200 OK.
+
+7. Code quality requirements
+- Evidence:
+  - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
+  - No secrets were added.
+  - No destructive database migrations were added.
+  - Existing Supabase query paths remain in place.
+  - Changes are scoped to timeline/search/release-health files.
+- Status:
+  - Implemented for touched areas.
+
+Open risks / deferred items:
+- Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
+- Voice search remains deferred by design for release safety.
+- react-native-health currently brings duplicate @expo/fingerprint and vulnerable nested @xmldom via old @expo/config-plugins. Upstream latest react-native-health is 1.19.0, so there is no non-breaking package upgrade available from npm at the time checked.
+- Root npx tsc --noEmit remains unsuitable as a full-project gate until Deno Edge Functions and worker typing are separated or configured.
+- npm audit still reports high vulnerabilities that require a breaking react-native-health downgrade if using npm's suggested fix.
+
+Recommended remaining manual QA:
+- Login, sign up, forgot password, update password.
+- Home loading/empty/error states.
+- Manage Documents upload/list/delete/process flows.
+- Timeline list on mobile, including old rows with missing title/category/source/summary/data/tags/date_precision.
+- Timeline edit/save repeated 5+ times on mobile.
+- Toggle Pre-Visit repeatedly from list and details.
+- Timeline records older than 24 months, newer than 24 months, missing incident date, missing reported date, and missing patient DOB.
+- Search prompts:
+  - Show me all injuries from 2018.
+  - Find my left thumb injury.
+  - What medications was I taking after knee surgery?
+  - Show my timeline for shoulder pain.
+- Pre-Visit Note generation.
+- Share package creation, QR/copy/share modal, and share link open.
+- Health Summary / AI Summary rendering.
+- Dark and light theme scan on mobile.
