@@ -23,7 +23,13 @@ Release-readiness commits:
 - 53685d9 fix mobile auth persistence and keyboards
 - 6c1aa97 fix legacy timeline save defaults
 - 5b49f65 document dark theme qa scan
-- current: add native share sheet action
+- 8e79555 add native share link action
+- 6303c40 harden native permission fallbacks
+- 983c210 harden healthkit permission startup
+- 645dd8e guard mobile soft keyboard inputs
+- 9991ed6 add app screen deep links for native QA
+- f3387aa document native dark deep link smoke
+- current: document native permission dialog QA
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -106,7 +112,8 @@ Requirement-to-artifact checklist:
   - iOS AI Recommendations opened and rendered recommendation cards with priority labels and Add Data actions without crashing.
 - Status:
   - Partially complete.
-  - Remaining gaps: repeated 5+ edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive document actions, and deeper edit/selection/share-sheet variants.
+  - Completed since the initial gap list: repeated 5+ mobile edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive temporary document removal, deeper Pre-Visit selection, Share Records secure-link variants, native light/dark deep-link smoke, and native camera/photo-library/microphone denial fallback checks.
+  - Remaining gaps: manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, real email-link auth recovery flows, and one final native seeded-data pass before submission.
 
 6. Testing and validation
 - Commands run and results:
@@ -351,6 +358,12 @@ Manual QA attempt:
 - App-screen deep-link map: extracted the React Navigation linking config to src/navigation/linking.ts and added scheme paths for major authenticated screens. This preserves the existing auth/reset links while enabling native simulator smoke navigation with xcrun simctl openurl.
 - Native app-screen deep-link smoke: installed and launched the rebuilt Release app, then opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl. Captured screenshots confirmed each route rendered the intended native screen. This improves native screen coverage, but does not replace physical tapping of permission dialogs, the iOS share sheet, or edit modals.
 - Native dark app-screen deep-link smoke: switched the iPhone 17 Pro simulator to dark appearance, opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl, and captured screenshots for each route. The first viewport of each screen rendered in dark mode without an obvious crash, unreadable primary text, or major overlap. The simulator was restored to light appearance afterward.
+- Native permission dialog QA with Maestro:
+  - Installed Maestro CLI outside the repo and targeted the iPhone 17 Pro simulator UDID directly.
+  - Microphone denial was verified from Documents by tapping Start recording, denying the iOS prompt, and asserting "Allow microphone access in your device settings to record voice notes."
+  - Camera denial was verified from Documents by tapping Scan Document, observing the real iOS camera permission dialog, denying it, and asserting "Allow camera access in your device settings to scan documents."
+  - Photo-library denial was verified from Profile by opening the profile-photo picker, triggering the real iOS photo-library permission dialog, denying it, and asserting "Allow photo library access in your device settings."
+  - These checks cover denied native permission fallback behavior. Successful document capture/upload and successful profile-photo selection still need a real-device or fully interactive simulator pass if release wants positive-path media verification.
 
 7. Code quality requirements
 - Evidence:
@@ -376,7 +389,7 @@ Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
 - Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
-- Some app-wide manual QA remains partial: physically tapping native document upload/scan/voice-recording permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and account/auth recovery flows with real email links. The iOS usage-description strings for those permission prompts are present in source config and generated Info.plist, and denied/failed camera/photo-library/microphone request paths are now defensively handled in code. Dark theme has been scanned on authenticated web screens and Home has been smoke-tested in the native Release app.
+- Some app-wide manual QA remains partial: manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, successful positive-path media upload/capture/photo selection, and account/auth recovery flows with real email links. The iOS usage-description strings for permission prompts are present in source config and generated Info.plist, denied camera/photo-library/microphone prompts were exercised with Maestro, and dark theme has been scanned on authenticated web screens plus native light/dark deep-link smoke screens.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
