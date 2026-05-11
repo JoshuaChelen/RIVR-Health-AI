@@ -18,6 +18,7 @@ Audit result:
 - Share Records now includes a native Share Link action in the generated-link modal. The action is implemented through React Native's native Share API and the Release iOS simulator build passes, but the actual iOS share sheet still needs a manual tap verification pass.
 - Native permission metadata was checked: app.json and the generated iOS Info.plist include the required usage strings for camera, photo library, microphone, Apple Health read, and Apple Health write prompts.
 - The rebuilt Release app containing the native Share Link action was installed and launched on the iPhone 17 Pro simulator. It opened to Home with the persisted QA session.
+- Native dark appearance was smoke-tested on the Release app Home screen. The simulator was switched to dark appearance, the app relaunched, and Home rendered readable dark-mode content. Deeper native dark-screen navigation still needs manual/assistive-access verification.
 
 Prompt-to-artifact checklist:
 
@@ -125,7 +126,7 @@ Prompt-to-artifact checklist:
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
-  - Remaining gaps are narrower: native real-device seeded-data pass, native upload/scan/voice permission flows, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, native dark-mode scan, and real email-link auth recovery flows.
+  - Remaining gaps are narrower: native real-device seeded-data pass, native upload/scan/voice permission flows, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
 
 6. Testing and validation
 - Required commands:
@@ -197,7 +198,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, and authenticated web dark theme screens were checked. Remaining gaps are native upload/scan/voice permissions, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, native dark-mode scan, and real email-link auth recovery flows.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, and native dark Home were checked. Remaining gaps are native upload/scan/voice permissions, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -208,4 +209,4 @@ Prompt-to-artifact checklist:
 Blocking items before marking complete:
 - Use a real device, a manually controlled simulator, or stable automation with assistive access for one final seeded old/new data pass on native mobile.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify native upload/scan/voice permission flows, manually tap the real iOS share sheet from the new Share Link action, Apple Health permission behavior, native dark-mode scan, and real email-link auth recovery flows.
+- Specifically verify native upload/scan/voice permission flows, manually tap the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
