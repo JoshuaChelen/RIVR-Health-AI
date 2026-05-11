@@ -13,7 +13,7 @@ Release-readiness commits:
 - 77932a7 add expo lint gate
 - 5519473 apply safe eslint autofixes
 - 0f9f71a reduce safe lint warnings
-- pending hook lint cleanup commit
+- 4760385 clean hook lint warnings
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
