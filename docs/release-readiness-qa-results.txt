@@ -9,6 +9,7 @@ Release-readiness commits:
 - f903abf scope app typecheck for release validation
 - 7bc02b0 feature-flag timeline voice search
 - c386691 dedupe expo config plugin dependency
+- 599ce1a add timeline helper regression tests
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
