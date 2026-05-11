@@ -146,7 +146,7 @@ Prompt-to-artifact checklist:
   - npm install passed after dependency updates.
   - npm run lint passes with 0 errors and 0 warnings.
   - npm run typecheck passes.
-  - npm test -- --watch=false passes with 17 tests.
+  - npm test -- --watch=false passes with 18 tests.
   - npx tsc --noEmit --pretty false passes through npm run typecheck.
   - npm run build --prefix worker passes.
   - npx expo-doctor passes 17/17.
@@ -168,6 +168,8 @@ Prompt-to-artifact checklist:
   - After the Apple Health startup hardening, npm test -- src/lib/health/healthkitPermissions.test.ts passed.
   - After the Apple Health startup hardening, npm run lint, npm run typecheck, npm test -- --watch=false, xcodebuild Release for the iPhone 17 Pro simulator, xcrun simctl install, and xcrun simctl launch passed.
   - After the mobile keyboard input guard, npm test -- src/lib/mobileKeyboardInputs.test.ts passed.
+  - After the app-screen deep-link map, npm test -- src/navigation/linking.test.ts passed.
+  - After the app-screen deep-link map, npm run lint, npm run typecheck, npm test -- --watch=false, xcodebuild Release, xcrun simctl install, xcrun simctl launch, and xcrun simctl openurl smoke navigation passed.
 - Status:
   - Complete for automated checks.
 
@@ -185,6 +187,7 @@ Prompt-to-artifact checklist:
   - Native permission fallback handling is centralized in src/lib/nativePermissions.ts.
   - Lazy HealthKit permission construction is centralized in src/lib/health/healthkitPermissions.ts.
   - src/lib/mobileKeyboardInputs.test.ts guards native TextInput usage so new raw typed fields must explicitly show the phone soft keyboard.
+  - src/navigation/linking.ts centralizes app scheme routes for auth/reset links and major authenticated screens.
   - TypeScript, lint, tests, worker build, Expo Doctor, and npm audit pass.
   - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local produced no tracked secret files.
   - Existing Supabase query/update paths remain in use; no destructive migrations were added.
@@ -211,7 +214,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, and native dark Home were checked. Remaining gaps are physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, native dark Home, and native deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health were checked. Remaining gaps are physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:

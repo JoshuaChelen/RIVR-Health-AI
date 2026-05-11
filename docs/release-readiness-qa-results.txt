@@ -144,6 +144,7 @@ Requirement-to-artifact checklist:
     - Re-run after native permission helpers: passed, 3 test files and 14 tests.
     - Re-run after Apple Health startup hardening: passed, 4 test files and 16 tests.
     - Re-run after mobile keyboard input guard: passed, 5 test files and 17 tests.
+    - Re-run after app-screen deep-link map: passed, 6 test files and 18 tests.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
@@ -165,6 +166,9 @@ Requirement-to-artifact checklist:
   - npm test -- src/lib/mobileKeyboardInputs.test.ts
     - Passed immediately because current native TextInput fields already set showSoftInputOnFocus explicitly, while shared TextField defaults showSoftInputOnFocus to true.
     - The test now guards against future raw TextInput additions that could fail to summon the phone keyboard.
+  - npm test -- src/navigation/linking.test.ts
+    - Red run failed because src/navigation/linking.ts did not exist.
+    - Green run passed after extracting the linking config and adding scheme paths for major app screens.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
     - Re-run after 7bc02b0: passed.
@@ -212,6 +216,7 @@ Requirement-to-artifact checklist:
     - Re-run after native share-sheet action: passed with BUILD SUCCEEDED.
     - Re-run after native permission flow hardening: passed with BUILD SUCCEEDED.
     - Re-run after Apple Health startup hardening: passed with BUILD SUCCEEDED.
+    - Re-run after app-screen deep-link map: passed with BUILD SUCCEEDED.
     - Output ended with BUILD SUCCEEDED.
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
@@ -220,6 +225,10 @@ Requirement-to-artifact checklist:
     - Passed and launched the bundled app directly to the native welcome/auth flow, bypassing the Expo dev launcher confirmation prompt.
     - Re-run after native share-sheet action: passed and launched the rebuilt Release app to Home with the persisted QA session.
     - Re-run after Apple Health startup hardening: passed and launched the rebuilt Release app to Home.
+    - Re-run after app-screen deep-link map: passed and launched the rebuilt Release app.
+  - xcrun simctl openurl 719A2948-505A-4897-B603-1F270D286F8F rivrhealth://<route>
+    - Passed for timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health.
+    - Screenshots captured under /tmp/rivr_deeplink_smoke confirmed each route rendered the intended native screen without launch crash or obvious first-viewport layout breakage.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
@@ -338,6 +347,8 @@ Manual QA attempt:
 - Native permission flow hardening: added shared native permission helpers and wired them into voice note recording, document scan camera access, document scan photo-library access, and profile photo camera/library access. Denied or failed native permission requests now produce stable app messages instead of falling through as uncaught native errors.
 - Apple Health startup hardening: HealthKit permission constants are now read lazily after native module availability checks instead of at module import time. This avoids a potential startup crash if a build is missing the HealthKit native module or constants. The rebuilt Release app installed and launched back to Home after this change.
 - Mobile keyboard input guard: added a source-level test that scans native TextInput usage and fails if a raw input is added without showSoftInputOnFocus. Current raw inputs already pass, and the shared TextField primitive keeps soft keyboard focus enabled by default.
+- App-screen deep-link map: extracted the React Navigation linking config to src/navigation/linking.ts and added scheme paths for major authenticated screens. This preserves the existing auth/reset links while enabling native simulator smoke navigation with xcrun simctl openurl.
+- Native app-screen deep-link smoke: installed and launched the rebuilt Release app, then opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl. Captured screenshots confirmed each route rendered the intended native screen. This improves native screen coverage, but does not replace physical tapping of permission dialogs, the iOS share sheet, or edit modals.
 
 7. Code quality requirements
 - Evidence:
@@ -350,6 +361,7 @@ Manual QA attempt:
   - src/lib/nativePermissions.test.ts covers permission grant detection and fallback messages.
   - src/lib/health/healthkitPermissions.test.ts covers lazy HealthKit permission construction and missing-constant detection.
   - src/lib/mobileKeyboardInputs.test.ts covers phone soft-keyboard guardrails for native TextInput usage.
+  - src/navigation/linking.test.ts covers the app scheme paths used for native screen smoke navigation.
   - No secrets were added.
   - Local AuthKey_ST6W9U8FZ5.p8, .env, and .env.local files are ignored by .gitignore and not tracked by git.
   - No destructive database migrations were added.

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
-import * as Linking from "expo-linking";
 
 import { Sentry, captureException, setUser } from "./src/lib/sentry";
 import { supabase } from "./src/lib/supabase";
@@ -16,16 +15,7 @@ import { AuthNavigator } from "./src/navigation/AuthNavigator";
 import { OnboardingNavigator } from "./src/navigation/OnboardingNavigator";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import { navRef } from "./src/navigation/navRef";
-
-const linking = {
-  prefixes: ["rivrhealth://"],
-  config: {
-    screens: {
-      Login: "auth/confirmed",
-      UpdatePassword: "auth/reset",
-    },
-  },
-};
+import { appLinking } from "./src/navigation/linking";
 
 function AppInner() {
   const { colors, colorScheme } = useTheme();
@@ -124,7 +114,7 @@ function AppInner() {
 
   return (
     <NetworkProvider>
-      <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
+      <NavigationContainer ref={navRef} linking={appLinking} theme={navTheme}>
         {showApp && onboardingComplete ? (
           <AppleHealthProvider>
             <AppNavigator />
