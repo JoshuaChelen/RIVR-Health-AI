@@ -10,7 +10,7 @@ Release-readiness commits:
 - 7bc02b0 feature-flag timeline voice search
 - c386691 dedupe expo config plugin dependency
 - 599ce1a add timeline helper regression tests
-- pending lint configuration commit
+- 77932a7 add expo lint gate
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
