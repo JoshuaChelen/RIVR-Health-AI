@@ -102,8 +102,18 @@ Requirement-to-artifact checklist:
     - Re-run after voice-search changes: passed.
   - npm run web
     - Passed: Expo web bundle compiled.
+    - Re-run after 7bc02b0: passed; Metro served the web app.
   - curl -I http://localhost:8081
     - Passed while dev server was running: HTTP/1.1 200 OK.
+    - Re-run after 7bc02b0: passed; HTTP/1.1 200 OK.
+  - curl -s http://localhost:8081 | head -40
+    - Passed: returned Expo root HTML with title RIVR-Health-AI and root app container.
+
+Manual QA attempt:
+- Web app was started with npm run web and served successfully on http://localhost:8081.
+- Chrome DevTools MCP could not attach because its browser profile was already locked by an existing Chrome process.
+- The repo has no Playwright, Puppeteer, Detox, Jest, or Vitest dependency configured for browser/device flow automation.
+- Authenticated end-to-end QA was not performed to avoid creating or mutating data against the configured Supabase environment without test credentials and seeded test records.
 
 7. Code quality requirements
 - Evidence:
