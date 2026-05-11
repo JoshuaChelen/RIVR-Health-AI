@@ -8,6 +8,7 @@ Release-readiness commits:
 - 0d8f499 document release readiness verification gaps
 - f903abf scope app typecheck for release validation
 - 7bc02b0 feature-flag timeline voice search
+- Dependency cleanup commit follows this evidence update in git history.
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -16,6 +17,7 @@ Follow-up dependency hardening:
   - react-native-health
   - react-native-document-picker
 - package.json adds a postcss override for @expo/metro-config to remove the moderate PostCSS audit finding without downgrading Expo.
+- package.json overrides @expo/config-plugins to 54.0.4 so react-native-health uses the Expo SDK 54 plugin stack instead of installing stale nested Expo packages.
 
 Requirement-to-artifact checklist:
 
@@ -89,25 +91,30 @@ Requirement-to-artifact checklist:
     - Passed.
     - Re-run after 7bc02b0: passed.
   - npx expo-doctor
-    - 16/17 checks passed.
-    - Remaining failure: duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
-    - Re-run after 7bc02b0: same 16/17 result and same duplicate @expo/fingerprint failure.
+    - 16/17 checks passed before dependency cleanup; prior remaining failure was duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
+    - Re-run after @expo/config-plugins override: 17/17 checks passed.
   - npm audit fix
     - Reduced audit findings.
   - npm audit --audit-level=moderate
-    - Still reports 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
-    - npm's available fix is npm audit fix --force, which would install react-native-health@1.13.0 and is a breaking native dependency change. Not applied.
-    - Re-run after 7bc02b0: same 4 high severity vulnerabilities and same breaking force-fix recommendation.
+    - Previously reported 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
+    - Re-run after @expo/config-plugins override: found 0 vulnerabilities.
+  - npm ls react-native-health @expo/fingerprint @expo/config-plugins @expo/plist @xmldom/xmldom --all
+    - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
+  - npx expo config --type introspect --json
+    - Passed after @expo/config-plugins override; Expo evaluated the config including react-native-health plugin.
   - git diff --check
     - Re-run after voice-search changes: passed.
   - npm run web
     - Passed: Expo web bundle compiled.
     - Re-run after 7bc02b0: passed; Metro served the web app.
+    - Re-run after dependency cleanup: passed; Metro served the web app.
   - curl -I http://localhost:8081
     - Passed while dev server was running: HTTP/1.1 200 OK.
     - Re-run after 7bc02b0: passed; HTTP/1.1 200 OK.
+    - Re-run after dependency cleanup: passed; HTTP/1.1 200 OK.
   - curl -s http://localhost:8081 | head -40
     - Passed: returned Expo root HTML with title RIVR-Health-AI and root app container.
+    - Re-run after dependency cleanup: returned Expo root HTML with title RIVR-Health-AI and root app container.
 
 Manual QA attempt:
 - Web app was started with npm run web and served successfully on http://localhost:8081.
@@ -128,9 +135,7 @@ Manual QA attempt:
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
-- react-native-health currently brings duplicate @expo/fingerprint and vulnerable nested @xmldom via old @expo/config-plugins. Upstream latest react-native-health is 1.19.0, so there is no non-breaking package upgrade available from npm at the time checked.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
-- npm audit still reports high vulnerabilities that require a breaking react-native-health downgrade if using npm's suggested fix.
 
 Recommended remaining manual QA:
 - Login, sign up, forgot password, update password.
