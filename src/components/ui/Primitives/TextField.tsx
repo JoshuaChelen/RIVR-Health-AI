@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, TextInput, StyleSheet, TextInputProps, Pressable } from "react-native";
 import { AppText } from "./AppText";
 import { radius, shadows, typescale } from "../../../theme/tokens";
@@ -15,6 +15,19 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
   const [focused, setFocused] = useState(false);
   const styles = useStyles();
   const { colors } = useTheme();
+  const generatedId = React.useId();
+  const fieldId = useMemo(() => {
+    if (props.nativeID) return props.nativeID;
+    if (!label) return undefined;
+
+    const labelSlug = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const uniqueSlug = generatedId.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+
+    return [labelSlug || "field", uniqueSlug].filter(Boolean).join("-");
+  }, [generatedId, label, props.nativeID]);
 
   return (
     <View style={styles.container}>
@@ -24,6 +37,7 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
           {...props}
           accessibilityLabel={props.accessibilityLabel ?? label}
           editable={disabled ? false : props.editable}
+          nativeID={fieldId}
           placeholderTextColor={colors.subtle}
           style={[styles.input, disabled && styles.inputDisabled, style]}
           onFocus={(e) => { if (!disabled) { setFocused(true); onFocus?.(e); } }}

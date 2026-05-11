@@ -86,6 +86,7 @@ Prompt-to-artifact checklist:
   - The Release app installed and launched directly to native Welcome/Login without the Expo dev launcher prompt.
   - Web unauthenticated QA covered Welcome, Login, Sign up, Forgot password, and Update password validation/loading states.
   - Web QA found and fixed an offline banner issue where the banner remained in the accessibility tree while online.
+  - Web QA found and fixed the missing auth form field ID warning by giving shared TextField inputs stable native IDs when callers do not provide one. A follow-up Chrome warning remains because React Native Web password fields are not wrapped in native HTML forms.
   - Disposable web signup was blocked by expected email verification; no mailbox/test admin path was available.
   - iOS simulator authenticated with an existing QA account and reached Home and Timeline.
   - iOS Timeline list visually showed useful recent incident date detail, patient age, reported date, clinical chips, typed-search field, and Pre-Visit controls.
@@ -116,6 +117,7 @@ Prompt-to-artifact checklist:
   - npx expo-doctor passes 17/17.
   - npm audit --audit-level=moderate passes with 0 vulnerabilities.
   - git diff --check passes.
+  - After the shared TextField ID fix, npm run lint and npm run typecheck still pass.
 - Status:
   - Complete for automated checks.
 
