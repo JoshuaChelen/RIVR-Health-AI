@@ -12,6 +12,7 @@ Release-readiness commits:
 - 599ce1a add timeline helper regression tests
 - 77932a7 add expo lint gate
 - 5519473 apply safe eslint autofixes
+- 0f9f71a reduce safe lint warnings
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
