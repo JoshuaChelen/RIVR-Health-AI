@@ -78,8 +78,17 @@ Requirement-to-artifact checklist:
 - Evidence:
   - Static/code checks run below.
   - Web dev server compiled and served the Expo web shell.
+  - Web unauthenticated flow QA covered Welcome, Login, Sign up, Forgot password, and Update password screens with Chrome DevTools MCP.
+  - Web QA found and fixed an online-state accessibility issue where the offline banner remained exposed in the accessibility tree while navigator.onLine was true.
+  - iOS Release simulator build launched directly without the Expo dev launcher prompt.
+  - iOS simulator authenticated into an existing QA account and reached Home and Timeline.
+  - iOS Timeline list rendered recent events with incident date detail, patient age, reported date, clinical chips, typed-search field, and Pre-Visit controls.
+  - iOS Timeline event details opened from the list and rendered full incident date, reported date, patient age sentence, summary, details rows, and clinical chips.
+  - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
+  - iOS Timeline save completed and returned to read-only details without freezing or crashing.
 - Status:
-  - Incomplete. Full authenticated manual QA across login, signup, documents, upload, share package, QR/copy/share modal, and timeline edit/save flows requires a simulator/device and test credentials or seeded data.
+  - Partially complete.
+  - Remaining gaps: repeated 5+ edit/save cycle, Pre-Visit toggle verification, typed mobile search verification, old/malformed seeded data render verification, and full authenticated documents/share/pre-visit/summary flow checks.
 
 6. Testing and validation
 - Commands run and results:
@@ -157,6 +166,13 @@ Requirement-to-artifact checklist:
   - npx expo config --type introspect --json
     - Passed after @expo/config-plugins override; Expo evaluated the config including react-native-health plugin.
     - Re-run after adding ./plugins/with-ios-fmt-xcode-fix: passed and printed app name RIVR-Health-AI.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'id=719A2948-505A-4897-B603-1F270D286F8F' build CODE_SIGNING_ALLOWED=NO
+    - Passed after the local generated fmt header workaround.
+    - Output ended with BUILD SUCCEEDED.
+  - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
+    - Passed.
+  - xcrun simctl launch 719A2948-505A-4897-B603-1F270D286F8F com.rivrhealth.app
+    - Passed and launched the bundled app directly to the native welcome/auth flow, bypassing the Expo dev launcher confirmation prompt.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
@@ -218,12 +234,26 @@ Requirement-to-artifact checklist:
 
 Manual QA attempt:
 - Web app was started with npm run web and served successfully on http://localhost:8081.
-- Chrome DevTools MCP could not attach because its browser profile was already locked by an existing Chrome process.
+- Chrome DevTools MCP was restored after clearing the stale MCP-owned Chrome profile process.
+- Web Welcome screen loaded. Skip introduction navigated to Login.
+- Web Login empty submit showed "Please enter your email and password."
+- Web Sign up empty submit showed "Please fill out all fields."
+- Web Sign up mismatched passwords showed "Passwords do not match."
+- Web disposable sign up reached "Check your inbox to verify your email"; this confirms Supabase email verification blocks disposable authenticated QA without mailbox access.
+- Web Login with the unverified disposable account showed "Email not confirmed."
+- Web Forgot password empty submit showed "Enter your email first."
+- Web Update password direct route rendered the expected disabled state without a reset session.
+- Web online-state QA found the offline banner was still present in the accessibility tree while navigator.onLine was true. Fixed by using navigator.onLine on web and rendering OfflineBanner only while offline.
 - The repo has no Playwright, Puppeteer, Detox, Jest, or Vitest dependency configured for browser/device flow automation.
-- Authenticated end-to-end QA was not performed to avoid creating or mutating data against the configured Supabase environment without test credentials and seeded test records.
+- Authenticated end-to-end web QA was not performed because disposable sign up requires email confirmation and no mailbox/test admin path was available.
 - iOS simulator QA was attempted. The original Xcode destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime.
 - A native fmt/Xcode 26.4.1 build blocker was found. A local generated Pods header workaround produced a successful simulator build, and a source-controlled Expo config plugin now injects that workaround during future prebuild/pod install runs.
 - The simulator app installed and launched to Expo dev launcher, but opening the Metro bundle remained blocked by an untappable iOS confirmation dialog in this non-interactive environment. Mobile edit/save freeze verification remains unperformed.
+- A Release simulator build was then created and installed. The bundled app launched directly to the native welcome/auth flow, avoiding the dev launcher prompt.
+- After assistive access was granted, Simulator UI automation skipped onboarding, signed into an existing QA account, reached Home, opened Timeline, opened the first timeline event details screen, opened edit mode, and saved the event. The app returned to read-only details without freezing or crashing.
+- Mobile visual QA confirmed the Timeline list showed "Occurred Apr 12, 2026, patient age 36", "Reported April 2026", clinical chips, and Pre-Visit switch controls for the visible records.
+- Mobile visual QA confirmed the Details screen showed "Occurred in 2026, when the patient was 36 years old", distinct Incident Date and Reported Date rows, category/source/event type rows, and clinical chips.
+- Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save, toggle, and typed-search checks. A CGEvent fallback was enough for some clicks but was not reliable enough to complete the remaining mobile checklist.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 
 7. Code quality requirements
@@ -240,6 +270,7 @@ Manual QA attempt:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
+- Mobile timeline edit/save has been smoke-tested once on simulator without a freeze; repeated 5+ edit/save, Pre-Visit toggles, typed mobile search, and seeded old/malformed timeline rows still need completion.
 - The new fmt workaround should be verified in a fresh Expo prebuild/pod install or CI/EAS build. The local ignored ios/Pods tree was patched to prove the simulator build path.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.

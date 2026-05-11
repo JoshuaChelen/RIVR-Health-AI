@@ -6,8 +6,9 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirement is authenticated/manual QA on a working simulator or real mobile device with safe seeded patient data.
-- The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime, but authenticated app-flow QA remains blocked by the Expo dev launcher confirmation prompt in this non-interactive environment and the lack of safe seeded test data.
+- The remaining uncovered requirements are full authenticated/manual QA, repeated mobile timeline edit/save, Pre-Visit toggle verification, typed mobile search verification, and seeded old/malformed timeline data verification.
+- The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
+- A real mobile Timeline smoke test now exists: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved once, and returned to read-only details without freezing.
 
 Prompt-to-artifact checklist:
 
@@ -81,8 +82,17 @@ Prompt-to-artifact checklist:
   - A local ignored ios/Pods/fmt/include/fmt/base.h patch proved the simulator build path; xcodebuild completed with BUILD SUCCEEDED and the app installed on the iPhone 17 Pro simulator.
   - app.json now includes ./plugins/with-ios-fmt-xcode-fix so future Expo prebuild/pod install output can apply the fmt Apple clang workaround from source control.
   - The app launched to Expo dev launcher, but loading the Metro bundle remained blocked by an iOS "Open in RIVR-Health-AI?" confirmation dialog. AppleScript automation was denied assistive access, a CGEvent click did not clear the prompt, and seeding recent-app dev launcher preferences did not bypass it.
-  - Chrome DevTools MCP could not attach because its chrome-profile was locked by existing Chrome/MCP processes.
-  - No test account or seeded test data was found in the repo.
+  - xcodebuild Release simulator build passed after the local generated fmt header workaround.
+  - The Release app installed and launched directly to native Welcome/Login without the Expo dev launcher prompt.
+  - Web unauthenticated QA covered Welcome, Login, Sign up, Forgot password, and Update password validation/loading states.
+  - Web QA found and fixed an offline banner issue where the banner remained in the accessibility tree while online.
+  - Disposable web signup was blocked by expected email verification; no mailbox/test admin path was available.
+  - iOS simulator authenticated with an existing QA account and reached Home and Timeline.
+  - iOS Timeline list visually showed useful recent incident date detail, patient age, reported date, clinical chips, typed-search field, and Pre-Visit controls.
+  - iOS Timeline details visually showed full incident date, separate reported date, patient age sentence, details rows, and clinical chips.
+  - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
+  - iOS Timeline save completed once and returned to read-only details without freezing or crashing.
+  - Simulator automation access later failed again with "osascript is not allowed assistive access", preventing completion of repeated edit/save, Pre-Visit toggle, typed mobile search, and broader authenticated flow checks.
 - Status:
   - Incomplete.
   - This is the blocker preventing completion.
@@ -127,7 +137,7 @@ Prompt-to-artifact checklist:
 
 8. Acceptance criteria
 - Timeline no longer freezes/glitches on mobile during edit/save:
-  - Status: Not verified. Simulator/device QA progressed through native build/install but remains blocked before authenticated app flow testing.
+  - Status: Partially verified. One authenticated iOS simulator edit/save round-trip completed without freezing; repeated edit/save and original-user reproduction remain incomplete.
 - Old timeline data does not crash the app:
   - Status: Implemented and unit-tested for normalization; still needs device/manual render QA.
 - Timeline cards show incident year:
@@ -145,7 +155,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Blocked by lack of test credentials/seeded data and simulator/browser automation issues.
+  - Status: Not complete. Web unauthenticated auth screens and part of authenticated iOS Timeline were checked; documents/share/pre-visit/summary and remaining timeline interactions are not fully checked.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -155,7 +165,7 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
-- Use a real device, a manually controlled simulator, or automation with assistive access to dismiss the Expo dev launcher confirmation and enter the app.
+- Use a real device, a manually controlled simulator, or stable automation with assistive access to finish repeated timeline edit/save, Pre-Visit toggles, typed mobile search, and broader authenticated flow QA.
 - Verify the new fmt workaround in a fresh Expo prebuild/pod install or CI/EAS build, because the successful local simulator build used an ignored generated Pods tree to prove the underlying compiler workaround.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify timeline list, event details, repeated edit/save, and Pre-Visit toggles on mobile do not freeze or glitch.
+- Specifically verify repeated edit/save 5+ times, Pre-Visit toggles, search prompts, old/malformed timeline rows, documents, pre-visit note, share package, QR/copy/share modal, and health summary on mobile.

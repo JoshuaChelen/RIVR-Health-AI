@@ -21,6 +21,10 @@ export function OfflineBanner() {
     }).start();
   }, [isOffline, slideAnim]);
 
+  if (!isOffline) {
+    return null;
+  }
+
   return (
     <Animated.View
       style={[styles.banner, { transform: [{ translateY: slideAnim }] }]}
