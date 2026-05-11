@@ -113,9 +113,11 @@ export function categoryMeta(category: string, col: Colors): CategoryMeta {
 type TimelineCardProps = {
   title: string;
   dateLabel: string;
+  dateSubLabel?: string | null;
   category: string;
   source?: string;
   summary: string;
+  clinicalTags?: Array<{ label: string; value: string }>;
   included: boolean;
   onToggleIncluded: (next: boolean) => void;
   onPress?: () => void;
@@ -132,9 +134,11 @@ type TimelineCardProps = {
 export function TimelineCard({
   title,
   dateLabel,
+  dateSubLabel,
   category,
   source,
   summary,
+  clinicalTags = [],
   included,
   onToggleIncluded,
   onPress,
@@ -156,53 +160,71 @@ export function TimelineCard({
 
   return (
     <Animated.View style={[{ transform: [{ scale }] }, style]}>
-      <Pressable
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={`${title}, ${dateLabel}, ${cleanCategory}`}
-        accessibilityHint="Opens event details"
-        onPress={onPress}
-        onPressIn={onPress ? onPressIn : undefined}
-        onPressOut={onPress ? onPressOut : undefined}
-        disabled={!onPress}
-        style={styles.card}
-      >
-        {/* ── Top row: icon + title + date ── */}
-        <View style={styles.topRow}>
-          <View style={[styles.iconWrap, { backgroundColor: meta.iconBg }]}>
-            <Ionicons name={meta.iconName} size={18} color={meta.iconColor} />
+      <View style={styles.card}>
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={`${title}, ${dateLabel}, ${cleanCategory}`}
+          accessibilityHint="Opens event details"
+          onPress={onPress}
+          onPressIn={onPress ? onPressIn : undefined}
+          onPressOut={onPress ? onPressOut : undefined}
+          disabled={!onPress}
+          style={styles.pressArea}
+        >
+          {/* ── Top row: icon + title + date ── */}
+          <View style={styles.topRow}>
+            <View style={[styles.iconWrap, { backgroundColor: meta.iconBg }]}>
+              <Ionicons name={meta.iconName} size={18} color={meta.iconColor} />
+            </View>
+
+            <View style={styles.titleBlock}>
+              <AppText style={styles.title} numberOfLines={2}>{title}</AppText>
+              {sourceLabel ? (
+                <AppText style={styles.source}>{sourceLabel}</AppText>
+              ) : null}
+            </View>
+
+            {onSetDate ? (
+              <Pressable
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Set visit date"
+                onPress={onSetDate}
+                hitSlop={6}
+                style={({ pressed }) => [styles.setDateBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="calendar-outline" size={12} color={colors.teal} />
+                <AppText style={styles.setDateBtnText}>Set date</AppText>
+              </Pressable>
+            ) : (
+              <View style={styles.dateBlock}>
+                <AppText style={styles.date}>{dateLabel}</AppText>
+                {dateSubLabel ? (
+                  <AppText style={styles.dateSub}>{dateSubLabel}</AppText>
+                ) : null}
+              </View>
+            )}
           </View>
 
-          <View style={styles.titleBlock}>
-            <AppText style={styles.title} numberOfLines={2}>{title}</AppText>
-            {sourceLabel ? (
-              <AppText style={styles.source}>{sourceLabel}</AppText>
-            ) : null}
-          </View>
+          {/* ── Summary ── */}
+          {summary?.trim() ? (
+            <AppText style={styles.summary} numberOfLines={3}>
+              {summary.trim()}
+            </AppText>
+          ) : null}
 
-          {onSetDate ? (
-            <Pressable
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Set visit date"
-              onPress={onSetDate}
-              hitSlop={6}
-              style={({ pressed }) => [styles.setDateBtn, pressed && { opacity: 0.7 }]}
-            >
-              <Ionicons name="calendar-outline" size={12} color={colors.teal} />
-              <AppText style={styles.setDateBtnText}>Set date</AppText>
-            </Pressable>
-          ) : (
-            <AppText style={styles.date}>{dateLabel}</AppText>
-          )}
-        </View>
-
-        {/* ── Summary ── */}
-        {summary?.trim() ? (
-          <AppText style={styles.summary} numberOfLines={3}>
-            {summary.trim()}
-          </AppText>
-        ) : null}
+          {clinicalTags.length > 0 ? (
+            <View style={styles.clinicalTags}>
+              {clinicalTags.map((tag) => (
+                <View key={`${tag.label}:${tag.value}`} style={styles.clinicalTag}>
+                  <AppText style={styles.clinicalTagLabel}>{tag.label}</AppText>
+                  <AppText style={styles.clinicalTagValue}>{tag.value}</AppText>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </Pressable>
 
         {/* ── Footer: category pill + include toggle ── */}
         <View style={styles.footer}>
@@ -229,7 +251,7 @@ export function TimelineCard({
             />
           </View>
         </View>
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -251,9 +273,12 @@ const useStyles = createStyles((c) => StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: c.border,
+    overflow: "hidden",
+    ...shadows.card,
+  },
+  pressArea: {
     padding: spacing.md,
     gap: spacing.xs,
-    ...shadows.card,
   },
 
   // Top row
@@ -290,8 +315,20 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.xs,
     color: c.teal,
     fontWeight: typescale.weight.semibold,
+    textAlign: "right",
+  },
+  dateBlock: {
     flexShrink: 0,
     paddingTop: 2,
+    maxWidth: 132,
+    alignItems: "flex-end",
+  },
+  dateSub: {
+    marginTop: 2,
+    fontSize: typescale.size.xs,
+    color: c.subtle,
+    fontWeight: typescale.weight.medium,
+    textAlign: "right",
   },
   setDateBtn: {
     flexDirection: "row",
@@ -318,6 +355,37 @@ const useStyles = createStyles((c) => StyleSheet.create({
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
     paddingLeft: 34 + spacing.sm, // align with title
   },
+  clinicalTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    paddingLeft: 34 + spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  clinicalTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bgSecondary,
+    overflow: "hidden",
+  },
+  clinicalTagLabel: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.muted,
+    textTransform: "uppercase",
+  },
+  clinicalTagValue: {
+    paddingRight: 8,
+    paddingVertical: 3,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: c.text,
+  },
 
   // Footer
   footer: {
@@ -325,9 +393,10 @@ const useStyles = createStyles((c) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     borderTopWidth: 1,
     borderTopColor: c.borderLight,
-    marginTop: spacing.xxs,
   },
   catPill: {
     paddingHorizontal: 9,

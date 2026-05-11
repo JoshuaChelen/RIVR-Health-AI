@@ -12,6 +12,13 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
+import {
+  clinicalTagsForEvent,
+  formatTimelineDateDetail,
+  normalizeClinicalLabel,
+  normalizeTimelineEvent,
+  type NormalizedTimelineEvent,
+} from "../../lib/timeline";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -25,19 +32,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Details">;
 
-type TimelineEventRow = {
-  id: string;
-  occurred_at?: string | null;
-  date_precision?: "day" | "month" | "year" | null;
-  title?: string | null;
-  event_type?: string | null;
-  category?: string | null;
-  source?: string | null;
-  summary?: string | null;
-  included_in_previsit?: boolean | null;
-  tags?: string[] | null;
-  data?: any;
-};
+type TimelineEventRow = NormalizedTimelineEvent;
 
 type Draft = {
   title: string;
@@ -60,6 +55,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
   const [err, setErr]       = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]   = useState<Draft | null>(null);
+  const [patientDob, setPatientDob] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -80,7 +76,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
         if (error) throw error;
 
-        const row = data as TimelineEventRow;
+        const row = normalizeTimelineEvent(data as any);
         setItem(row);
         setDraft({
           title:          (row.title ?? "").toString(),
@@ -94,6 +90,17 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
         const t = (row?.title ?? "Details").toString();
         navigation.setOptions({ title: t.length > 26 ? "Details" : t });
+
+        const { data: userRes } = await supabase.auth.getUser();
+        const userId = userRes?.user?.id;
+        if (userId) {
+          const { data: profileRow } = await supabase
+            .from("user_profiles")
+            .select("date_of_birth")
+            .eq("user_id", userId)
+            .maybeSingle();
+          setPatientDob((profileRow as { date_of_birth?: string | null } | null)?.date_of_birth ?? null);
+        }
       } catch (e: any) {
         captureException(e);
         setErr(e?.message ?? "Failed to load details.");
@@ -176,11 +183,11 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
     }
 
     const tags = draft.tagsCsv.split(",").map((t) => t.trim()).filter(Boolean);
-    const payload: Partial<TimelineEventRow> = {
+    const payload = {
       title:          draft.title.trim() || null,
       summary:        draft.summary.trim() || null,
       occurred_at:    normalizedOccurredAt,
-      date_precision: draft.date_precision,
+      date_precision: normalizedOccurredAt ? draft.date_precision : null,
       category:       draft.category.trim() || null,
       event_type:     draft.event_type.trim() || null,
       tags,
@@ -197,7 +204,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
       if (error) throw error;
 
-      const updated = data as TimelineEventRow;
+      const updated = normalizeTimelineEvent(data as any);
       setItem(updated);
       setDraft({
         title:          (updated.title ?? "").toString(),
@@ -224,6 +231,8 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const meta = categoryMeta(item?.category ?? "", colors);
+  const dateDetail = item ? formatTimelineDateDetail(item, patientDob) : null;
+  const clinicalTags = item ? clinicalTagsForEvent(item) : [];
 
   const clinicalRows = useMemo(() => {
     return item?.data ? flattenData(item.data) : [];
@@ -306,9 +315,12 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
               {/* Date + source meta */}
               <AppText style={styles.dateMeta}>
-                {formatDate(item.occurred_at, item.date_precision ?? undefined)}
+                {dateDetail?.incident ?? "Incident date unknown"}
                 {item.source ? `  ·  ${prettySource(item.source)}` : ""}
               </AppText>
+              {dateDetail ? (
+                <AppText style={styles.dateSentence}>{dateDetail.sentence}</AppText>
+              ) : null}
 
               {/* Category + event type pills */}
               <View style={styles.pillsRow}>
@@ -319,6 +331,16 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                   </View>
                 ) : null}
               </View>
+              {clinicalTags.length > 0 ? (
+                <View style={styles.clinicalTagRow}>
+                  {clinicalTags.map((tag) => (
+                    <View key={`${tag.label}:${tag.value}`} style={styles.clinicalTag}>
+                      <AppText style={styles.clinicalTagLabel}>{tag.label}</AppText>
+                      <AppText style={styles.clinicalTagValue}>{tag.value}</AppText>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
 
             {/* ── Edit form ────────────────────────────────────── */}
@@ -444,7 +466,8 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
             {/* ── Details ──────────────────────────────────────── */}
             <View style={styles.card}>
               <AppText style={styles.sectionLabel}>DETAILS</AppText>
-              <InfoRow label="Date"       value={formatDate(item.occurred_at, item.date_precision ?? undefined)} isLast={false} />
+              <InfoRow label="Incident date" value={dateDetail?.incident ?? "Incident date unknown"} isLast={false} />
+              <InfoRow label="Reported date" value={dateDetail?.reported ?? "Reported date unknown"} isLast={false} />
               <InfoRow label="Category"   value={pretty(item.category)}  isLast={false} />
               <InfoRow label="Source"     value={prettySource(item.source)} isLast={false} />
               <InfoRow label="Event type" value={pretty(item.event_type)} isLast={true} />
@@ -554,8 +577,8 @@ function flattenData(obj: any, prefix = ""): DataRow[] {
     if (value == null || value === "") continue;
 
     const label = prefix
-      ? `${prefix} > ${formatKey(key)}`
-      : formatKey(key);
+      ? `${prefix} > ${normalizeClinicalLabel(key)}`
+      : normalizeClinicalLabel(key);
 
     if (Array.isArray(value)) {
       if (value.length === 0) continue;
@@ -575,7 +598,7 @@ function flattenData(obj: any, prefix = ""): DataRow[] {
       if (formatted) rows.push({ label, value: formatted });
     } else if (typeof value === "object") {
       // One level of nesting — expand inline
-      rows.push(...flattenData(value, formatKey(key)));
+      rows.push(...flattenData(value, normalizeClinicalLabel(key)));
     } else {
       const formatted =
         typeof value === "boolean"
@@ -586,14 +609,6 @@ function flattenData(obj: any, prefix = ""): DataRow[] {
   }
 
   return rows;
-}
-
-function formatKey(key: string): string {
-  return key
-    .replace(/_/g, " ")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -609,15 +624,6 @@ function prettySource(x?: string | null) {
   if (s === "wearable")        return "Wearable";
   if (s === "ai_guided")       return "AI Guided";
   return (x ?? "").trim() || "Unknown";
-}
-
-function formatDate(ymd?: string | null, precision?: "day" | "month" | "year") {
-  if (!ymd) return "No date";
-  const [y, m, d] = ymd.split("-").map((n) => Number(n));
-  const dt = new Date(y, (m || 1) - 1, d || 1);
-  if (precision === "year")  return `${dt.getFullYear()}`;
-  if (precision === "month") return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  return dt.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -716,11 +722,46 @@ const useStyles = createStyles((c) => StyleSheet.create({
     color: c.teal,
     fontWeight: typescale.weight.semibold,
   },
+  dateSentence: {
+    fontSize: typescale.size.sm,
+    color: c.textSub,
+    lineHeight: typescale.size.sm * typescale.lineHeight.normal,
+  },
   pillsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
     marginTop: spacing.xxs,
+  },
+  clinicalTagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
+  },
+  clinicalTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bgSecondary,
+    overflow: "hidden",
+  },
+  clinicalTagLabel: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.bold,
+    color: c.muted,
+    textTransform: "uppercase",
+  },
+  clinicalTagValue: {
+    paddingRight: 8,
+    paddingVertical: 3,
+    fontSize: typescale.size.xs,
+    fontWeight: typescale.weight.semibold,
+    color: c.text,
   },
   catPill: {
     paddingHorizontal: 10,

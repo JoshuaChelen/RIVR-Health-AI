@@ -1,0 +1,255 @@
+You are working in the RIVR Health AI repo.
+
+Project context:
+RIVR Health AI is an Expo React Native app backed by Supabase. It includes:
+- App entry: App.tsx
+- App screens: src/screens/App/*
+- Auth screens: src/screens/Auth/*
+- Onboarding screens: src/screens/Onboarding/*
+- Shared app logic: src/lib/*
+- UI primitives/components: src/components/ui/*
+- Theme system: src/theme/*
+- Supabase Edge Functions: supabase/functions/*
+- AI worker: worker/src/*
+- Main data tables used by the app include user_profiles, documents, ai_jobs, timeline_events, document_facts, health_profiles, health_evaluations, share_packages, and share_package_items.
+
+The app already supports documents, health cards, timeline events, AI summaries, pre-visit notes, sharing, profile data, and Supabase-backed processing. The goal is to harden the app for App Store readiness while preserving existing functionality and data.
+
+Goal:
+Finalize and harden the RIVR Health AI app for App Store readiness by implementing Jonathan's requested UX improvements from:
+1. Multimodal UXperience.pdf
+2. App Feature Details.pdf
+
+Prioritize UX reliability, mobile stability, backward compatibility with old patient data, and release-safe code quality.
+
+Important instructions:
+- Do not ask me questions.
+- Make reasonable release-safe decisions.
+- Prioritize stability over fancy features.
+- If a requested feature is too risky for App Store release, implement the safest useful version and clearly document what was deferred.
+- Fix issues as you find them instead of only reporting them.
+- Do not introduce unnecessary libraries.
+- Do not hardcode API keys or secrets.
+- Preserve existing Supabase integrations.
+- Preserve the current design system and app styling.
+- Keep changes minimal, clean, typed, and release-safe.
+
+Main requirements:
+
+1. Timeline Stability And Backward Compatibility
+
+Investigate and fix the reported issue where timeline edits work on desktop but freeze or glitch in the mobile app.
+
+Tasks:
+- Reproduce the issue if possible using old and new timeline data shapes.
+- Fix the root cause, not just the symptom.
+- Add defensive handling for old records created before recent schema/UI changes.
+- Do not assume all timeline records have newest fields.
+- Normalize missing, null, malformed, or legacy fields safely at fetch/render time.
+- Ensure the app does not freeze, crash, or glitch when viewing, editing, saving, or toggling timeline events.
+- Preserve existing data.
+- Avoid destructive migrations unless absolutely necessary.
+
+Focus files likely include:
+- src/screens/App/TimelineScreen.tsx
+- src/screens/App/TimelineEventDetailsScreen.tsx
+- src/components/ui/Timeline/*
+- src/lib/documents.ts or related timeline data helpers if present
+- worker/src/main.ts if generated timeline data shape is involved
+
+2. Timeline Date And Age UX
+
+Improve incident date and patient age display.
+
+Requirements:
+- Every timeline/incident card should show at minimum the incident year when available.
+- If patient date of birth is available, calculate and display patient age at the time of the incident.
+- If the full date is available and the event is <= 24 months old, show useful date detail in the main timeline.
+- If the event is older than 24 months, show only the year in the main timeline view.
+- Older events should reveal more specific date details only on the details screen.
+- Clearly distinguish incident date from reported date when both are available.
+- Add graceful fallback text if incident date, reported date, or DOB is missing.
+
+Expected examples:
+- "Left thumb injury occurred in 2016, when the patient was 42 years old."
+- "Reported March 2024"
+- "Incident year 2018, patient age 36"
+
+Implement reusable helpers for:
+- timeline date normalization
+- date precision handling
+- age-at-incident calculation
+- display rules for <= 24 months vs older events
+- fallback labels
+
+3. Clinical Highlighting And Formatting
+
+Improve timeline card and event details scanability.
+
+Requirements:
+- Improve visual hierarchy of timeline cards and event details.
+- Highlight or bold key clinical elements where appropriate:
+  - body part
+  - side of body
+  - diagnosis
+  - surgery
+  - procedure
+  - major injury
+  - recurring condition
+  - medication
+  - reported symptom
+- Normalize common side/body abbreviations:
+  - L -> Left or consistently displayed short label
+  - R -> Right or consistently displayed short label
+- Capitalize important clinical labels such as Thumb instead of thumb when used as a clinical label.
+- Keep the UI clean, calm, and not cluttered.
+- Make cards easier to scan for patients, doctors, and triage nurses.
+
+Add reusable formatting helpers where appropriate.
+
+4. Multimodal Search UX
+
+Add or improve search across patient health cards and timeline data.
+
+Users should be able to type natural prompts such as:
+- "Show me all injuries from 2018."
+- "Find my left thumb injury."
+- "What medications was I taking after knee surgery?"
+- "Show my timeline for shoulder pain."
+
+Search should cover:
+- dates
+- injuries
+- timeline events
+- body parts
+- medications
+- diagnoses
+- surgeries
+- reported symptoms
+- health card data where available
+
+Requirements:
+- Return results in a clear organized view.
+- Do not break existing timeline/document functionality.
+- If voice input is already supported or easy to add safely, add voice search using platform-supported input.
+- If voice input is risky for release, implement typed search cleanly and put voice behind a feature flag or graceful fallback.
+- Prefer local deterministic search/matching first unless the existing app already has a safe AI search path.
+- Add helper functions for search normalization and matching.
+
+5. App-Wide Release Quality Audit
+
+Go through every major screen and flow:
+
+- Login
+- Sign up
+- Forgot password
+- Update password
+- Home
+- Manage documents
+- Upload document
+- List documents
+- Timeline
+- Timeline event details
+- Edit/save timeline event
+- Toggle included in pre-visit
+- Pre-visit note
+- Share screen
+- Create share package
+- QR/copy/share modal
+- Health summary / AI summary flow if present
+
+For each flow:
+- Check every button.
+- Check loading states.
+- Check empty states.
+- Check error states.
+- Check navigation behavior.
+- Check mobile layout.
+- Check dark/light theme if applicable.
+- Check accessibility labels where reasonable.
+- Ensure no screen crashes with empty, partial, old, or malformed data.
+
+Fix release-blocking issues as you find them.
+
+6. Testing And Validation
+
+Detect and use the project's actual package manager.
+
+Run relevant commands, such as:
+- npm install
+- npm run lint, if present
+- npm run typecheck, if present
+- npm test, if present
+- npx expo-doctor
+- npx tsc --noEmit
+- worker build checks if worker files are touched
+
+Known baseline:
+- Root npx tsc --noEmit may fail because the repo currently includes Supabase Deno Edge Functions and worker files in the root TS check.
+- Worker npm run build previously passed.
+- If root typecheck still fails for existing Deno/JSR/Supabase function typing reasons, document the exact failures and separately verify there are no new src/ app errors.
+
+Manual QA:
+- Start the app.
+- Test on mobile-sized viewport or simulator.
+- Test old and new timeline record shapes.
+- Test events older than 24 months.
+- Test events newer than 24 months.
+- Test missing incident date.
+- Test missing reported date.
+- Test missing patient DOB.
+- Test typed search prompts.
+- Test edit/save repeatedly.
+- Test pre-visit toggles.
+- Confirm the timeline does not freeze or glitch.
+
+7. Code Quality Requirements
+
+- Keep changes minimal and release-safe.
+- Do not rewrite large parts of the app unless necessary.
+- Do not introduce unnecessary libraries.
+- Do not commit secrets.
+- Keep API keys and secrets in environment variables.
+- Add helper functions where logic is reused, especially for:
+  - date formatting
+  - age calculation
+  - timeline display rules
+  - clinical label formatting
+  - search matching
+- Ensure TypeScript types are correct.
+- Remove dead code and obvious duplication.
+- Preserve existing design system and theme patterns.
+- Preserve existing Supabase behavior.
+- Avoid destructive database changes.
+
+8. Acceptance Criteria
+
+The task is complete only when:
+- Timeline no longer freezes or glitches on mobile during edit/save.
+- Old timeline data does not crash the app.
+- Timeline cards show incident year correctly.
+- Patient age at incident is calculated when possible.
+- Reported date is shown when available.
+- Events older than 24 months show only the year in the main timeline unless opened in detail.
+- Key clinical terms are visually easier to scan.
+- Typed natural search works across timeline/health card data.
+- Voice search is implemented safely or feature-flagged with a clear fallback.
+- Every major screen and button has been manually checked.
+- Lint/typecheck/tests pass, or remaining failures are documented with exact reasons and identified as pre-existing when applicable.
+- No secrets are committed.
+- Existing functionality remains intact.
+
+Before editing:
+- Inspect current git status.
+- Do not revert unrelated user changes.
+- Read the relevant timeline, profile, health summary, share, and UI component files before changing code.
+- Prefer existing project patterns.
+
+At the end, provide:
+1. Summary of changes made
+2. Bugs found and fixed
+3. Tests/checks run, with exact commands and results
+4. Manual QA performed
+5. Remaining risks or deferred items
+6. Files changed
+7. Commit hash if committed

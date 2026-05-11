@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Pressable,
+  TextInput,
 } from "react-native";
 import { SetVisitDateModal } from "../../components/ui/Timeline/SetVisitDateModal";
 import { useFocusEffect } from "@react-navigation/native";
@@ -14,6 +15,15 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import {
+  clinicalTagsForEvent,
+  formatTimelineDateMain,
+  healthCardMatchesQuery,
+  normalizeTimelineEvent,
+  timelineMatchesQuery,
+  type DatePrecision,
+  type NormalizedTimelineEvent,
+} from "../../lib/timeline";
 import { TimelineCard, categoryMeta } from "../../components/ui/Timeline/TimelineCard";
 import { MonthDivider } from "../../components/ui/Timeline/MonthDivider";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -25,21 +35,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
 
-type DatePrecision = "day" | "month" | "year";
-
-type TimelineEventRow = {
-  id: string;
-  occurred_at: string | null;
-  date_precision: DatePrecision | null;
-  title: string;
-  event_type: string;
-  category: string;
-  source: string;
-  summary: string;
-  included_in_previsit: boolean;
-  document_id: string | null;
-  documentTitle: string | null;
-};
+type TimelineEventRow = NormalizedTimelineEvent;
 
 type RenderRow =
   | { kind: "month"; key: string; label: string }
@@ -55,6 +51,9 @@ export function TimelineScreen({ navigation }: Props) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore]       = useState(true);
   const [err, setErr]               = useState<string | null>(null);
+  const [patientDob, setPatientDob] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [healthCard, setHealthCard] = useState<any>(null);
 
   const flatListRef = useRef<FlatList<RenderRow>>(null);
 
@@ -78,7 +77,7 @@ export function TimelineScreen({ navigation }: Props) {
       const { data, error } = await supabase
         .from("timeline_events")
         .select(
-          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit, document_id, documents(title)"
+          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit, document_id, created_at, tags, data, documents(title)"
         )
         .neq("source", "apple_health")
         .order("occurred_at", { ascending: false, nullsFirst: false })
@@ -90,6 +89,28 @@ export function TimelineScreen({ navigation }: Props) {
         documents: { title: string | null } | { title: string | null }[] | null;
       };
 
+      if (!append && patientDob == null) {
+        const { data: userRes } = await supabase.auth.getUser();
+        const userId = userRes?.user?.id;
+        if (userId) {
+          const [profileResult, healthResult] = await Promise.all([
+            supabase
+              .from("user_profiles")
+              .select("date_of_birth")
+              .eq("user_id", userId)
+              .maybeSingle(),
+            supabase
+              .from("health_profiles")
+              .select("card_json, summary_json")
+              .eq("user_id", userId)
+              .maybeSingle(),
+          ]);
+          const profileRow = profileResult.data;
+          setPatientDob((profileRow as { date_of_birth?: string | null } | null)?.date_of_birth ?? null);
+          setHealthCard(healthResult.data ?? null);
+        }
+      }
+
       const rows = ((data ?? []) as unknown as RawRow[])
         .filter((e) => e.source !== "apple_health")
         .map<TimelineEventRow>((e) => {
@@ -97,19 +118,7 @@ export function TimelineScreen({ navigation }: Props) {
           // array depending on the relationship metadata. Handle both shapes.
           const doc = Array.isArray(e.documents) ? e.documents[0] : e.documents;
           const documentTitle = doc?.title ?? null;
-          return {
-            id: e.id,
-            occurred_at: e.occurred_at,
-            date_precision: e.date_precision,
-            title: e.title,
-            event_type: e.event_type,
-            category: e.category,
-            source: e.source,
-            summary: e.summary,
-            included_in_previsit: e.included_in_previsit,
-            document_id: e.document_id,
-            documentTitle,
-          };
+          return normalizeTimelineEvent({ ...e, documentTitle });
         });
 
       setHasMore(rows.length === PAGE_SIZE);
@@ -127,7 +136,7 @@ export function TimelineScreen({ navigation }: Props) {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [patientDob]);
 
   useFocusEffect(useCallback(() => { setHasMore(true); load(); }, [load]));
 
@@ -143,10 +152,19 @@ export function TimelineScreen({ navigation }: Props) {
     load(0, false);
   }, [load]);
 
+  const visibleEvents = useMemo(
+    () => events.filter((event) => timelineMatchesQuery(event, searchQuery)),
+    [events, searchQuery],
+  );
+  const hasHealthCardSearchMatch = useMemo(
+    () => healthCardMatchesQuery(healthCard, searchQuery),
+    [healthCard, searchQuery],
+  );
+
   const rows: RenderRow[] = useMemo(() => {
     const out: RenderRow[] = [];
-    const dated   = events.filter((e) => !!e.occurred_at && !!e.date_precision);
-    const undated = events.filter((e) =>  !e.occurred_at ||  !e.date_precision);
+    const dated   = visibleEvents.filter((e) => !!e.occurred_at && !!e.date_precision);
+    const undated = visibleEvents.filter((e) =>  !e.occurred_at ||  !e.date_precision);
 
     // Dated rows with month dividers.
     let lastMonthKey: string | null = null;
@@ -185,7 +203,7 @@ export function TimelineScreen({ navigation }: Props) {
     }
 
     return out;
-  }, [events]);
+  }, [visibleEvents]);
 
   const undatedCount = useMemo(
     () => events.filter((e) => !e.occurred_at || !e.date_precision).length,
@@ -258,6 +276,7 @@ export function TimelineScreen({ navigation }: Props) {
     const ev      = row.event;
     const meta    = categoryMeta(ev.category, colors);
     const undated = !ev.occurred_at || !ev.date_precision;
+    const dateDisplay = formatTimelineDateMain(ev, patientDob);
 
     return (
       <View style={styles.spineRow}>
@@ -274,12 +293,12 @@ export function TimelineScreen({ navigation }: Props) {
         </View>
         <TimelineCard
           title={ev.title}
-          dateLabel={
-            undated ? "Date unknown" : formatEventDate(ev.occurred_at!, ev.date_precision!)
-          }
+          dateLabel={undated ? "Date unknown" : dateDisplay.primary}
+          dateSubLabel={undated ? dateDisplay.secondary : dateDisplay.secondary}
           category={ev.category}
           source={ev.source}
           summary={ev.summary}
+          clinicalTags={clinicalTagsForEvent(ev)}
           included={ev.included_in_previsit}
           onToggleIncluded={(next) => onToggleIncluded(ev.id, next)}
           onPress={() => navigation.navigate("Details", { id: ev.id })}
@@ -288,7 +307,7 @@ export function TimelineScreen({ navigation }: Props) {
         />
       </View>
     );
-  }, [navigation, onToggleIncluded, openSetDate, styles, colors]);
+  }, [navigation, onToggleIncluded, openSetDate, styles, colors, patientDob]);
 
   const scrollToUnknown = useCallback(() => {
     if (unknownHeaderIndex < 0) return;
@@ -329,8 +348,68 @@ export function TimelineScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={16} color={colors.teal} />
         </Pressable>
       ) : null}
+
+      <View style={styles.searchWrap}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={16} color={colors.muted} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search injuries, dates, meds, body parts..."
+            placeholderTextColor={colors.subtle}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            accessibilityLabel="Search timeline"
+          />
+          {searchQuery ? (
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Clear timeline search"
+              onPress={() => setSearchQuery("")}
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={16} color={colors.subtle} />
+            </Pressable>
+          ) : null}
+        </View>
+        {searchQuery ? (
+          <AppText style={styles.searchResultText}>
+            {visibleEvents.length} matching event{visibleEvents.length === 1 ? "" : "s"}
+            {hasHealthCardSearchMatch ? " + health card match" : ""}
+          </AppText>
+        ) : (
+          <AppText style={styles.searchHint}>
+            Try "left thumb injury", "2018", or "medications after surgery".
+          </AppText>
+        )}
+      </View>
+      {searchQuery && hasHealthCardSearchMatch ? (
+        <View style={styles.healthCardMatch}>
+          <View style={styles.healthCardMatchIcon}>
+            <Ionicons name="id-card-outline" size={15} color={colors.teal} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText style={styles.healthCardMatchTitle}>Health card match</AppText>
+            <AppText style={styles.healthCardMatchBody} numberOfLines={2}>
+              Your emergency card or AI summary contains matching medications, conditions, allergies, procedures, or notes.
+            </AppText>
+          </View>
+          <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Open health summary"
+            onPress={() => navigation.navigate("HealthSummary")}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-forward" size={17} color={colors.teal} />
+          </Pressable>
+        </View>
+      ) : null}
     </>
-  ), [err, load, undatedCount, scrollToUnknown, styles, colors]);
+  ), [err, load, undatedCount, scrollToUnknown, styles, colors, searchQuery, visibleEvents.length, hasHealthCardSearchMatch, navigation]);
 
   const listEmpty = useMemo(() => {
     if (loading) {
@@ -338,6 +417,19 @@ export function TimelineScreen({ navigation }: Props) {
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.teal} accessibilityLabel="Loading timeline" />
           <AppText style={styles.loadingText}>Loading your health timeline…</AppText>
+        </View>
+      );
+    }
+    if (!err && searchQuery.trim() && !hasHealthCardSearchMatch) {
+      return (
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="search-outline" size={24} color={colors.teal} />
+          </View>
+          <AppText style={styles.emptyTitle}>No matching timeline events</AppText>
+          <AppText style={styles.emptyBody}>
+            Try a year, body part, diagnosis, medication, surgery, or symptom.
+          </AppText>
         </View>
       );
     }
@@ -361,7 +453,7 @@ export function TimelineScreen({ navigation }: Props) {
       );
     }
     return null;
-  }, [loading, err, navigation, styles, colors]);
+  }, [loading, err, navigation, styles, colors, searchQuery, hasHealthCardSearchMatch]);
 
   const listFooter = useMemo(() => (
     <>
@@ -505,13 +597,6 @@ function monthDividerLabel(ymd: string, precision: DatePrecision) {
   return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-function formatEventDate(ymd: string, precision: DatePrecision) {
-  const dt = parseYMD(ymd);
-  if (precision === "year")  return `${dt.getFullYear()}`;
-  if (precision === "month") return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const GUTTER_WIDTH   = 32;
@@ -596,6 +681,76 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
     color: "#fff",
+  },
+
+  // Search
+  searchWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.xs,
+  },
+  searchBox: {
+    minHeight: 46,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.surface,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    ...shadows.xs,
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    color: c.text,
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.medium,
+    paddingVertical: 0,
+  },
+  searchHint: {
+    fontSize: typescale.size.xs,
+    color: c.muted,
+    paddingHorizontal: spacing.xs,
+  },
+  searchResultText: {
+    fontSize: typescale.size.xs,
+    color: c.teal,
+    fontWeight: typescale.weight.semibold,
+    paddingHorizontal: spacing.xs,
+  },
+  healthCardMatch: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    ...shadows.xs,
+  },
+  healthCardMatchIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: c.tealSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  healthCardMatchTitle: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+  },
+  healthCardMatchBody: {
+    marginTop: 2,
+    fontSize: typescale.size.xs,
+    color: c.textSub,
+    lineHeight: typescale.size.xs * typescale.lineHeight.normal,
   },
 
   // Timeline wrapper
