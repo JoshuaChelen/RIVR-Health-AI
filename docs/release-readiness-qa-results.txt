@@ -229,6 +229,7 @@ Requirement-to-artifact checklist:
   - xcrun simctl openurl 719A2948-505A-4897-B603-1F270D286F8F rivrhealth://<route>
     - Passed for timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health.
     - Screenshots captured under /tmp/rivr_deeplink_smoke confirmed each route rendered the intended native screen without launch crash or obvious first-viewport layout breakage.
+    - Re-run in native dark appearance for the same routes. Screenshots captured under /tmp/rivr_deeplink_dark_smoke confirmed readable first-viewport dark rendering without obvious overlap. The simulator was restored to light appearance afterward.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
@@ -349,6 +350,7 @@ Manual QA attempt:
 - Mobile keyboard input guard: added a source-level test that scans native TextInput usage and fails if a raw input is added without showSoftInputOnFocus. Current raw inputs already pass, and the shared TextField primitive keeps soft keyboard focus enabled by default.
 - App-screen deep-link map: extracted the React Navigation linking config to src/navigation/linking.ts and added scheme paths for major authenticated screens. This preserves the existing auth/reset links while enabling native simulator smoke navigation with xcrun simctl openurl.
 - Native app-screen deep-link smoke: installed and launched the rebuilt Release app, then opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl. Captured screenshots confirmed each route rendered the intended native screen. This improves native screen coverage, but does not replace physical tapping of permission dialogs, the iOS share sheet, or edit modals.
+- Native dark app-screen deep-link smoke: switched the iPhone 17 Pro simulator to dark appearance, opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl, and captured screenshots for each route. The first viewport of each screen rendered in dark mode without an obvious crash, unreadable primary text, or major overlap. The simulator was restored to light appearance afterward.
 
 7. Code quality requirements
 - Evidence:

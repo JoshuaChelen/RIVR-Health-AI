@@ -170,6 +170,7 @@ Prompt-to-artifact checklist:
   - After the mobile keyboard input guard, npm test -- src/lib/mobileKeyboardInputs.test.ts passed.
   - After the app-screen deep-link map, npm test -- src/navigation/linking.test.ts passed.
   - After the app-screen deep-link map, npm run lint, npm run typecheck, npm test -- --watch=false, xcodebuild Release, xcrun simctl install, xcrun simctl launch, and xcrun simctl openurl smoke navigation passed.
+  - Native dark appearance was re-tested through xcrun simctl openurl smoke navigation for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health. The simulator was restored to light appearance afterward.
 - Status:
   - Complete for automated checks.
 
@@ -214,7 +215,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, native dark Home, and native deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health were checked. Remaining gaps are physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, native dark Home, and native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health were checked. Remaining gaps are physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, and real email-link auth recovery flows.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -225,4 +226,4 @@ Prompt-to-artifact checklist:
 Blocking items before marking complete:
 - Use a real device, a manually controlled simulator, or stable automation with assistive access for one final seeded old/new data pass on native mobile.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify native upload/scan/voice permission dialogs, manually tap the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
+- Specifically verify native upload/scan/voice permission dialogs, manually tap the real iOS share sheet from the new Share Link action, Apple Health permission behavior, and real email-link auth recovery flows.
