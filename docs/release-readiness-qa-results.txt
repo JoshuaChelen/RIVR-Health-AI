@@ -75,7 +75,7 @@ Requirement-to-artifact checklist:
   - npm test -- --watch=false
     - Failed: package.json has no test script.
   - npx tsc --noEmit --pretty false
-    - Fails on known project-wide root TypeScript config issues involving Deno Edge Functions, npm:/jsr: imports, and worker pdf-parse declarations.
+    - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
   - npx tsc --noEmit --pretty false 2>&1 | rg '^src/' || true
     - Passed: no src/ app TypeScript errors reported.
   - npm run build in worker/
@@ -107,7 +107,7 @@ Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Voice search remains deferred by design for release safety.
 - react-native-health currently brings duplicate @expo/fingerprint and vulnerable nested @xmldom via old @expo/config-plugins. Upstream latest react-native-health is 1.19.0, so there is no non-breaking package upgrade available from npm at the time checked.
-- Root npx tsc --noEmit remains unsuitable as a full-project gate until Deno Edge Functions and worker typing are separated or configured.
+- Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
 - npm audit still reports high vulnerabilities that require a breaking react-native-health downgrade if using npm's suggested fix.
 
 Recommended remaining manual QA:
