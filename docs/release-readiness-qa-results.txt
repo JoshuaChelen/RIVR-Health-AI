@@ -91,9 +91,13 @@ Requirement-to-artifact checklist:
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed and returned to read-only details without freezing or crashing.
   - iOS Timeline Pre-Visit switch toggled on from the list without navigating or freezing, then was toggled back off to preserve the QA account state.
+  - iOS Health Summary opened from Home and rendered the overview, emergency card, conditions, medications, allergies, and Share control without crashing.
+  - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
+  - iOS Pre-Visit opened from Home and rendered a ready note with two included events plus Share and Edit Selection controls.
+  - iOS Share Records opened from Home, selected 3x5 Card, generated a secure 1-minute/2-view link, displayed the QR code/link/included item modal, and copied the link to the simulator pasteboard.
 - Status:
   - Partially complete.
-  - Remaining gaps: repeated 5+ edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, and full authenticated documents/share/pre-visit/summary flow checks.
+  - Remaining gaps: repeated 5+ edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive document actions, and deeper edit/selection/share-sheet variants.
 
 6. Testing and validation
 - Commands run and results:
@@ -260,6 +264,10 @@ Manual QA attempt:
 - Mobile visual QA confirmed the Timeline list showed "Occurred Apr 12, 2026, patient age 36", "Reported April 2026", clinical chips, and Pre-Visit switch controls for the visible records.
 - Mobile visual QA confirmed the Details screen showed "Occurred in 2026, when the patient was 36 years old", distinct Incident Date and Reported Date rows, category/source/event type rows, and clinical chips.
 - CGEvent tapping returned from details to Home, reopened Timeline, and toggled the first visible Pre-Visit switch on without navigation or freeze. The same switch was toggled back off afterward.
+- Mobile Health Summary opened and rendered populated clinical summary data without crashing.
+- Mobile Documents opened and rendered pending/upload/process controls. Destructive actions such as Remove and Process were not tapped.
+- Mobile Pre-Visit opened and rendered a ready note with two included medication events and Share/Edit Selection controls.
+- Mobile Share Records opened, allowed selecting the 3x5 Card, generated a secure link, showed the QR code and included item, and Copy Link placed a share.rivrhealth.ai URL on the simulator pasteboard.
 - Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
 - Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save and typed-search checks. CGEvent fallback was enough for tap-only checks but not enough to complete the remaining mobile checklist.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
