@@ -1,0 +1,154 @@
+RIVR Health AI release-readiness completion audit
+
+Objective:
+- Achieve docs/release-readiness-agent-plan.txt.
+
+Audit result:
+- Not complete.
+- Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
+- The remaining uncovered requirement is authenticated/manual QA on a working simulator or real mobile device with safe seeded patient data.
+
+Prompt-to-artifact checklist:
+
+1. Timeline stability and backward compatibility
+- Required:
+  - Fix mobile timeline edit/save freeze or glitch.
+  - Handle old, null, missing, malformed, and legacy timeline records.
+  - Preserve existing data and avoid destructive migrations.
+- Evidence:
+  - src/lib/timeline.ts normalizes timeline rows and malformed date input.
+  - src/screens/App/TimelineScreen.tsx normalizes Supabase timeline rows before render.
+  - src/screens/App/TimelineEventDetailsScreen.tsx normalizes details rows before edit/display.
+  - src/components/ui/Timeline/TimelineCard.tsx separates navigation press handling from the Pre-Visit Switch, removing a likely mobile nested-gesture conflict.
+  - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, and timeline edit-save payload construction.
+  - No destructive migrations were added.
+- Status:
+  - Implemented and covered by automated tests for pure logic.
+  - Not fully verified because the reported mobile freeze requires simulator/device reproduction with test data.
+
+2. Timeline date and age UX
+- Required:
+  - Show incident year at minimum when available.
+  - Calculate age at incident when DOB is available.
+  - Show useful detail for day-precision events within 24 months.
+  - Show only year for older main-list events, with detail in details screen.
+  - Distinguish incident date from reported date.
+  - Gracefully handle missing dates and DOB.
+- Evidence:
+  - src/lib/timeline.ts implements ageAtIncident, formatTimelineDateMain, and formatTimelineDateDetail.
+  - Timeline cards and details screens use those helpers.
+  - src/lib/timeline.test.ts covers old event year/age display, recent day-precision display, reported date display, and impossible-age fallbacks.
+- Status:
+  - Implemented and unit-tested.
+  - Needs visual/manual QA with seeded records for exact screen rendering confirmation.
+
+3. Clinical highlighting and formatting
+- Required:
+  - Improve scanability and highlight body part, side, diagnosis, surgery, procedure, injury, medication, and symptoms.
+  - Normalize L/R and capitalization.
+- Evidence:
+  - src/lib/timeline.ts implements clinicalTagsForEvent and normalizeClinicalLabel.
+  - Timeline cards and details screens render clinical scan chips.
+  - src/lib/timeline.test.ts covers L/R normalization, Thumb capitalization, and representative clinical chips.
+- Status:
+  - Implemented and unit-tested.
+
+4. Multimodal search UX
+- Required:
+  - Natural typed search across timeline and health-card data.
+  - Clear organized results.
+  - Voice search implemented safely or feature-flagged with fallback.
+- Evidence:
+  - src/lib/timeline.ts implements timelineMatchesQuery and healthCardMatchesQuery.
+  - src/screens/App/TimelineScreen.tsx implements typed search UI and health-card match result.
+  - src/screens/App/TimelineScreen.tsx includes a voice-search entry point behind EXPO_PUBLIC_ENABLE_VOICE_SEARCH=true, with typed-search fallback when unavailable.
+  - src/lib/timeline.test.ts covers representative natural prompts.
+- Status:
+  - Implemented and unit-tested for matching logic.
+  - Native voice dictation intentionally deferred for App Store safety; web speech is feature-flagged.
+
+5. App-wide release quality audit
+- Required:
+  - Manually check login, signup, forgot password, update password, home, documents, upload, document list, timeline, details, edit/save, pre-visit toggle, pre-visit note, share, create package, QR/copy/share modal, and health summary / AI summary.
+  - Check loading, empty, error, navigation, mobile layout, theme, accessibility, and partial/old/malformed data.
+- Evidence:
+  - Web shell was served successfully with npm run web and curl returned HTTP 200.
+  - iOS simulator and Xcode availability were checked.
+  - iOS simulator launch/build was attempted and failed before app launch because Xcode could not resolve simulator destinations for the RIVRHealthAI scheme.
+  - Chrome DevTools MCP could not attach because its chrome-profile was locked by existing Chrome/MCP processes.
+  - No test account or seeded test data was found in the repo.
+- Status:
+  - Incomplete.
+  - This is the blocker preventing completion.
+
+6. Testing and validation
+- Required commands:
+  - npm install
+  - npm run lint
+  - npm run typecheck
+  - npm test
+  - npx expo-doctor
+  - npx tsc --noEmit
+  - worker build checks when applicable.
+- Evidence:
+  - npm install passed after dependency updates.
+  - npm run lint passes with 0 errors and 0 warnings.
+  - npm run typecheck passes.
+  - npm test -- --watch=false passes with 10 tests.
+  - npx tsc --noEmit --pretty false passes through npm run typecheck.
+  - npm run build --prefix worker passes.
+  - npx expo-doctor passes 17/17.
+  - npm audit --audit-level=moderate passes with 0 vulnerabilities.
+  - git diff --check passes.
+- Status:
+  - Complete for automated checks.
+
+7. Code quality requirements
+- Required:
+  - Minimal release-safe changes.
+  - No unnecessary libraries.
+  - No secrets committed.
+  - Helper functions for date, age, display rules, clinical labels, and search.
+  - Correct TypeScript types.
+  - Preserve design system and Supabase integrations.
+- Evidence:
+  - Helpers are centralized in src/lib/timeline.ts.
+  - TypeScript, lint, tests, worker build, Expo Doctor, and npm audit pass.
+  - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local produced no tracked secret files.
+  - Existing Supabase query/update paths remain in use; no destructive migrations were added.
+- Status:
+  - Complete for touched areas.
+
+8. Acceptance criteria
+- Timeline no longer freezes/glitches on mobile during edit/save:
+  - Status: Not verified. Simulator/device QA blocked.
+- Old timeline data does not crash the app:
+  - Status: Implemented and unit-tested for normalization; still needs device/manual render QA.
+- Timeline cards show incident year:
+  - Status: Implemented and unit-tested.
+- Patient age at incident is calculated:
+  - Status: Implemented and unit-tested.
+- Reported date is shown:
+  - Status: Implemented and unit-tested.
+- Events older than 24 months show only year in main timeline unless opened:
+  - Status: Implemented and unit-tested.
+- Key clinical terms are easier to scan:
+  - Status: Implemented and unit-tested for helper output; needs visual QA.
+- Typed natural search works across timeline/health-card data:
+  - Status: Implemented and unit-tested.
+- Voice search is safe or feature-flagged:
+  - Status: Implemented with feature flag and fallback.
+- Every major screen/button manually checked:
+  - Status: Not complete. Blocked by lack of test credentials/seeded data and simulator/browser automation issues.
+- Lint/typecheck/tests pass:
+  - Status: Complete.
+- No secrets are committed:
+  - Status: Complete based on git tracking check for known local secret/env files.
+- Existing functionality remains intact:
+  - Status: Partially verified by static checks and focused tests; requires manual QA for full confidence.
+
+Blocking items before marking complete:
+- Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
+- Fix local Xcode/simulator destination resolution for RIVRHealthAI, or test on a real device.
+- Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
+- Specifically verify timeline list, event details, repeated edit/save, and Pre-Visit toggles on mobile do not freeze or glitch.
