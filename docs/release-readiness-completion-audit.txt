@@ -7,6 +7,7 @@ Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
 - The remaining uncovered requirement is authenticated/manual QA on a working simulator or real mobile device with safe seeded patient data.
+- The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime, but authenticated app-flow QA remains blocked by the Expo dev launcher confirmation prompt in this non-interactive environment and the lack of safe seeded test data.
 
 Prompt-to-artifact checklist:
 
@@ -74,8 +75,12 @@ Prompt-to-artifact checklist:
 - Evidence:
   - Web shell was served successfully with npm run web and curl returned HTTP 200.
   - iOS simulator and Xcode availability were checked.
-  - iOS simulator launch/build was attempted and failed before app launch because Xcode could not resolve simulator destinations for the RIVRHealthAI scheme.
-  - iOS and iOS Simulator SDK 26.4 are installed, and a disposable iOS 26.4 simulator could be created/booted, but xcodebuild still exposed no simulator destination for the RIVRHealthAI scheme.
+  - xcodebuild initially could not resolve simulator destinations for the RIVRHealthAI scheme.
+  - xcodebuild -downloadPlatform iOS installed the iOS 26.4.1 Simulator runtime and restored simulator destination discovery.
+  - npx expo run:ios then exposed a native fmt pod consteval build failure under Xcode 26.4.1.
+  - A local ignored ios/Pods/fmt/include/fmt/base.h patch proved the simulator build path; xcodebuild completed with BUILD SUCCEEDED and the app installed on the iPhone 17 Pro simulator.
+  - app.json now includes ./plugins/with-ios-fmt-xcode-fix so future Expo prebuild/pod install output can apply the fmt Apple clang workaround from source control.
+  - The app launched to Expo dev launcher, but loading the Metro bundle remained blocked by an iOS "Open in RIVR-Health-AI?" confirmation dialog. AppleScript automation was denied assistive access, a CGEvent click did not clear the prompt, and seeding recent-app dev launcher preferences did not bypass it.
   - Chrome DevTools MCP could not attach because its chrome-profile was locked by existing Chrome/MCP processes.
   - No test account or seeded test data was found in the repo.
 - Status:
@@ -122,7 +127,7 @@ Prompt-to-artifact checklist:
 
 8. Acceptance criteria
 - Timeline no longer freezes/glitches on mobile during edit/save:
-  - Status: Not verified. Simulator/device QA blocked.
+  - Status: Not verified. Simulator/device QA progressed through native build/install but remains blocked before authenticated app flow testing.
 - Old timeline data does not crash the app:
   - Status: Implemented and unit-tested for normalization; still needs device/manual render QA.
 - Timeline cards show incident year:
@@ -150,7 +155,7 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
-- Fix local Xcode/simulator destination resolution for RIVRHealthAI, or test on a real device.
-- If fixing the local simulator path, regenerate or adjust the ignored native ios/ project outside this release branch, then confirm xcodebuild -showdestinations lists an iOS Simulator destination for RIVRHealthAI.
+- Use a real device, a manually controlled simulator, or automation with assistive access to dismiss the Expo dev launcher confirmation and enter the app.
+- Verify the new fmt workaround in a fresh Expo prebuild/pod install or CI/EAS build, because the successful local simulator build used an ignored generated Pods tree to prove the underlying compiler workaround.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
 - Specifically verify timeline list, event details, repeated edit/save, and Pre-Visit toggles on mobile do not freeze or glitch.

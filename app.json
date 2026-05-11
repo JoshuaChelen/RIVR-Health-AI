@@ -30,7 +30,8 @@
             "deploymentTarget": "15.1"
           }
         }
-      ]
+      ],
+      "./plugins/with-ios-fmt-xcode-fix"
     ],
     "ios": {
       "supportsTablet": true,

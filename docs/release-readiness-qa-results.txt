@@ -24,6 +24,7 @@ Follow-up dependency hardening:
   - react-native-document-picker
 - package.json adds a postcss override for @expo/metro-config to remove the moderate PostCSS audit finding without downgrading Expo.
 - package.json overrides @expo/config-plugins to 54.0.4 so react-native-health uses the Expo SDK 54 plugin stack instead of installing stale nested Expo packages.
+- app.json adds ./plugins/with-ios-fmt-xcode-fix, an Expo prebuild plugin that injects a Podfile post_install patch for the fmt 11.0.2 Apple clang consteval failure observed under Xcode 26.4.1.
 
 Requirement-to-artifact checklist:
 
@@ -155,6 +156,7 @@ Requirement-to-artifact checklist:
     - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
   - npx expo config --type introspect --json
     - Passed after @expo/config-plugins override; Expo evaluated the config including react-native-health plugin.
+    - Re-run after adding ./plugins/with-ios-fmt-xcode-fix: passed and printed app name RIVR-Health-AI.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
@@ -167,6 +169,29 @@ Requirement-to-artifact checklist:
     - Failed before app launch: xcodebuild error 70, simulator destination not visible to the RIVRHealthAI scheme.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -showdestinations
     - Failed to expose simulator destinations; only ineligible Any iOS Device placeholder was listed, with iOS 26.4 runtime error.
+    - Re-run after installing iOS 26.4.1 Simulator runtime: passed and listed simulator destinations, including iPhone 17 Pro id 719A2948-505A-4897-B603-1F270D286F8F.
+  - xcodebuild -downloadPlatform iOS
+    - Passed after downloading/installing iOS 26.4.1 Simulator (23E254a), runtime id B2FC6F75-40E3-4757-8C6A-F85338392ECB.
+    - This resolved the xcodebuild destination discovery blocker.
+  - npx expo run:ios --no-bundler --device 719A2948-505A-4897-B603-1F270D286F8F
+    - Failed during native compilation in the fmt pod:
+      - ios/Pods/fmt/include/fmt/format-inl.h:59:24
+      - call to consteval function is not a constant expression.
+    - Passing GCC_PREPROCESSOR_DEFINITIONS=FMT_USE_CONSTEVAL=0 did not fix the issue because fmt recalculates FMT_USE_CONSTEVAL in base.h.
+    - Changing generated fmt xcconfig C++ language standard to c++17 did not fix the issue because the Pods project still compiled fmt with -std=c++20.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Debug -destination 'id=719A2948-505A-4897-B603-1F270D286F8F' build CODE_SIGNING_ALLOWED=NO
+    - Passed after locally patching generated ios/Pods/fmt/include/fmt/base.h to disable FMT_USE_CONSTEVAL for Apple clang.
+    - Output ended with BUILD SUCCEEDED.
+    - The source-controlled follow-up is plugins/with-ios-fmt-xcode-fix.js so future Expo prebuild/pod install output can apply the same workaround.
+  - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Debug-iphonesimulator/RIVRHealthAI.app
+    - Passed.
+  - xcrun simctl launch 719A2948-505A-4897-B603-1F270D286F8F com.rivrhealth.app
+    - Passed to the Expo dev launcher screen.
+  - xcrun simctl openurl 719A2948-505A-4897-B603-1F270D286F8F 'rivrhealth://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+    - Reached an iOS confirmation dialog: Open in "RIVR-Health-AI"?.
+    - AppleScript click automation failed because osascript is not allowed assistive access.
+    - A CGEvent mouse-click attempt did not clear the prompt.
+    - Seeding Expo dev launcher recent-app preferences did not bypass the confirmation prompt.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Debug -sdk iphonesimulator -destination 'id=C6432A17-83CF-4DAE-94C0-D808280935ED' build
     - Failed before compilation: xcodebuild error 70, unable to find simulator destination for the scheme.
   - xcrun simctl create RIVR-QA-iPhone-17 com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-4
@@ -196,7 +221,9 @@ Manual QA attempt:
 - Chrome DevTools MCP could not attach because its browser profile was already locked by an existing Chrome process.
 - The repo has no Playwright, Puppeteer, Detox, Jest, or Vitest dependency configured for browser/device flow automation.
 - Authenticated end-to-end QA was not performed to avoid creating or mutating data against the configured Supabase environment without test credentials and seeded test records.
-- iOS simulator QA was attempted, but Xcode could not resolve simulator destinations for the RIVRHealthAI scheme. The app did not launch on simulator, so mobile edit/save freeze verification remains unperformed.
+- iOS simulator QA was attempted. The original Xcode destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime.
+- A native fmt/Xcode 26.4.1 build blocker was found. A local generated Pods header workaround produced a successful simulator build, and a source-controlled Expo config plugin now injects that workaround during future prebuild/pod install runs.
+- The simulator app installed and launched to Expo dev launcher, but opening the Metro bundle remained blocked by an untappable iOS confirmation dialog in this non-interactive environment. Mobile edit/save freeze verification remains unperformed.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 
 7. Code quality requirements
@@ -213,6 +240,7 @@ Manual QA attempt:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
+- The new fmt workaround should be verified in a fresh Expo prebuild/pod install or CI/EAS build. The local ignored ios/Pods tree was patched to prove the simulator build path.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
 
