@@ -38,3 +38,49 @@ export function buildHealthKitPermissions(
     },
   };
 }
+
+export function formatHealthKitError(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return conciseHealthKitMessage(error.message);
+  }
+
+  if (typeof error === "string") {
+    return conciseHealthKitMessage(error);
+  }
+
+  if (error && typeof error === "object") {
+    const { message, localizedDescription, domain, code } = error as {
+      message?: unknown;
+      localizedDescription?: unknown;
+      domain?: unknown;
+      code?: unknown;
+    };
+    const nativeMessage = [message, localizedDescription].find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    );
+    if (nativeMessage) return conciseHealthKitMessage(nativeMessage);
+
+    const details = [domain, code]
+      .filter((value): value is string | number => {
+        return (
+          (typeof value === "string" && value.trim().length > 0) ||
+          typeof value === "number"
+        );
+      })
+      .map((value) => String(value).trim())
+      .join(" ");
+    if (details.length > 0) return details;
+  }
+
+  return "Unknown HealthKit error";
+}
+
+function conciseHealthKitMessage(message: string): string {
+  const trimmed = message.trim();
+  if (trimmed.length === 0) return "Unknown HealthKit error";
+
+  const localized = trimmed.match(/NSLocalizedDescription=([^}]+)/);
+  if (localized?.[1]) return localized[1].trim();
+
+  return trimmed;
+}

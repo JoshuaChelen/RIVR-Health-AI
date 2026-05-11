@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import AppleHealthKit, { HealthKitPermissions } from "react-native-health";
 import {
   buildHealthKitPermissions,
+  formatHealthKitError,
   hasRequiredHealthKitPermissionConstants,
 } from "./healthkitPermissions";
 
@@ -82,7 +83,7 @@ export async function getHealthAvailability(): Promise<HealthAvailabilityResult>
       if (err) {
         resolve({
           ok: false,
-          error: `HealthKit availability check failed: ${String(err)}`,
+          error: `HealthKit availability check failed: ${formatHealthKitError(err)}`,
         });
         return;
       }
@@ -121,7 +122,7 @@ export async function linkAppleHealth(): Promise<{ ok: boolean; error?: string }
       if (err) {
         resolve({
           ok: false,
-          error: `HealthKit authorization failed: ${String(err)}`,
+          error: `HealthKit authorization failed: ${formatHealthKitError(err)}`,
         });
         return;
       }

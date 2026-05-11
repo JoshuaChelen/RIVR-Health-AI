@@ -6,7 +6,7 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, real email-link auth recovery flows, positive-path media upload/capture/photo selection, and a final native seeded-data pass.
+- The remaining uncovered requirements are manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, positive-path media upload/capture/photo selection, and a final native seeded-data pass.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
 - Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. Typed mobile search was also verified with a natural prompt, and the Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
 - Native auth persistence was fixed by configuring Supabase auth to use React Native AsyncStorage. The rebuilt Release simulator app launched to Home from a QA session, was terminated, relaunched, and returned to Home instead of Login.
@@ -22,6 +22,7 @@ Audit result:
 - Native camera, photo-library, and microphone permission request paths were hardened with shared fallback helpers so denied or failed permission requests show stable app messages instead of becoming uncaught native errors.
 - Native microphone, camera, and photo-library denial flows were exercised with Maestro against the iPhone 17 Pro simulator. Each denied prompt returned to a stable app fallback message.
 - Apple Health startup was hardened so HealthKit permission constants are read lazily after native module availability checks rather than at module import time. The rebuilt Release app installed and launched to Home after this change.
+- Apple Health error handling was hardened after native QA exposed an object-shaped HealthKit authorization failure. The screen now formats native errors without [object Object] and extracts the concise localized description.
 
 Prompt-to-artifact checklist:
 
@@ -130,10 +131,13 @@ Prompt-to-artifact checklist:
   - Voice note recording, document scan camera access, document scan photo-library access, and profile photo camera/library access use the shared permission helpers.
   - Maestro verified microphone denial from Documents Start recording, camera denial from Documents Scan Document, and photo-library denial from Profile photo selection. Each flow asserted the app's fallback permission message after denial.
   - src/lib/health/healthkitPermissions.ts centralizes lazy HealthKit permission construction and missing-constant checks.
+  - src/lib/health/healthkitPermissions.ts now also formats object-shaped/native HealthKit errors so the Apple Health screen does not expose [object Object] or a full native payload.
+  - Maestro tapped Connect Apple Health on the rebuilt unsigned Release simulator app. The local CODE_SIGNING_ALLOWED=NO build could not present the HealthKit sheet because HealthKit reported the missing entitlement, but the source entitlement exists in app.json and ios/RIVRHealthAI/RIVRHealthAI.entitlements.
+  - After the formatter fix and rebuild, Apple Health displayed "HealthKit authorization failed: Missing com.apple.developer.healthkit entitlement." instead of [object Object].
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
-  - Remaining gaps are narrower: native real-device seeded-data pass, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, positive-path media upload/capture/photo selection, and real email-link auth recovery flows.
+  - Remaining gaps are narrower: native real-device seeded-data pass, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior on a signed device/TestFlight build, positive-path media upload/capture/photo selection, and real email-link auth recovery flows.
 
 6. Testing and validation
 - Required commands:
@@ -174,6 +178,8 @@ Prompt-to-artifact checklist:
   - After the app-screen deep-link map, npm run lint, npm run typecheck, npm test -- --watch=false, xcodebuild Release, xcrun simctl install, xcrun simctl launch, and xcrun simctl openurl smoke navigation passed.
   - Native dark appearance was re-tested through xcrun simctl openurl smoke navigation for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health. The simulator was restored to light appearance afterward.
   - Maestro native permission denial checks passed for microphone fallback assertion, camera denial plus fallback assertion, and photo-library denial plus fallback assertion.
+  - After HealthKit error-formatting hardening, npm test -- src/lib/health/healthkitPermissions.test.ts passed with 4 tests.
+  - After HealthKit error-formatting hardening, npm run lint, npm run typecheck, npm test -- --watch=false, git diff --check, the repo secret scan, and xcodebuild Release passed. The rebuilt Release app was installed and the Apple Health Connect tap showed the concise missing-entitlement message in the unsigned simulator build.
 - Status:
   - Complete for automated checks.
 
@@ -218,7 +224,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health, plus native microphone/camera/photo-library denial fallbacks were checked. Remaining gaps are manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, positive-path media upload/capture/photo selection, and real email-link auth recovery flows.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health, plus native microphone/camera/photo-library denial fallbacks were checked. Remaining gaps are manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior on a signed device/TestFlight build, positive-path media upload/capture/photo selection, and real email-link auth recovery flows.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -229,4 +235,4 @@ Prompt-to-artifact checklist:
 Blocking items before marking complete:
 - Use a real device, a manually controlled simulator, or stable automation with assistive access for one final seeded old/new data pass on native mobile.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify the real iOS share sheet from the new Share Link action, Apple Health permission behavior, positive-path media upload/capture/photo selection, and real email-link auth recovery flows.
+- Specifically verify the real iOS share sheet from the new Share Link action, Apple Health permission behavior on a signed device/TestFlight build, positive-path media upload/capture/photo selection, and real email-link auth recovery flows.
