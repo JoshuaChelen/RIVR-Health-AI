@@ -95,6 +95,7 @@ Requirement-to-artifact checklist:
   - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
   - iOS Pre-Visit opened from Home and rendered a ready note with two included events plus Share and Edit Selection controls.
   - iOS Share Records opened from Home, selected 3x5 Card, generated a secure 1-minute/2-view link, displayed the QR code/link/included item modal, and copied the link to the simulator pasteboard.
+  - iOS AI Recommendations opened and rendered recommendation cards with priority labels and Add Data actions without crashing.
 - Status:
   - Partially complete.
   - Remaining gaps: repeated 5+ edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive document actions, and deeper edit/selection/share-sheet variants.
@@ -268,6 +269,7 @@ Manual QA attempt:
 - Mobile Documents opened and rendered pending/upload/process controls. Destructive actions such as Remove and Process were not tapped.
 - Mobile Pre-Visit opened and rendered a ready note with two included medication events and Share/Edit Selection controls.
 - Mobile Share Records opened, allowed selecting the 3x5 Card, generated a secure link, showed the QR code and included item, and Copy Link placed a share.rivrhealth.ai URL on the simulator pasteboard.
+- Mobile AI Recommendations opened and rendered personalised recommendation cards with priority labels and Add Data actions.
 - Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
 - Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save and typed-search checks. CGEvent fallback was enough for tap-only checks but not enough to complete the remaining mobile checklist.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.

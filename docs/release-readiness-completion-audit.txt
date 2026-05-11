@@ -98,6 +98,7 @@ Prompt-to-artifact checklist:
   - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
   - iOS Pre-Visit opened from Home and rendered a ready note with two included events plus Share and Edit Selection controls.
   - iOS Share Records opened from Home, selected 3x5 Card, generated a secure 1-minute/2-view link, displayed the QR code/link/included item modal, and copied the link to the simulator pasteboard.
+  - iOS AI Recommendations opened and rendered recommendation cards with priority labels and Add Data actions without crashing.
   - Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
   - Simulator automation access later failed again with "osascript is not allowed assistive access", preventing completion of repeated edit/save, typed mobile search, and broader authenticated flow checks.
 - Status:
