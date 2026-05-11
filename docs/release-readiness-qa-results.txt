@@ -3,8 +3,11 @@ RIVR Health AI release-readiness implementation evidence
 Objective source:
 - docs/release-readiness-agent-plan.txt
 
-Implementation commit:
+Release-readiness commits:
 - 167c450 harden timeline UX and release checks
+- 0d8f499 document release readiness verification gaps
+- f903abf scope app typecheck for release validation
+- 7bc02b0 feature-flag timeline voice search
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -79,18 +82,24 @@ Requirement-to-artifact checklist:
     - Failed: package.json has no test script.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
+    - Re-run after 7bc02b0: passed.
   - npx tsc --noEmit --pretty false 2>&1 | rg '^src/' || true
     - Passed: no src/ app TypeScript errors reported.
   - npm run build in worker/
     - Passed.
+    - Re-run after 7bc02b0: passed.
   - npx expo-doctor
     - 16/17 checks passed.
     - Remaining failure: duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
+    - Re-run after 7bc02b0: same 16/17 result and same duplicate @expo/fingerprint failure.
   - npm audit fix
     - Reduced audit findings.
   - npm audit --audit-level=moderate
     - Still reports 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
     - npm's available fix is npm audit fix --force, which would install react-native-health@1.13.0 and is a breaking native dependency change. Not applied.
+    - Re-run after 7bc02b0: same 4 high severity vulnerabilities and same breaking force-fix recommendation.
+  - git diff --check
+    - Re-run after voice-search changes: passed.
   - npm run web
     - Passed: Expo web bundle compiled.
   - curl -I http://localhost:8081
