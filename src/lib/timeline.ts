@@ -162,6 +162,78 @@ export function formatDate(ymd: string, precision: DatePrecision, style: "short"
 
 export type ClinicalTag = { label: string; value: string };
 
+export type TimelineEventSaveDraft = {
+  title: string;
+  summary: string;
+  occurred_at: string;
+  date_precision: DatePrecision;
+  category: string;
+  event_type: string;
+  tagsCsv: string;
+};
+
+export type TimelineEventSavePayload = {
+  title: string | null;
+  summary: string | null;
+  occurred_at: string | null;
+  date_precision: DatePrecision | null;
+  category: string | null;
+  event_type: string | null;
+  tags: string[];
+};
+
+export type TimelineEventSavePayloadResult =
+  | { ok: true; payload: TimelineEventSavePayload }
+  | { ok: false; error: string };
+
+export function buildTimelineEventSavePayload(
+  draft: TimelineEventSaveDraft,
+): TimelineEventSavePayloadResult {
+  const rawDate = draft.occurred_at.trim();
+  let normalizedOccurredAt: string | null = null;
+
+  if (rawDate) {
+    const acceptable: Record<DatePrecision, RegExp[]> = {
+      day:   [/^\d{4}-\d{2}-\d{2}$/],
+      month: [/^\d{4}-\d{2}$/,  /^\d{4}-\d{2}-\d{2}$/],
+      year:  [/^\d{4}$/,        /^\d{4}-\d{2}-\d{2}$/],
+    };
+    if (!acceptable[draft.date_precision].some((re) => re.test(rawDate))) {
+      return {
+        ok: false,
+        error:
+          draft.date_precision === "year"  ? "Date must be in YYYY or YYYY-MM-DD format." :
+          draft.date_precision === "month" ? "Date must be in YYYY-MM or YYYY-MM-DD format." :
+                                             "Date must be in YYYY-MM-DD format.",
+      };
+    }
+
+    normalizedOccurredAt = normalizeStoredDate(rawDate);
+    if (!normalizedOccurredAt) {
+      return {
+        ok: false,
+        error:
+          draft.date_precision === "day" ? "Date must be a real date in YYYY-MM-DD format." :
+          draft.date_precision === "month" ? "Date must be in YYYY-MM or YYYY-MM-DD format." :
+                                             "Date must be in YYYY or YYYY-MM-DD format.",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      title:          draft.title.trim() || null,
+      summary:        draft.summary.trim() || null,
+      occurred_at:    normalizedOccurredAt,
+      date_precision: normalizedOccurredAt ? draft.date_precision : null,
+      category:       draft.category.trim() || null,
+      event_type:     draft.event_type.trim() || null,
+      tags:           normalizeTagsCsv(draft.tagsCsv),
+    },
+  };
+}
+
 export function clinicalTagsForEvent(
   event: Pick<NormalizedTimelineEvent, "title" | "summary" | "category" | "event_type" | "tags" | "data">,
 ): ClinicalTag[] {
@@ -276,6 +348,19 @@ function normalizeTags(tags: unknown): string[] {
   return Array.isArray(tags)
     ? tags.map((tag) => String(tag ?? "").trim()).filter(Boolean)
     : [];
+}
+
+function normalizeTagsCsv(tagsCsv: string): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const raw of tagsCsv.split(",")) {
+    const tag = raw.trim();
+    const key = tag.toLowerCase();
+    if (!tag || seen.has(key)) continue;
+    seen.add(key);
+    tags.push(tag);
+  }
+  return tags;
 }
 
 function stringOr(value: unknown, fallback: string): string {

@@ -14,6 +14,7 @@ Release-readiness commits:
 - 5519473 apply safe eslint autofixes
 - 0f9f71a reduce safe lint warnings
 - 4760385 clean hook lint warnings
+- pending timeline save-payload test commit
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -31,6 +32,7 @@ Requirement-to-artifact checklist:
   - src/lib/timeline.ts adds normalizeTimelineEvent, normalizeStoredDate, normalizePrecision, tag/data coercion, and safe defaults for missing title/category/source/summary/included_in_previsit/document fields.
   - src/screens/App/TimelineScreen.tsx normalizes rows from Supabase before render.
   - src/screens/App/TimelineEventDetailsScreen.tsx normalizes rows from Supabase before edit/display and saves date_precision as null when occurred_at is cleared.
+  - Timeline event edit/save now uses buildTimelineEventSavePayload from src/lib/timeline.ts, covered by automated tests for cleared dates, partial dates, malformed dates, and tag cleanup.
   - src/components/ui/Timeline/TimelineCard.tsx separates the navigation Pressable from the Pre-Visit Switch footer. This removes the nested switch-inside-navigation press target that is a likely mobile gesture conflict/freeze source.
 - Status:
   - Implemented.
@@ -89,6 +91,7 @@ Requirement-to-artifact checklist:
     - Re-run after eslint --fix cleanup: passed with 0 errors and 16 warnings.
     - Re-run after safe warning cleanup: passed with 0 errors and 9 warnings.
     - Re-run after hook lint cleanup: passed with 0 errors and 0 warnings.
+    - Re-run after timeline save-payload tests: passed with 0 errors and 0 warnings.
   - npm run typecheck
     - Failed: package.json has no typecheck script.
     - Re-run at final verification: still missing script.
@@ -96,6 +99,7 @@ Requirement-to-artifact checklist:
     - Re-run after lint configuration and JSX text fixes: passed.
     - Re-run after safe warning cleanup: passed.
     - Re-run after hook lint cleanup: passed.
+    - Re-run after timeline save-payload tests: passed.
   - npm test -- --watch=false
     - Failed: package.json has no test script.
     - Re-run at final verification: still missing script.
@@ -103,12 +107,16 @@ Requirement-to-artifact checklist:
     - Re-run after lint configuration and JSX text fixes: passed, 1 test file and 8 tests.
     - Re-run after safe warning cleanup: passed, 1 test file and 8 tests.
     - Re-run after hook lint cleanup: passed, 1 test file and 8 tests.
+    - Re-run after timeline save-payload tests: passed, 1 test file and 10 tests.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
+    - Re-run after timeline save-payload tests: passed, 1 test file and 10 tests.
   - npm test -- src/lib/timeline.test.ts
     - Red run failed on malformed date handling, plural injury search, and clinical chip coverage.
     - Green run passed after helper fixes: 8 tests passed.
+    - Red run failed when buildTimelineEventSavePayload did not exist.
+    - Green run passed after extracting timeline edit-save normalization: 10 tests passed.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
     - Re-run after 7bc02b0: passed.
@@ -122,6 +130,7 @@ Requirement-to-artifact checklist:
     - Re-run after lint configuration and JSX text fixes: passed.
     - Re-run after safe warning cleanup: passed.
     - Re-run after hook lint cleanup: passed.
+    - Re-run after timeline save-payload tests: passed.
   - npx expo-doctor
     - 16/17 checks passed before dependency cleanup; prior remaining failure was duplicate @expo/fingerprint via react-native-health nested @expo/config-plugins.
     - Re-run after @expo/config-plugins override: 17/17 checks passed.
@@ -130,6 +139,7 @@ Requirement-to-artifact checklist:
     - Re-run after lint configuration and JSX text fixes: 17/17 checks passed.
     - Re-run after safe warning cleanup: 17/17 checks passed.
     - Re-run after hook lint cleanup: 17/17 checks passed.
+    - Re-run after timeline save-payload tests: 17/17 checks passed.
   - npm audit fix
     - Reduced audit findings.
   - npm audit --audit-level=moderate
@@ -140,6 +150,7 @@ Requirement-to-artifact checklist:
     - Re-run after lint configuration and JSX text fixes: found 0 vulnerabilities.
     - Re-run after safe warning cleanup: found 0 vulnerabilities.
     - Re-run after hook lint cleanup: found 0 vulnerabilities.
+    - Re-run after timeline save-payload tests: found 0 vulnerabilities.
   - npm ls react-native-health @expo/fingerprint @expo/config-plugins @expo/plist @xmldom/xmldom --all
     - Passed after @expo/config-plugins override; react-native-health now dedupes to @expo/config-plugins@54.0.4 and no longer installs nested @expo/fingerprint or vulnerable @xmldom.
   - npx expo config --type introspect --json
@@ -172,7 +183,7 @@ Manual QA attempt:
 7. Code quality requirements
 - Evidence:
   - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
-  - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, natural timeline search, health-card search, and impossible-age fallbacks.
+  - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, natural timeline search, health-card search, edit-save payload construction, and impossible-age fallbacks.
   - No secrets were added.
   - Local AuthKey_ST6W9U8FZ5.p8, .env, and .env.local files are ignored by .gitignore and not tracked by git.
   - No destructive database migrations were added.

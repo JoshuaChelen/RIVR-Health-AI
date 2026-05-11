@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import {
   ageAtIncident,
+  buildTimelineEventSavePayload,
   clinicalTagsForEvent,
   formatTimelineDateDetail,
   formatTimelineDateMain,
@@ -132,5 +133,79 @@ describe("timeline release helpers", () => {
   test("does not calculate impossible patient ages", () => {
     expect(ageAtIncident("2020-01-01", "2018-01-01")).toBeNull();
     expect(ageAtIncident("1800-01-01", "2025-01-01")).toBeNull();
+  });
+
+  test("builds safe edit-save payloads for cleared and partial incident dates", () => {
+    expect(
+      buildTimelineEventSavePayload({
+        title: "  Left thumb injury  ",
+        summary: "  Follow up  ",
+        occurred_at: "2018",
+        date_precision: "year",
+        category: " Injury ",
+        event_type: " diagnosis ",
+        tagsCsv: "thumb, injury, thumb",
+      }),
+    ).toEqual({
+      ok: true,
+      payload: {
+        title: "Left thumb injury",
+        summary: "Follow up",
+        occurred_at: "2018-01-01",
+        date_precision: "year",
+        category: "Injury",
+        event_type: "diagnosis",
+        tags: ["thumb", "injury"],
+      },
+    });
+
+    expect(
+      buildTimelineEventSavePayload({
+        title: "",
+        summary: "",
+        occurred_at: "",
+        date_precision: "month",
+        category: "",
+        event_type: "",
+        tagsCsv: "",
+      }),
+    ).toEqual({
+      ok: true,
+      payload: {
+        title: null,
+        summary: null,
+        occurred_at: null,
+        date_precision: null,
+        category: null,
+        event_type: null,
+        tags: [],
+      },
+    });
+  });
+
+  test("rejects malformed edit-save incident dates with precision-specific messages", () => {
+    expect(
+      buildTimelineEventSavePayload({
+        title: "Bad date",
+        summary: "",
+        occurred_at: "2024-02-30",
+        date_precision: "day",
+        category: "",
+        event_type: "",
+        tagsCsv: "",
+      }),
+    ).toEqual({ ok: false, error: "Date must be a real date in YYYY-MM-DD format." });
+
+    expect(
+      buildTimelineEventSavePayload({
+        title: "Bad month",
+        summary: "",
+        occurred_at: "2024-13",
+        date_precision: "month",
+        category: "",
+        event_type: "",
+        tagsCsv: "",
+      }),
+    ).toEqual({ ok: false, error: "Date must be in YYYY-MM or YYYY-MM-DD format." });
   });
 });
