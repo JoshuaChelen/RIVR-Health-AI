@@ -9,6 +9,8 @@ Audit result:
 - The remaining uncovered requirements are seeded old/malformed timeline data verification, destructive document actions, and deeper edit/selection/share-sheet variants.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
 - Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. Typed mobile search was also verified with a natural prompt, and the Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
+- Native auth persistence was fixed by configuring Supabase auth to use React Native AsyncStorage. The rebuilt Release simulator app launched to Home from a QA session, was terminated, relaunched, and returned to Home instead of Login.
+- Mobile keyboard handling was hardened: shared TextField inputs explicitly request the soft keyboard on focus, raw TextInput typing surfaces were patched with showSoftInputOnFocus, and Timeline event details now uses KeyboardAvoidingView while editing.
 
 Prompt-to-artifact checklist:
 
@@ -101,6 +103,9 @@ Prompt-to-artifact checklist:
   - iOS Share Records opened from Home, selected 3x5 Card, generated a secure 1-minute/2-view link, displayed the QR code/link/included item modal, and copied the link to the simulator pasteboard.
   - iOS AI Recommendations opened and rendered recommendation cards with priority labels and Add Data actions without crashing.
   - Typed mobile search was verified on iOS simulator with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match, and the search was cleared back to the normal list state afterward.
+  - A rebuilt iOS Release simulator app focused the Login email field and showed the iOS software keyboard.
+  - Supabase auth persistence was verified on the rebuilt iOS Release simulator: the app returned to Home after terminate/relaunch instead of returning to Login.
+  - Code-level keyboard coverage was added for shared TextField inputs plus raw Timeline search/edit, Medical Profile symptoms, Story answer, and PhoneField inputs.
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
@@ -127,6 +132,10 @@ Prompt-to-artifact checklist:
   - git diff --check passes.
   - After the shared TextField ID fix, npm run lint and npm run typecheck still pass.
   - npx expo prebuild --platform ios --no-install passes and injects the source-controlled fmt workaround into the ignored generated ios/Podfile post_install block.
+  - After the auth persistence and keyboard hardening changes, npm run typecheck passed.
+  - After the auth persistence and keyboard hardening changes, npm run lint passed with 0 errors and 0 warnings.
+  - After the auth persistence and keyboard hardening changes, npm test -- --watch=false passed with 1 test file and 10 tests.
+  - After the auth persistence and keyboard hardening changes, xcodebuild Release for the iPhone 17 Pro simulator passed with BUILD SUCCEEDED.
 - Status:
   - Complete for automated checks.
 
@@ -176,7 +185,6 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
-- The previously authenticated simulator session did not persist after app relaunch; further authenticated QA now requires a safe test credential, persisted QA account session, or non-production seed path.
 - Use a real device, a manually controlled simulator, or stable automation with assistive access to finish old/malformed data QA and deeper authenticated flow variants.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
 - Specifically verify old/malformed timeline rows, destructive document actions when safe, pre-visit edit/selection variants, share-sheet variants, and additional mobile edge cases.

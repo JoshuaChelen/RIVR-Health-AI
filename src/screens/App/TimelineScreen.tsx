@@ -401,6 +401,7 @@ export function TimelineScreen({ navigation }: Props) {
             onChangeText={setSearchQuery}
             placeholder="Search injuries, dates, meds, body parts..."
             placeholderTextColor={colors.subtle}
+            showSoftInputOnFocus
             style={styles.searchInput}
             autoCapitalize="none"
             autoCorrect={false}

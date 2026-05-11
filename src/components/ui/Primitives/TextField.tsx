@@ -39,6 +39,7 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
           editable={disabled ? false : props.editable}
           nativeID={fieldId}
           placeholderTextColor={colors.subtle}
+          showSoftInputOnFocus={props.showSoftInputOnFocus ?? true}
           style={[styles.input, disabled && styles.inputDisabled, style]}
           onFocus={(e) => { if (!disabled) { setFocused(true); onFocus?.(e); } }}
           onBlur={(e)  => { setFocused(false); onBlur?.(e); }}

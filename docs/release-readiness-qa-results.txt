@@ -281,6 +281,12 @@ Manual QA attempt:
 - Typed mobile search was verified on iOS simulator with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match, and clearing the search returned the normal list.
 - Simulator automation access later failed again with "osascript is not allowed assistive access". CGEvent fallback was sufficient for the completed tap and keyboard checks after recalibration, but seeded old/malformed data render QA and deeper authenticated flow variants still need completion.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
+- Follow-up mobile auth persistence QA found that the Release simulator app returned to Login after app termination because the Supabase client was not configured with React Native persistent storage. Fixed by configuring Supabase auth to use AsyncStorage, persist sessions, auto-refresh tokens, and disable URL session detection for native.
+- After the auth persistence fix, npm run typecheck, npm run lint, npm test -- --watch=false, and the iOS Release simulator xcodebuild all passed.
+- The rebuilt Release simulator app was installed, seeded with a QA Supabase session through the same AsyncStorage key used by Supabase auth, launched to Home, terminated, relaunched, and returned to Home instead of Login. This verifies the native session persistence path.
+- Phone keyboard verification: the rebuilt iOS simulator Login email field focused and showed the iOS software keyboard. The shared TextField component now explicitly requests showSoftInputOnFocus by default, covering auth, onboarding, profile, medical-profile modal fields, and other shared text fields.
+- Raw text inputs that bypass TextField now explicitly request showSoftInputOnFocus: Timeline search, Timeline event edit fields, Medical Profile symptoms text area, Story answer text area, and PhoneField phone number entry.
+- Timeline event details now wraps the edit screen in KeyboardAvoidingView and uses keyboardShouldPersistTaps="handled" so mobile edit fields remain usable when the keyboard is open.
 
 7. Code quality requirements
 - Evidence:
@@ -296,7 +302,7 @@ Manual QA attempt:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
-- The previously authenticated simulator session did not persist after app relaunch; the app returned to the login screen. Further authenticated QA now requires a safe test credential, persisted QA account session, or non-production seed path.
+- Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
 - Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows still need completion.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.

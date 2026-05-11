@@ -375,6 +375,7 @@ export function PhoneField({
           placeholder="(555) 000-0000"
           placeholderTextColor={colors.subtle}
           keyboardType="phone-pad"
+          showSoftInputOnFocus
           returnKeyType={returnKeyType}
           editable={editable}
           onFocus={() => setFocused(true)}

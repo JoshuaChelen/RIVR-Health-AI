@@ -535,6 +535,7 @@ useEffect(() => {
                     onChangeText={setSymptomsDraft}
                     placeholder="Briefly describe any current issues, recent changes, or upcoming concerns…"
                     placeholderTextColor={colors.subtle}
+                    showSoftInputOnFocus
                     maxLength={2000}
                     multiline
                     numberOfLines={4}

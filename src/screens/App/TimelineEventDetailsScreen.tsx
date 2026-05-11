@@ -8,6 +8,8 @@ import {
   Pressable,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
@@ -201,27 +203,32 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
   return (
     <Screen edges={["left", "right", "bottom"]}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
       >
-        {/* ── Loading ──────────────────────────────────────────── */}
-        {busy ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.teal} accessibilityLabel="Loading event details" />
-            <AppText style={styles.loadingText}>Loading…</AppText>
-          </View>
-        ) : null}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Loading ──────────────────────────────────────────── */}
+          {busy ? (
+            <View style={styles.center}>
+              <ActivityIndicator color={colors.teal} accessibilityLabel="Loading event details" />
+              <AppText style={styles.loadingText}>Loading…</AppText>
+            </View>
+          ) : null}
 
-        {/* ── Error ────────────────────────────────────────────── */}
-        {err ? (
-          <View style={styles.errorBanner}>
-            <AppText style={styles.errorText}>{err}</AppText>
-          </View>
-        ) : null}
+          {/* ── Error ────────────────────────────────────────────── */}
+          {err ? (
+            <View style={styles.errorBanner}>
+              <AppText style={styles.errorText}>{err}</AppText>
+            </View>
+          ) : null}
 
-        {!busy && item ? (
-          <>
+          {!busy && item ? (
+            <>
             {/* ── Header card ──────────────────────────────────── */}
             <View style={styles.headerCard}>
               {/* Icon + edit button row */}
@@ -315,6 +322,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                     onChangeText={(t) => setDraft((d) => (d ? { ...d, title: t } : d))}
                     placeholder="Title"
                     placeholderTextColor={colors.muted}
+                    showSoftInputOnFocus
                     style={styles.input}
                     editable={!saving}
                   />
@@ -326,6 +334,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                     onChangeText={(t) => setDraft((d) => (d ? { ...d, summary: t } : d))}
                     placeholder="Write a short summary…"
                     placeholderTextColor={colors.muted}
+                    showSoftInputOnFocus
                     style={[styles.input, styles.inputMultiline]}
                     multiline
                     editable={!saving}
@@ -340,6 +349,8 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                         onChangeText={(t) => setDraft((d) => (d ? { ...d, occurred_at: t } : d))}
                         placeholder="2025-11-17"
                         placeholderTextColor={colors.muted}
+                        showSoftInputOnFocus
+                        keyboardType="numbers-and-punctuation"
                         style={styles.input}
                         editable={!saving}
                       />
@@ -380,6 +391,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                         onChangeText={(t) => setDraft((d) => (d ? { ...d, category: t } : d))}
                         placeholder="Vitals, Medications…"
                         placeholderTextColor={colors.muted}
+                        showSoftInputOnFocus
                         style={styles.input}
                         editable={!saving}
                       />
@@ -392,6 +404,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                         onChangeText={(t) => setDraft((d) => (d ? { ...d, event_type: t } : d))}
                         placeholder="lab_result, visit…"
                         placeholderTextColor={colors.muted}
+                        showSoftInputOnFocus
                         style={styles.input}
                         editable={!saving}
                       />
@@ -405,6 +418,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                     onChangeText={(t) => setDraft((d) => (d ? { ...d, tagsCsv: t } : d))}
                     placeholder="blood pressure, follow up"
                     placeholderTextColor={colors.muted}
+                    showSoftInputOnFocus
                     style={styles.input}
                     editable={!saving}
                   />
@@ -488,9 +502,10 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                 ios_backgroundColor={colors.bgSecondary}
               />
             </View>
-          </>
-        ) : null}
-      </ScrollView>
+            </>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

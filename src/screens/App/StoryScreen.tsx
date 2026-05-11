@@ -109,6 +109,7 @@ function QuestionCard({
               textAlignVertical="top"
               placeholder="Write your answer here…"
               placeholderTextColor={colors.subtle}
+              showSoftInputOnFocus
               style={styles.qc_textInput}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
