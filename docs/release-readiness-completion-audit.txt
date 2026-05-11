@@ -6,7 +6,7 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are seeded old/malformed timeline data verification, destructive document actions, deeper edit/selection/share-sheet variants, and a fresh prebuild/CI verification of the iOS fmt workaround.
+- The remaining uncovered requirements are seeded old/malformed timeline data verification, destructive document actions, and deeper edit/selection/share-sheet variants.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
 - Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. Typed mobile search was also verified with a natural prompt, and the Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
 
@@ -104,7 +104,7 @@ Prompt-to-artifact checklist:
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
-  - Remaining blockers are seeded old/malformed timeline data render QA, destructive document actions, deeper edit/selection/share-sheet variants, and fresh prebuild/CI verification of the iOS fmt workaround.
+  - Remaining blockers are seeded old/malformed timeline data render QA, destructive document actions, and deeper edit/selection/share-sheet variants.
 
 6. Testing and validation
 - Required commands:
@@ -126,6 +126,7 @@ Prompt-to-artifact checklist:
   - npm audit --audit-level=moderate passes with 0 vulnerabilities.
   - git diff --check passes.
   - After the shared TextField ID fix, npm run lint and npm run typecheck still pass.
+  - npx expo prebuild --platform ios --no-install passes and injects the source-controlled fmt workaround into the ignored generated ios/Podfile post_install block.
 - Status:
   - Complete for automated checks.
 
@@ -165,7 +166,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS Home, Health Summary, Documents, Timeline, Timeline edit/save, typed Timeline search, Pre-Visit, and Share entry points were checked. Remaining gaps are seeded old/malformed render QA, destructive document actions, deeper edit/selection/share-sheet variants, and fresh prebuild/CI verification of the iOS fmt workaround.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS Home, Health Summary, Documents, Timeline, Timeline edit/save, typed Timeline search, Pre-Visit, and Share entry points were checked. Remaining gaps are seeded old/malformed render QA, destructive document actions, and deeper edit/selection/share-sheet variants.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -176,6 +177,5 @@ Prompt-to-artifact checklist:
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
 - Use a real device, a manually controlled simulator, or stable automation with assistive access to finish old/malformed data QA and deeper authenticated flow variants.
-- Verify the new fmt workaround in a fresh Expo prebuild/pod install or CI/EAS build, because the successful local simulator build used an ignored generated Pods tree to prove the underlying compiler workaround.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
 - Specifically verify old/malformed timeline rows, destructive document actions when safe, pre-visit edit/selection variants, share-sheet variants, and additional mobile edge cases.
