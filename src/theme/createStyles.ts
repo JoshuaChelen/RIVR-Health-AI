@@ -18,9 +18,7 @@ import type { Colors } from "./tokens";
  */
 export function createStyles<T>(factory: (colors: Colors) => T): () => T {
   return () => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     const { colors } = useTheme();
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     return useMemo(() => factory(colors), [colors]);
   };
 }

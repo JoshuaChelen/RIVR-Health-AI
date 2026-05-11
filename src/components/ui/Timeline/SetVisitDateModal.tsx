@@ -32,7 +32,7 @@ type Props = {
   onClose: () => void;
 };
 
-const PRECISIONS: ReadonlyArray<{ key: Precision; label: string; hint: string; pattern: RegExp }> = [
+const PRECISIONS: readonly { key: Precision; label: string; hint: string; pattern: RegExp }[] = [
   { key: "day",   label: "Day",   hint: "YYYY-MM-DD",  pattern: /^\d{4}-\d{2}-\d{2}$/ },
   { key: "month", label: "Month", hint: "YYYY-MM",     pattern: /^\d{4}-\d{2}$/ },
   { key: "year",  label: "Year",  hint: "YYYY",        pattern: /^\d{4}$/ },
@@ -65,7 +65,6 @@ export function SetVisitDateModal({
   // time it opens, the user starts fresh.
   useEffect(() => {
     if (!visible) reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const def = PRECISIONS.find((p) => p.key === precision)!;

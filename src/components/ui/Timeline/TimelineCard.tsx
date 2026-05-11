@@ -37,7 +37,7 @@ function defaultMeta(col: Colors): CategoryMeta {
   };
 }
 
-function buildCategoryMap(col: Colors): Array<{ test: (c: string) => boolean; meta: CategoryMeta }> {
+function buildCategoryMap(col: Colors): { test: (c: string) => boolean; meta: CategoryMeta }[] {
   return [
     {
       test: (c) => c.includes("med"),
@@ -117,7 +117,7 @@ type TimelineCardProps = {
   category: string;
   source?: string;
   summary: string;
-  clinicalTags?: Array<{ label: string; value: string }>;
+  clinicalTags?: { label: string; value: string }[];
   included: boolean;
   onToggleIncluded: (next: boolean) => void;
   onPress?: () => void;

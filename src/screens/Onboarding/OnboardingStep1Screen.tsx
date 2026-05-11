@@ -285,7 +285,6 @@ export function OnboardingStep1Screen({ navigation }: Props) {
 
 let DateTimePicker: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   DateTimePicker = require("@react-native-community/datetimepicker").default;
 } catch {
   // package not installed — fallback renders below

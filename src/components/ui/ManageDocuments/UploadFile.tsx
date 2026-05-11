@@ -728,7 +728,7 @@ export function UploadFile({ onUploaded }: Props) {
         // and their effective MIME types are passed to expo-print as a single
         // HTML document which renders to a PDF file.
         setScanStatus("Preparing pages…");
-        const preparedPages: Array<{ b64: string; mimeType: string }> = [];
+        const preparedPages: { b64: string; mimeType: string }[] = [];
         for (const page of scanPages) {
           const prepared = await prepareNativePage(page);
           preparedPages.push(prepared);

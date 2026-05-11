@@ -1,4 +1,13 @@
 import { supabase } from "./supabase";
+import type {
+  AllergyItem,
+  MedicationItem,
+  MedHistoryItem,
+  SurgeryItem,
+  FamilyHistoryItem,
+  HospitalizationItem,
+  SocialHistoryItem,
+} from "./profileMedical";
 
 /** Keys q1–q10 are stable; question text lives in StoryScreen. */
 export type StoryAnswers = {
@@ -32,15 +41,6 @@ export type AiBackfillMeta = {
   >>;
   last_backfill_at: string;
 };
-import type {
-  AllergyItem,
-  MedicationItem,
-  MedHistoryItem,
-  SurgeryItem,
-  FamilyHistoryItem,
-  HospitalizationItem,
-  SocialHistoryItem,
-} from "./profileMedical";
 
 export type UserProfile = {
   id: string;
