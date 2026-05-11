@@ -17,6 +17,7 @@ Audit result:
 - Dark theme was scanned in the authenticated web app across Home, Timeline, Documents, Pre-Visit Note, Share Records, and AI Health Summary without crashes, obvious overlap, unreadable primary text, or broken navigation.
 - Share Records now includes a native Share Link action in the generated-link modal. The action is implemented through React Native's native Share API and the Release iOS simulator build passes, but the actual iOS share sheet still needs a manual tap verification pass.
 - Native permission metadata was checked: app.json and the generated iOS Info.plist include the required usage strings for camera, photo library, microphone, Apple Health read, and Apple Health write prompts.
+- The rebuilt Release app containing the native Share Link action was installed and launched on the iPhone 17 Pro simulator. It opened to Home with the persisted QA session.
 
 Prompt-to-artifact checklist:
 
@@ -155,6 +156,7 @@ Prompt-to-artifact checklist:
   - After the old-row save-payload fix, npm run lint, npm run typecheck, npm test -- --watch=false, and xcodebuild Release for the iPhone 17 Pro simulator passed.
   - After the native share-sheet action, npm test -- src/lib/share.test.ts passed.
   - After the native share-sheet action, npm run lint, npm run typecheck, npm test -- --watch=false, and xcodebuild Release for the iPhone 17 Pro simulator passed.
+  - After the native share-sheet action, xcrun simctl install and xcrun simctl launch passed for the rebuilt Release app.
 - Status:
   - Complete for automated checks.
 

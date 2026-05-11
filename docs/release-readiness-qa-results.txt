@@ -199,8 +199,10 @@ Requirement-to-artifact checklist:
     - Output ended with BUILD SUCCEEDED.
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
+    - Re-run after native share-sheet action: passed.
   - xcrun simctl launch 719A2948-505A-4897-B603-1F270D286F8F com.rivrhealth.app
     - Passed and launched the bundled app directly to the native welcome/auth flow, bypassing the Expo dev launcher confirmation prompt.
+    - Re-run after native share-sheet action: passed and launched the rebuilt Release app to Home with the persisted QA session.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
