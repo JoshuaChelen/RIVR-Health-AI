@@ -441,7 +441,7 @@ export function TimelineScreen({ navigation }: Props) {
           </AppText>
         ) : (
           <AppText style={styles.searchHint}>
-            Try "left thumb injury", "2018", or "medications after surgery".
+            Try left thumb injury, 2018, or medications after surgery.
           </AppText>
         )}
       </View>
@@ -547,7 +547,7 @@ export function TimelineScreen({ navigation }: Props) {
 
         {includedEvents.length === 0 ? (
           <AppText style={styles.preVisitInstruction}>
-            Toggle "Pre-Visit" on any timeline event above to add it to your doctor note.
+            Toggle Pre-Visit on any timeline event above to add it to your doctor note.
           </AppText>
         ) : (
           <View style={styles.preVisitItems}>

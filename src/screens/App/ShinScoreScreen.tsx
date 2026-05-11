@@ -217,7 +217,7 @@ useEffect(() => {
                 </View>
                 <AppText style={styles.emptyTitle}>No score yet</AppText>
                 <AppText style={styles.emptyBody}>
-                  Fill in your health profile or upload medical records,{"\n"}then tap "Process" in Documents.
+                  Fill in your health profile or upload medical records,{"\n"}then tap Process in Documents.
                 </AppText>
                 <Pressable
                   accessible
@@ -245,7 +245,7 @@ useEffect(() => {
           <View style={styles.disclaimerWrap}>
             <Ionicons name="information-circle-outline" size={12} color={colors.subtle} />
             <AppText style={styles.disclaimerText}>
-              Your SHIN Score is an AI-generated wellness indicator based on the data you've provided. It is not a medical diagnosis, clinical assessment, or substitute for professional medical advice. Always consult a qualified healthcare provider about your health.
+              {"Your SHIN Score is an AI-generated wellness indicator based on the data you've provided. It is not a medical diagnosis, clinical assessment, or substitute for professional medical advice. Always consult a qualified healthcare provider about your health."}
             </AppText>
           </View>
         ) : null}

@@ -31,7 +31,7 @@ export function OfflineBanner() {
     >
       <View style={styles.row}>
         <Ionicons name="cloud-offline-outline" size={14} color="#fff" accessible={false} />
-        <AppText style={styles.text}>You're offline</AppText>
+        <AppText style={styles.text}>{"You're offline"}</AppText>
       </View>
     </Animated.View>
   );

@@ -197,7 +197,7 @@ export function SetVisitDateModal({
           />
           <AppText style={styles.hint}>
             Format: {def.hint}. Set as close as
-            you remember; you can leave events undated if you don't know.
+            {" you remember; you can leave events undated if you don't know."}
           </AppText>
 
           {err ? (

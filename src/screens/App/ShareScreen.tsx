@@ -367,7 +367,7 @@ export function ShareScreen() {
 
               {/* What's included */}
               <View style={styles.includedBlock}>
-                <AppText style={styles.includedLabel}>WHAT'S INCLUDED</AppText>
+                <AppText style={styles.includedLabel}>{"WHAT'S INCLUDED"}</AppText>
                 {Array.from(selected).map((type) => {
                   const opt = SHARE_OPTIONS.find((o) => o.type === type)!;
                   const accent = colors[opt.accentKey];

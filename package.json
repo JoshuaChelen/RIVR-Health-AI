@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit --pretty false",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "expo lint"
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.6.1",
@@ -49,6 +50,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2",
     "vitest": "^4.1.6"
   },

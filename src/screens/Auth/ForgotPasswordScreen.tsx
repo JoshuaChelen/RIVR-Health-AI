@@ -98,7 +98,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
               <AuthLogo size={72} />
               <AppText style={styles.appName}>Reset password</AppText>
               <AppText style={styles.tagline}>
-                Enter your email and we'll send you a link to reset your password.
+                {"Enter your email and we'll send you a link to reset your password."}
               </AppText>
             </Animated.View>
 

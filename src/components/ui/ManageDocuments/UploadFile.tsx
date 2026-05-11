@@ -902,7 +902,7 @@ function DuplicateConfirmModal({
           <View style={duplicateModalStyles.body}>
             <AppText style={duplicateModalStyles.title}>Possible duplicate</AppText>
             <AppText style={duplicateModalStyles.message}>
-              A document named "{fileName}" with the same file size was uploaded on {dupDate}.
+              A document named {`"${fileName}"`} with the same file size was uploaded on {dupDate}.
             </AppText>
             <View style={duplicateModalStyles.btnRow}>
               <Pressable

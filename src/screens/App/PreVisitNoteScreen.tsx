@@ -255,7 +255,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
               <AppText style={styles.emptyTitle}>No events selected</AppText>
               <AppText style={styles.emptyBody}>
                 Go to the Timeline and toggle{"\n"}
-                "Include in Pre-Visit Note" on events{"\n"}
+                Include in Pre-Visit Note on events{"\n"}
                 you want to share with your doctor.
               </AppText>
               <Pressable

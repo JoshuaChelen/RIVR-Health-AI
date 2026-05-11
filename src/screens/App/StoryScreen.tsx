@@ -351,7 +351,7 @@ async function saveAnswer() {
             <View style={styles.completionBadge}>
               <Ionicons name="checkmark-circle-outline" size={16} color={colors.teal} />
                 <AppText style={styles.completionText}>
-                  You've answered every question
+                  {"You've answered every question"}
                 </AppText>
             </View>
           )}

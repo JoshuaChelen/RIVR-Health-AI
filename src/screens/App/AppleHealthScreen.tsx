@@ -248,7 +248,7 @@ export function AppleHealthScreen({ route }: Props) {
             </View>
             <AppText style={styles.infoTitle}>iPhone required</AppText>
             <AppText style={styles.infoBody}>
-              Apple Health is only available on iPhone. This feature isn't accessible on this device or build.
+              {"Apple Health is only available on iPhone. This feature isn't accessible on this device or build."}
             </AppText>
           </View>
         )}
