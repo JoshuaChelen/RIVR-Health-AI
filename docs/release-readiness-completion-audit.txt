@@ -20,6 +20,7 @@ Audit result:
 - The rebuilt Release app containing the native Share Link action was installed and launched on the iPhone 17 Pro simulator. It opened to Home with the persisted QA session.
 - Native dark appearance was smoke-tested on the Release app Home screen. The simulator was switched to dark appearance, the app relaunched, and Home rendered readable dark-mode content. Deeper native dark-screen navigation still needs manual/assistive-access verification.
 - Native camera, photo-library, and microphone permission request paths were hardened with shared fallback helpers so denied or failed permission requests show stable app messages instead of becoming uncaught native errors.
+- Apple Health startup was hardened so HealthKit permission constants are read lazily after native module availability checks rather than at module import time. The rebuilt Release app installed and launched to Home after this change.
 
 Prompt-to-artifact checklist:
 
@@ -126,6 +127,7 @@ Prompt-to-artifact checklist:
   - app.json and ios/RIVRHealthAI/Info.plist both include NSCameraUsageDescription, NSPhotoLibraryUsageDescription, NSMicrophoneUsageDescription, NSHealthShareUsageDescription, and NSHealthUpdateUsageDescription for native permission prompts.
   - src/lib/nativePermissions.ts centralizes camera, photo-library, and microphone fallback messages.
   - Voice note recording, document scan camera access, document scan photo-library access, and profile photo camera/library access use the shared permission helpers.
+  - src/lib/health/healthkitPermissions.ts centralizes lazy HealthKit permission construction and missing-constant checks.
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
@@ -144,7 +146,7 @@ Prompt-to-artifact checklist:
   - npm install passed after dependency updates.
   - npm run lint passes with 0 errors and 0 warnings.
   - npm run typecheck passes.
-  - npm test -- --watch=false passes with 14 tests.
+  - npm test -- --watch=false passes with 16 tests.
   - npx tsc --noEmit --pretty false passes through npm run typecheck.
   - npm run build --prefix worker passes.
   - npx expo-doctor passes 17/17.
@@ -163,6 +165,8 @@ Prompt-to-artifact checklist:
   - After the native share-sheet action, xcrun simctl install and xcrun simctl launch passed for the rebuilt Release app.
   - After the native permission flow hardening, npm test -- src/lib/nativePermissions.test.ts passed.
   - After the native permission flow hardening, npm run lint, npm run typecheck, npm test -- --watch=false, and xcodebuild Release for the iPhone 17 Pro simulator passed.
+  - After the Apple Health startup hardening, npm test -- src/lib/health/healthkitPermissions.test.ts passed.
+  - After the Apple Health startup hardening, npm run lint, npm run typecheck, npm test -- --watch=false, xcodebuild Release for the iPhone 17 Pro simulator, xcrun simctl install, and xcrun simctl launch passed.
 - Status:
   - Complete for automated checks.
 
@@ -178,6 +182,7 @@ Prompt-to-artifact checklist:
   - Helpers are centralized in src/lib/timeline.ts.
   - Share-link payload construction is centralized in src/lib/share.ts.
   - Native permission fallback handling is centralized in src/lib/nativePermissions.ts.
+  - Lazy HealthKit permission construction is centralized in src/lib/health/healthkitPermissions.ts.
   - TypeScript, lint, tests, worker build, Expo Doctor, and npm audit pass.
   - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local produced no tracked secret files.
   - Existing Supabase query/update paths remain in use; no destructive migrations were added.

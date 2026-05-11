@@ -142,6 +142,7 @@ Requirement-to-artifact checklist:
     - Re-run after timeline save-payload tests: passed, 1 test file and 10 tests.
     - Re-run after native share-sheet helper: passed, 2 test files and 11 tests.
     - Re-run after native permission helpers: passed, 3 test files and 14 tests.
+    - Re-run after Apple Health startup hardening: passed, 4 test files and 16 tests.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
@@ -157,6 +158,9 @@ Requirement-to-artifact checklist:
   - npm test -- src/lib/nativePermissions.test.ts
     - Red run failed because src/lib/nativePermissions.ts did not exist.
     - Green run passed after adding shared native permission helpers.
+  - npm test -- src/lib/health/healthkitPermissions.test.ts
+    - Red run failed because src/lib/health/healthkitPermissions.ts did not exist.
+    - Green run passed after adding lazy HealthKit permission helpers.
   - npx tsc --noEmit --pretty false
     - Passed after tsconfig.json was scoped to the Expo app and excluded worker/ and supabase/functions/.
     - Re-run after 7bc02b0: passed.
@@ -203,6 +207,7 @@ Requirement-to-artifact checklist:
     - Passed after the local generated fmt header workaround.
     - Re-run after native share-sheet action: passed with BUILD SUCCEEDED.
     - Re-run after native permission flow hardening: passed with BUILD SUCCEEDED.
+    - Re-run after Apple Health startup hardening: passed with BUILD SUCCEEDED.
     - Output ended with BUILD SUCCEEDED.
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
@@ -210,6 +215,7 @@ Requirement-to-artifact checklist:
   - xcrun simctl launch 719A2948-505A-4897-B603-1F270D286F8F com.rivrhealth.app
     - Passed and launched the bundled app directly to the native welcome/auth flow, bypassing the Expo dev launcher confirmation prompt.
     - Re-run after native share-sheet action: passed and launched the rebuilt Release app to Home with the persisted QA session.
+    - Re-run after Apple Health startup hardening: passed and launched the rebuilt Release app to Home.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.
   - xcodebuild -version
@@ -326,15 +332,18 @@ Manual QA attempt:
 - Native permission metadata check: app.json and the generated ios/RIVRHealthAI/Info.plist both contain NSCameraUsageDescription, NSPhotoLibraryUsageDescription, NSMicrophoneUsageDescription, NSHealthShareUsageDescription, and NSHealthUpdateUsageDescription. This confirms the required iOS usage strings are present for scan, photo/library upload, voice note, and Apple Health permission prompts.
 - Native dark-mode smoke: switched the iPhone 17 Pro simulator to dark appearance, terminated and relaunched the Release app, and captured the Home screen. Home rendered in dark mode with readable text, visible navigation cards, SHIN score, AI Summary, AI Suggestions, and Apple Health cards. The simulator was restored to light appearance afterward. Deeper native dark-screen navigation still needs manual/assistive-access verification because the Simulator window was not exposed to macOS UI scripting in this environment.
 - Native permission flow hardening: added shared native permission helpers and wired them into voice note recording, document scan camera access, document scan photo-library access, and profile photo camera/library access. Denied or failed native permission requests now produce stable app messages instead of falling through as uncaught native errors.
+- Apple Health startup hardening: HealthKit permission constants are now read lazily after native module availability checks instead of at module import time. This avoids a potential startup crash if a build is missing the HealthKit native module or constants. The rebuilt Release app installed and launched back to Home after this change.
 
 7. Code quality requirements
 - Evidence:
   - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
   - Shared share-link payload construction lives in src/lib/share.ts.
   - Shared native permission fallback handling lives in src/lib/nativePermissions.ts.
+  - Lazy HealthKit permission construction lives in src/lib/health/healthkitPermissions.ts.
   - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, natural timeline search, health-card search, edit-save payload construction, and impossible-age fallbacks.
   - src/lib/share.test.ts covers native share payload construction without embedding a real share token.
   - src/lib/nativePermissions.test.ts covers permission grant detection and fallback messages.
+  - src/lib/health/healthkitPermissions.test.ts covers lazy HealthKit permission construction and missing-constant detection.
   - No secrets were added.
   - Local AuthKey_ST6W9U8FZ5.p8, .env, and .env.local files are ignored by .gitignore and not tracked by git.
   - No destructive database migrations were added.

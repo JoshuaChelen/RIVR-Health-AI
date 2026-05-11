@@ -1,5 +1,9 @@
 import { Platform } from "react-native";
 import AppleHealthKit, { HealthKitPermissions } from "react-native-health";
+import {
+  buildHealthKitPermissions,
+  hasRequiredHealthKitPermissionConstants,
+} from "./healthkitPermissions";
 
 export type HealthAvailabilityResult = {
   ok: boolean;
@@ -24,25 +28,13 @@ export type AppleHealthSnapshot = {
   heartRateTrend: DailyDataPoint[];
 };
 
-const permissions: HealthKitPermissions = {
-  permissions: {
-    read: [
-      AppleHealthKit.Constants.Permissions.HeartRate,
-      AppleHealthKit.Constants.Permissions.SleepAnalysis,
-      AppleHealthKit.Constants.Permissions.StepCount,
-      AppleHealthKit.Constants.Permissions.DistanceWalkingRunning,
-      AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
-    ],
-    write: [],
-  },
-};
-
 function hasHealthKitModule(): boolean {
   return (
     Platform.OS === "ios" &&
     AppleHealthKit != null &&
     typeof (AppleHealthKit as any).isAvailable === "function" &&
-    typeof (AppleHealthKit as any).initHealthKit === "function"
+    typeof (AppleHealthKit as any).initHealthKit === "function" &&
+    hasRequiredHealthKitPermissionConstants((AppleHealthKit as any).Constants)
   );
 }
 
@@ -121,6 +113,10 @@ export async function linkAppleHealth(): Promise<{ ok: boolean; error?: string }
   }
 
   return await new Promise((resolve) => {
+    const permissions = buildHealthKitPermissions(
+      (AppleHealthKit as any).Constants
+    ) as HealthKitPermissions;
+
     AppleHealthKit.initHealthKit(permissions, (err: any) => {
       if (err) {
         resolve({
