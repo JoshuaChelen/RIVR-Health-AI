@@ -30,7 +30,8 @@ Release-readiness commits:
 - 9991ed6 add app screen deep links for native QA
 - f3387aa document native dark deep link smoke
 - 084ba5b document native permission dialog QA
-- current: harden HealthKit error formatting
+- 7a42603 harden HealthKit error formatting
+- current: document native share sheet QA
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -114,7 +115,7 @@ Requirement-to-artifact checklist:
 - Status:
   - Partially complete.
   - Completed since the initial gap list: repeated 5+ mobile edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive temporary document removal, deeper Pre-Visit selection, Share Records secure-link variants, native light/dark deep-link smoke, and native camera/photo-library/microphone denial fallback checks.
-  - Remaining gaps: manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, and one final native seeded-data pass before submission.
+  - Remaining gaps: Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, and one final native seeded-data pass before submission.
 
 6. Testing and validation
 - Commands run and results:
@@ -361,7 +362,7 @@ Manual QA attempt:
 - Apple Health startup hardening: HealthKit permission constants are now read lazily after native module availability checks instead of at module import time. This avoids a potential startup crash if a build is missing the HealthKit native module or constants. The rebuilt Release app installed and launched back to Home after this change.
 - Mobile keyboard input guard: added a source-level test that scans native TextInput usage and fails if a raw input is added without showSoftInputOnFocus. Current raw inputs already pass, and the shared TextField primitive keeps soft keyboard focus enabled by default.
 - App-screen deep-link map: extracted the React Navigation linking config to src/navigation/linking.ts and added scheme paths for major authenticated screens. This preserves the existing auth/reset links while enabling native simulator smoke navigation with xcrun simctl openurl.
-- Native app-screen deep-link smoke: installed and launched the rebuilt Release app, then opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl. Captured screenshots confirmed each route rendered the intended native screen. This improves native screen coverage, but does not replace physical tapping of permission dialogs, the iOS share sheet, or edit modals.
+- Native app-screen deep-link smoke: installed and launched the rebuilt Release app, then opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl. Captured screenshots confirmed each route rendered the intended native screen. This improves native screen coverage, but does not replace deeper positive-path media capture/upload or final seeded-data native QA.
 - Native dark app-screen deep-link smoke: switched the iPhone 17 Pro simulator to dark appearance, opened timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health with xcrun simctl openurl, and captured screenshots for each route. The first viewport of each screen rendered in dark mode without an obvious crash, unreadable primary text, or major overlap. The simulator was restored to light appearance afterward.
 - Native permission dialog QA with Maestro:
   - Installed Maestro CLI outside the repo and targeted the iPhone 17 Pro simulator UDID directly.
@@ -375,6 +376,10 @@ Manual QA attempt:
   - Fixed the HealthKit error formatter so object-shaped errors no longer show [object Object] and native authorization strings show the concise localized description.
   - Rebuilt, installed, launched, deep-linked to Apple Health, and tapped Connect Apple Health again. The screen showed "HealthKit authorization failed: Missing com.apple.developer.healthkit entitlement." instead of [object Object].
   - A signed device/TestFlight build is still required to verify the real Apple Health permission sheet and successful authorization path.
+- Native share sheet QA:
+  - Deep-linked to Share Records, selected 3x5 Card, generated a secure link, and tapped the Open system share sheet action with Maestro.
+  - The iOS hierarchy showed the native ShareSheet.RemoteContainerView and UIActivityContentView with system actions including Reminders, More, Copy, and Add to Reading List.
+  - The generated share token is intentionally not documented.
 
 7. Code quality requirements
 - Evidence:
@@ -400,7 +405,7 @@ Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
 - Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
-- Some app-wide manual QA remains partial: manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior on a signed device/TestFlight build, successful positive-path media upload/capture/photo selection, and account/auth recovery flows with real email links. The iOS usage-description strings for permission prompts are present in source config and generated Info.plist, denied camera/photo-library/microphone prompts were exercised with Maestro, and dark theme has been scanned on authenticated web screens plus native light/dark deep-link smoke screens.
+- Some app-wide manual QA remains partial: Apple Health permission behavior on a signed device/TestFlight build, successful positive-path media upload/capture/photo selection, and account/auth recovery flows with real email links. The iOS usage-description strings for permission prompts are present in source config and generated Info.plist, denied camera/photo-library/microphone prompts and the native share sheet were exercised with Maestro, and dark theme has been scanned on authenticated web screens plus native light/dark deep-link smoke screens.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
