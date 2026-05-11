@@ -12,6 +12,11 @@ import { createStyles } from "../../../theme/createStyles";
 import { uploadUriToStorage } from "../../../lib/storageUpload";
 import { insertDocumentRow, safeFilename } from "../../../lib/documents";
 import { supabase } from "../../../lib/supabase";
+import {
+  nativePermissionDeniedMessage,
+  nativePermissionErrorMessage,
+  permissionWasGranted,
+} from "../../../lib/nativePermissions";
 
 type Props = {
   onUploaded?: () => void;
@@ -42,32 +47,48 @@ export function RecordVoiceNote({ onUploaded }: Props) {
   const startRecording = async () => {
     setStatus(null);
     setIsError(false);
-    const perm = await Audio.requestPermissionsAsync();
-    if (!perm.granted) {
-      setStatus("Mic permission denied.");
+
+    let perm: Awaited<ReturnType<typeof Audio.requestPermissionsAsync>>;
+    try {
+      perm = await Audio.requestPermissionsAsync();
+    } catch {
+      setStatus(nativePermissionErrorMessage("microphone"));
       setIsError(true);
       return;
     }
 
-    setUri(null);
-    setDurationMs(0);
+    if (!permissionWasGranted(perm)) {
+      setStatus(nativePermissionDeniedMessage("microphone"));
+      setIsError(true);
+      return;
+    }
 
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    try {
+      setUri(null);
+      setDurationMs(0);
 
-    const rec = new Audio.Recording();
-    await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    await rec.startAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
-    setRecording(rec);
+      const rec = new Audio.Recording();
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await rec.startAsync();
 
-    timerRef.current = setInterval(async () => {
-      try {
-        const st = await rec.getStatusAsync();
-        if (st.isRecording && typeof st.durationMillis === "number") {
-          setDurationMs(st.durationMillis);
-        }
-      } catch { /* ignore */ }
-    }, 300);
+      setRecording(rec);
+
+      timerRef.current = setInterval(async () => {
+        try {
+          const st = await rec.getStatusAsync();
+          if (st.isRecording && typeof st.durationMillis === "number") {
+            setDurationMs(st.durationMillis);
+          }
+        } catch { /* ignore */ }
+      }, 300);
+    } catch (e: any) {
+      try { await Audio.setAudioModeAsync({ allowsRecordingIOS: false }); } catch { /* ignore */ }
+      setRecording(null);
+      setStatus(e?.message ?? "Failed to start recording.");
+      setIsError(true);
+    }
   };
 
   const stopRecording = async () => {

@@ -34,6 +34,11 @@ import { SectionCard } from "../../components/ui/Profile/SectionCard";
 import { AvatarPickerSheet } from "../../components/ui/Profile/AvatarPickerSheet";
 import { Card } from "../../components/ui/Primitives/Card";
 import { safeList } from "../../lib/profileMedical";
+import {
+  nativePermissionDeniedMessage,
+  nativePermissionErrorMessage,
+  permissionWasGranted,
+} from "../../lib/nativePermissions";
 
 import { captureException } from "../../lib/sentry";
 import { radius, shadows, spacing, typescale } from "../../theme/tokens";
@@ -255,48 +260,57 @@ export function ProfileScreen({ navigation }: Props) {
     setPickerOpen(false);
     setAvatarError(null);
 
-    if (Platform.OS !== "web") {
-      const perm = mode === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        setAvatarError(
-          mode === "camera"
-            ? "Allow camera access in your device settings to take a photo."
-            : "Allow photo library access in your device settings.",
-        );
+    try {
+      if (Platform.OS !== "web") {
+        const permissionKind = mode === "camera" ? "camera" : "photoLibrary";
+        let perm: Awaited<
+          | ReturnType<typeof ImagePicker.requestCameraPermissionsAsync>
+          | ReturnType<typeof ImagePicker.requestMediaLibraryPermissionsAsync>
+        >;
+        try {
+          perm = mode === "camera"
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        } catch {
+          setAvatarError(nativePermissionErrorMessage(permissionKind));
+          return;
+        }
+        if (!permissionWasGranted(perm)) {
+          setAvatarError(nativePermissionDeniedMessage(permissionKind));
+          return;
+        }
+      }
+
+      const result = mode === "camera"
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: "images",
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.9,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: "images",
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.9,
+          });
+
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+
+      if (!profile?.user_id) {
+        setAvatarError("Sign in to update your photo.");
         return;
       }
-    }
 
-    const result = mode === "camera"
-      ? await ImagePicker.launchCameraAsync({
-          mediaTypes: "images",
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.9,
-        })
-      : await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: "images",
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.9,
-        });
-
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-
-    if (!profile?.user_id) {
-      setAvatarError("Sign in to update your photo.");
-      return;
-    }
-
-    setAvatarBusy(true);
-    try {
+      setAvatarBusy(true);
       await uploadAvatar(profile.user_id, result.assets[0].uri);
       await reloadProfile();
     } catch (e: any) {
       captureException(e);
-      setAvatarError(e?.message ?? "Failed to upload photo.");
+      setAvatarError(
+        e?.message ??
+        (mode === "camera" ? "Failed to take photo." : "Failed to choose photo.")
+      );
     } finally {
       setAvatarBusy(false);
     }

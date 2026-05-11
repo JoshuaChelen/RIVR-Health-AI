@@ -6,7 +6,7 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are native upload/scan/voice permission flows, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, native dark-mode scan, real email-link auth recovery flows, and a final native seeded-data pass.
+- The remaining uncovered requirements are physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, real email-link auth recovery flows, and a final native seeded-data pass.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
 - Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. Typed mobile search was also verified with a natural prompt, and the Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
 - Native auth persistence was fixed by configuring Supabase auth to use React Native AsyncStorage. The rebuilt Release simulator app launched to Home from a QA session, was terminated, relaunched, and returned to Home instead of Login.
@@ -19,6 +19,7 @@ Audit result:
 - Native permission metadata was checked: app.json and the generated iOS Info.plist include the required usage strings for camera, photo library, microphone, Apple Health read, and Apple Health write prompts.
 - The rebuilt Release app containing the native Share Link action was installed and launched on the iPhone 17 Pro simulator. It opened to Home with the persisted QA session.
 - Native dark appearance was smoke-tested on the Release app Home screen. The simulator was switched to dark appearance, the app relaunched, and Home rendered readable dark-mode content. Deeper native dark-screen navigation still needs manual/assistive-access verification.
+- Native camera, photo-library, and microphone permission request paths were hardened with shared fallback helpers so denied or failed permission requests show stable app messages instead of becoming uncaught native errors.
 
 Prompt-to-artifact checklist:
 
@@ -123,10 +124,12 @@ Prompt-to-artifact checklist:
   - Share Records generated a Pre-Visit Note secure link modal with the expected included item. The generated token is not documented.
   - Share Records now includes a native Share Link action in the link-ready modal in addition to Copy Link. The implementation uses React Native's native Share API without adding a dependency.
   - app.json and ios/RIVRHealthAI/Info.plist both include NSCameraUsageDescription, NSPhotoLibraryUsageDescription, NSMicrophoneUsageDescription, NSHealthShareUsageDescription, and NSHealthUpdateUsageDescription for native permission prompts.
+  - src/lib/nativePermissions.ts centralizes camera, photo-library, and microphone fallback messages.
+  - Voice note recording, document scan camera access, document scan photo-library access, and profile photo camera/library access use the shared permission helpers.
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
-  - Remaining gaps are narrower: native real-device seeded-data pass, native upload/scan/voice permission flows, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
+  - Remaining gaps are narrower: native real-device seeded-data pass, physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
 
 6. Testing and validation
 - Required commands:
@@ -141,7 +144,7 @@ Prompt-to-artifact checklist:
   - npm install passed after dependency updates.
   - npm run lint passes with 0 errors and 0 warnings.
   - npm run typecheck passes.
-  - npm test -- --watch=false passes with 11 tests.
+  - npm test -- --watch=false passes with 14 tests.
   - npx tsc --noEmit --pretty false passes through npm run typecheck.
   - npm run build --prefix worker passes.
   - npx expo-doctor passes 17/17.
@@ -158,6 +161,8 @@ Prompt-to-artifact checklist:
   - After the native share-sheet action, npm test -- src/lib/share.test.ts passed.
   - After the native share-sheet action, npm run lint, npm run typecheck, npm test -- --watch=false, and xcodebuild Release for the iPhone 17 Pro simulator passed.
   - After the native share-sheet action, xcrun simctl install and xcrun simctl launch passed for the rebuilt Release app.
+  - After the native permission flow hardening, npm test -- src/lib/nativePermissions.test.ts passed.
+  - After the native permission flow hardening, npm run lint, npm run typecheck, npm test -- --watch=false, and xcodebuild Release for the iPhone 17 Pro simulator passed.
 - Status:
   - Complete for automated checks.
 
@@ -172,6 +177,7 @@ Prompt-to-artifact checklist:
 - Evidence:
   - Helpers are centralized in src/lib/timeline.ts.
   - Share-link payload construction is centralized in src/lib/share.ts.
+  - Native permission fallback handling is centralized in src/lib/nativePermissions.ts.
   - TypeScript, lint, tests, worker build, Expo Doctor, and npm audit pass.
   - git ls-files AuthKey_ST6W9U8FZ5.p8 .env .env.local produced no tracked secret files.
   - Existing Supabase query/update paths remain in use; no destructive migrations were added.
@@ -198,7 +204,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, and native dark Home were checked. Remaining gaps are native upload/scan/voice permissions, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/search/details/edit/save, typed Timeline search, Pre-Visit edit selection, Share link variants, authenticated web dark theme screens, and native dark Home were checked. Remaining gaps are physically tapping native upload/scan/voice permission dialogs, manually tapping the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
 - Lint/typecheck/tests pass:
   - Status: Complete.
 - No secrets are committed:
@@ -209,4 +215,4 @@ Prompt-to-artifact checklist:
 Blocking items before marking complete:
 - Use a real device, a manually controlled simulator, or stable automation with assistive access for one final seeded old/new data pass on native mobile.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify native upload/scan/voice permission flows, manually tap the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.
+- Specifically verify native upload/scan/voice permission dialogs, manually tap the real iOS share sheet from the new Share Link action, Apple Health permission behavior, deeper native dark-mode screen navigation, and real email-link auth recovery flows.

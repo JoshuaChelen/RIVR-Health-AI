@@ -27,6 +27,11 @@ import {
   checkDuplicateDocument,
 } from "../../../lib/documents";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
+import {
+  nativePermissionDeniedMessage,
+  nativePermissionErrorMessage,
+  permissionWasGranted,
+} from "../../../lib/nativePermissions";
 import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
@@ -529,11 +534,17 @@ export function UploadFile({ onUploaded }: Props) {
     // camera permission dialog when the camera is launched — requesting ahead
     // of time is a no-op and may throw in some browsers.
     if (Platform.OS !== "web") {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
+      let perm: Awaited<ReturnType<typeof ImagePicker.requestCameraPermissionsAsync>>;
+      try {
+        perm = await ImagePicker.requestCameraPermissionsAsync();
+      } catch {
+        Alert.alert("Camera unavailable", nativePermissionErrorMessage("camera"));
+        return null;
+      }
+      if (!permissionWasGranted(perm)) {
         Alert.alert(
           "Camera access needed",
-          "Allow camera access in your device settings to scan documents."
+          nativePermissionDeniedMessage("camera")
         );
         return null;
       }
@@ -572,11 +583,17 @@ export function UploadFile({ onUploaded }: Props) {
     // On native, show a clear denied message. On web, the browser file input
     // doesn't require a separate permission prompt — skip the request.
     if (Platform.OS !== "web") {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
+      let perm: Awaited<ReturnType<typeof ImagePicker.requestMediaLibraryPermissionsAsync>>;
+      try {
+        perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      } catch {
+        Alert.alert("Photo library unavailable", nativePermissionErrorMessage("photoLibrary"));
+        return [];
+      }
+      if (!permissionWasGranted(perm)) {
         Alert.alert(
           "Photo library access needed",
-          "Allow photo library access in your device settings."
+          nativePermissionDeniedMessage("photoLibrary")
         );
         return [];
       }
