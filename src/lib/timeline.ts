@@ -173,12 +173,12 @@ export type TimelineEventSaveDraft = {
 };
 
 export type TimelineEventSavePayload = {
-  title: string | null;
-  summary: string | null;
+  title: string;
+  summary: string;
   occurred_at: string | null;
   date_precision: DatePrecision | null;
-  category: string | null;
-  event_type: string | null;
+  category: string;
+  event_type: string;
   tags: string[];
 };
 
@@ -223,12 +223,12 @@ export function buildTimelineEventSavePayload(
   return {
     ok: true,
     payload: {
-      title:          draft.title.trim() || null,
-      summary:        draft.summary.trim() || null,
+      title:          draft.title.trim() || "Untitled event",
+      summary:        draft.summary.trim(),
       occurred_at:    normalizedOccurredAt,
       date_precision: normalizedOccurredAt ? draft.date_precision : null,
-      category:       draft.category.trim() || null,
-      event_type:     draft.event_type.trim() || null,
+      category:       draft.category.trim() || "Other",
+      event_type:     draft.event_type.trim() || "other",
       tags:           normalizeTagsCsv(draft.tagsCsv),
     },
   };

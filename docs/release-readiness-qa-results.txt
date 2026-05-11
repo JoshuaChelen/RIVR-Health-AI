@@ -287,6 +287,21 @@ Manual QA attempt:
 - Phone keyboard verification: the rebuilt iOS simulator Login email field focused and showed the iOS software keyboard. The shared TextField component now explicitly requests showSoftInputOnFocus by default, covering auth, onboarding, profile, medical-profile modal fields, and other shared text fields.
 - Raw text inputs that bypass TextField now explicitly request showSoftInputOnFocus: Timeline search, Timeline event edit fields, Medical Profile symptoms text area, Story answer text area, and PhoneField phone number entry.
 - Timeline event details now wraps the edit screen in KeyboardAvoidingView and uses keyboardShouldPersistTaps="handled" so mobile edit fields remain usable when the keyboard is open.
+- Seeded temporary legacy timeline rows with prefix QA_LEGACY_20260511215204 to cover:
+  - old 2018 incident with null date_precision and legacy clinical JSON keys;
+  - undated medication event with null occurred_at/date_precision;
+  - recent shoulder surgery with null date_precision and mixed legacy/current clinical keys.
+- Web/mobile-layout Timeline QA rendered the seeded rows without crashing:
+  - recent row showed "Occurred May 2, 2026, patient age 36";
+  - 2018 row showed "Incident year 2018, patient age 28";
+  - undated row appeared under "Unknown date section" with "Date unknown";
+  - typed search for "left thumb QA_LEGACY" returned exactly 1 matching event.
+- Details QA for the seeded old left-thumb row rendered normalized clinical scan chips: Side Left, Body Part Thumb, and Injury. Details also showed incident date, reported date, source, event type, and fallback "No summary provided yet."
+- Seeded old-row edit/save initially found a real bug: saving a blank summary tried to write summary=null, but the documents table requires summary to be non-null. Fixed buildTimelineEventSavePayload to emit DB-safe defaults for empty required text fields: title "Untitled event", summary "", category "Other", and event_type "other". Retrying the same save returned to read-only details without error.
+- Temporary legacy timeline rows were deleted after QA; follow-up Supabase check showed 0 remaining QA_LEGACY_20260511215204 rows.
+- Destructive document action QA used a temporary QA_DELETE_20260511221010 document row. The Documents screen rendered it as Ready, Remove opened the confirmation modal, Remove permanently deleted it, the pending count dropped from 2 to 1, and a Supabase check showed 0 remaining QA_DELETE_20260511221010 rows.
+- Pre-Visit deeper flow QA: Edit selection navigated from Pre-Visit Note back to Timeline with the selected medication switches still checked.
+- Share deeper flow QA: Pre-Visit Note share variant selected "Pre-Visit Note", generated the secure link modal, showed "Pre-Visit Note" under What's Included, and Copy link was clickable. The share token is intentionally not documented.
 
 7. Code quality requirements
 - Evidence:
@@ -303,7 +318,8 @@ Manual QA attempt:
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
-- Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows still need completion.
+- Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
+- Some app-wide manual QA remains partial: native document upload/scan/voice-recording permission flows, real iOS share sheet behavior, Apple Health permission behavior, dark theme scan, and account/auth recovery flows with real email links.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.

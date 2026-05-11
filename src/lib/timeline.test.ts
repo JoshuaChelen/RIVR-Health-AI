@@ -172,12 +172,12 @@ describe("timeline release helpers", () => {
     ).toEqual({
       ok: true,
       payload: {
-        title: null,
-        summary: null,
+        title: "Untitled event",
+        summary: "",
         occurred_at: null,
         date_precision: null,
-        category: null,
-        event_type: null,
+        category: "Other",
+        event_type: "other",
         tags: [],
       },
     });
