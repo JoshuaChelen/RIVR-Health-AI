@@ -6,9 +6,9 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are full authenticated/manual QA, repeated mobile timeline edit/save, Pre-Visit toggle verification, typed mobile search verification, and seeded old/malformed timeline data verification.
+- The remaining uncovered requirements are full authenticated/manual QA, repeated mobile timeline edit/save, typed mobile search verification, and seeded old/malformed timeline data verification.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
-- A real mobile Timeline smoke test now exists: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved once, and returned to read-only details without freezing.
+- Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. The Timeline list Pre-Visit switch was also toggled on without navigating or freezing, then toggled back off to preserve the QA account state.
 
 Prompt-to-artifact checklist:
 
@@ -93,7 +93,9 @@ Prompt-to-artifact checklist:
   - iOS Timeline details visually showed full incident date, separate reported date, patient age sentence, details rows, and clinical chips.
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed once and returned to read-only details without freezing or crashing.
-  - Simulator automation access later failed again with "osascript is not allowed assistive access", preventing completion of repeated edit/save, Pre-Visit toggle, typed mobile search, and broader authenticated flow checks.
+  - CGEvent tapping returned from details to Home, reopened Timeline, and toggled the first visible Pre-Visit switch on without navigation or freeze. The same switch was toggled back off afterward.
+  - Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
+  - Simulator automation access later failed again with "osascript is not allowed assistive access", preventing completion of repeated edit/save, typed mobile search, and broader authenticated flow checks.
 - Status:
   - Incomplete.
   - This is the blocker preventing completion.
@@ -167,7 +169,7 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Provide or create a safe test account and seeded patient data set with old/new timeline shapes.
-- Use a real device, a manually controlled simulator, or stable automation with assistive access to finish repeated timeline edit/save, Pre-Visit toggles, typed mobile search, and broader authenticated flow QA.
+- Use a real device, a manually controlled simulator, or stable automation with assistive access to finish repeated timeline edit/save, typed mobile search, and broader authenticated flow QA.
 - Verify the new fmt workaround in a fresh Expo prebuild/pod install or CI/EAS build, because the successful local simulator build used an ignored generated Pods tree to prove the underlying compiler workaround.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify repeated edit/save 5+ times, Pre-Visit toggles, search prompts, old/malformed timeline rows, documents, pre-visit note, share package, QR/copy/share modal, and health summary on mobile.
+- Specifically verify repeated edit/save 5+ times, search prompts, old/malformed timeline rows, documents, pre-visit note, share package, QR/copy/share modal, and health summary on mobile.

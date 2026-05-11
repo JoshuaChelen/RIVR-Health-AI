@@ -15,6 +15,9 @@ Release-readiness commits:
 - 0f9f71a reduce safe lint warnings
 - 4760385 clean hook lint warnings
 - d886ed9 test timeline edit save payloads
+- ba1ebf2 document and patch iOS simulator build
+- b9b7829 expand release QA and fix web offline state
+- ca72951 fix web auth input field ids
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -80,15 +83,17 @@ Requirement-to-artifact checklist:
   - Web dev server compiled and served the Expo web shell.
   - Web unauthenticated flow QA covered Welcome, Login, Sign up, Forgot password, and Update password screens with Chrome DevTools MCP.
   - Web QA found and fixed an online-state accessibility issue where the offline banner remained exposed in the accessibility tree while navigator.onLine was true.
+  - Web QA found and fixed the missing auth form field ID warning by giving shared TextField inputs stable native IDs when callers do not provide one.
   - iOS Release simulator build launched directly without the Expo dev launcher prompt.
   - iOS simulator authenticated into an existing QA account and reached Home and Timeline.
   - iOS Timeline list rendered recent events with incident date detail, patient age, reported date, clinical chips, typed-search field, and Pre-Visit controls.
   - iOS Timeline event details opened from the list and rendered full incident date, reported date, patient age sentence, summary, details rows, and clinical chips.
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed and returned to read-only details without freezing or crashing.
+  - iOS Timeline Pre-Visit switch toggled on from the list without navigating or freezing, then was toggled back off to preserve the QA account state.
 - Status:
   - Partially complete.
-  - Remaining gaps: repeated 5+ edit/save cycle, Pre-Visit toggle verification, typed mobile search verification, old/malformed seeded data render verification, and full authenticated documents/share/pre-visit/summary flow checks.
+  - Remaining gaps: repeated 5+ edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, and full authenticated documents/share/pre-visit/summary flow checks.
 
 6. Testing and validation
 - Commands run and results:
@@ -244,6 +249,7 @@ Manual QA attempt:
 - Web Forgot password empty submit showed "Enter your email first."
 - Web Update password direct route rendered the expected disabled state without a reset session.
 - Web online-state QA found the offline banner was still present in the accessibility tree while navigator.onLine was true. Fixed by using navigator.onLine on web and rendering OfflineBanner only while offline.
+- Web Update password QA found the missing form field ID warning. Fixed by giving shared TextField inputs stable native IDs when callers do not provide one. Reloading the screen no longer showed that warning; Chrome still reports that password fields are not contained in native HTML forms, which is a separate React Native Web pattern.
 - The repo has no Playwright, Puppeteer, Detox, Jest, or Vitest dependency configured for browser/device flow automation.
 - Authenticated end-to-end web QA was not performed because disposable sign up requires email confirmation and no mailbox/test admin path was available.
 - iOS simulator QA was attempted. The original Xcode destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime.
@@ -253,7 +259,9 @@ Manual QA attempt:
 - After assistive access was granted, Simulator UI automation skipped onboarding, signed into an existing QA account, reached Home, opened Timeline, opened the first timeline event details screen, opened edit mode, and saved the event. The app returned to read-only details without freezing or crashing.
 - Mobile visual QA confirmed the Timeline list showed "Occurred Apr 12, 2026, patient age 36", "Reported April 2026", clinical chips, and Pre-Visit switch controls for the visible records.
 - Mobile visual QA confirmed the Details screen showed "Occurred in 2026, when the patient was 36 years old", distinct Incident Date and Reported Date rows, category/source/event type rows, and clinical chips.
-- Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save, toggle, and typed-search checks. A CGEvent fallback was enough for some clicks but was not reliable enough to complete the remaining mobile checklist.
+- CGEvent tapping returned from details to Home, reopened Timeline, and toggled the first visible Pre-Visit switch on without navigation or freeze. The same switch was toggled back off afterward.
+- Typed mobile search was attempted through simulator paste, hardware-key, and CGEvent text paths. The field focused, but text injection only produced a literal "v" and did not allow a valid natural-language mobile search check in this environment.
+- Simulator automation access later failed again with "osascript is not allowed assistive access" while attempting additional repeated edit/save and typed-search checks. CGEvent fallback was enough for tap-only checks but not enough to complete the remaining mobile checklist.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 
 7. Code quality requirements
@@ -270,7 +278,7 @@ Manual QA attempt:
 
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
-- Mobile timeline edit/save has been smoke-tested once on simulator without a freeze; repeated 5+ edit/save, Pre-Visit toggles, typed mobile search, and seeded old/malformed timeline rows still need completion.
+- Mobile timeline edit/save has been smoke-tested on simulator without a freeze; Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Repeated 5+ edit/save, typed mobile search, and seeded old/malformed timeline rows still need completion.
 - The new fmt workaround should be verified in a fresh Expo prebuild/pod install or CI/EAS build. The local ignored ios/Pods tree was patched to prove the simulator build path.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
