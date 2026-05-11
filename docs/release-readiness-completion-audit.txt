@@ -16,6 +16,7 @@ Audit result:
 - Pre-Visit edit-selection and Pre-Visit Note share variant were verified in the web app.
 - Dark theme was scanned in the authenticated web app across Home, Timeline, Documents, Pre-Visit Note, Share Records, and AI Health Summary without crashes, obvious overlap, unreadable primary text, or broken navigation.
 - Share Records now includes a native Share Link action in the generated-link modal. The action is implemented through React Native's native Share API and the Release iOS simulator build passes, but the actual iOS share sheet still needs a manual tap verification pass.
+- Native permission metadata was checked: app.json and the generated iOS Info.plist include the required usage strings for camera, photo library, microphone, Apple Health read, and Apple Health write prompts.
 
 Prompt-to-artifact checklist:
 
@@ -119,6 +120,7 @@ Prompt-to-artifact checklist:
   - Pre-Visit Note Edit selection routed to Timeline with selections preserved.
   - Share Records generated a Pre-Visit Note secure link modal with the expected included item. The generated token is not documented.
   - Share Records now includes a native Share Link action in the link-ready modal in addition to Copy Link. The implementation uses React Native's native Share API without adding a dependency.
+  - app.json and ios/RIVRHealthAI/Info.plist both include NSCameraUsageDescription, NSPhotoLibraryUsageDescription, NSMicrophoneUsageDescription, NSHealthShareUsageDescription, and NSHealthUpdateUsageDescription for native permission prompts.
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.
