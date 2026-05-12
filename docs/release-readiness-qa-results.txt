@@ -389,6 +389,9 @@ Manual QA attempt:
   - Reset camera permission, opened Documents, tapped Scan Document, and allowed the real iOS camera permission prompt.
   - After permission grant, the app returned to Documents. Tapping Scan Document again did not open a camera UI, scan modal, selected page preview, or upload action in this simulator run.
   - No document rows were added by this attempt. The positive document PDF upload or scan capture/upload path remains open for a real device or a simulator/media setup that can provide a camera/document source.
+- Native PDF upload positive-path attempt:
+  - Opened Documents and tapped Upload PDF. The native document picker opened, but this simulator exposed only an empty picker shell plus Cancel to Maestro and no selectable PDF source.
+  - Cancel worked and returned to the app. Positive PDF upload remains open for a simulator/device with an accessible PDF file source.
 
 7. Code quality requirements
 - Evidence:
