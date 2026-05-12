@@ -115,7 +115,7 @@ Requirement-to-artifact checklist:
 - Status:
   - Partially complete.
   - Completed since the initial gap list: repeated 5+ mobile edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive temporary document removal, deeper Pre-Visit selection, Share Records secure-link variants, native light/dark deep-link smoke, and native camera/photo-library/microphone denial fallback checks.
-  - Remaining gaps: Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, and one final native seeded-data pass before submission.
+  - Remaining gaps: Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, successful positive-path document upload/capture, and one final native seeded-data pass before submission.
 
 6. Testing and validation
 - Commands run and results:
@@ -380,6 +380,11 @@ Manual QA attempt:
   - Deep-linked to Share Records, selected 3x5 Card, generated a secure link, and tapped the Open system share sheet action with Maestro.
   - The iOS hierarchy showed the native ShareSheet.RemoteContainerView and UIActivityContentView with system actions including Reminders, More, Copy, and Add to Reading List.
   - The generated share token is intentionally not documented.
+- Positive photo-library QA:
+  - Reset photo-library permission, opened Profile, chose a photo from the iOS Photos picker, tapped Choose in the crop screen, and returned to My Profile without a crash.
+  - Reopening the profile-photo sheet showed Remove photo, confirming the avatar upload/profile update path completed.
+  - Tapped Remove photo afterward and reopened the sheet; Remove photo was gone, confirming the QA account was restored to its prior no-avatar state.
+  - This covers profile-photo library selection/upload/remove. Positive document PDF upload or scan capture/upload remains separate.
 
 7. Code quality requirements
 - Evidence:
@@ -405,7 +410,7 @@ Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
 - Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
-- Some app-wide manual QA remains partial: Apple Health permission behavior on a signed device/TestFlight build, successful positive-path media upload/capture/photo selection, and account/auth recovery flows with real email links. The iOS usage-description strings for permission prompts are present in source config and generated Info.plist, denied camera/photo-library/microphone prompts and the native share sheet were exercised with Maestro, and dark theme has been scanned on authenticated web screens plus native light/dark deep-link smoke screens.
+- Some app-wide manual QA remains partial: Apple Health permission behavior on a signed device/TestFlight build, successful positive-path document PDF upload or scan capture/upload, and account/auth recovery flows with real email links. The iOS usage-description strings for permission prompts are present in source config and generated Info.plist, denied camera/photo-library/microphone prompts, profile-photo library upload/remove, and the native share sheet were exercised with Maestro, and dark theme has been scanned on authenticated web screens plus native light/dark deep-link smoke screens.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
 - Root npx tsc --noEmit now validates the Expo app. Supabase Edge Functions are still not typechecked by this command because they use Deno npm:/jsr: imports; worker code is validated separately with worker/npm run build.
