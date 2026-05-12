@@ -251,6 +251,12 @@ Requirement-to-artifact checklist:
     - Follow-up Apple Health validation build without `CODE_SIGNING_ALLOWED=NO`.
     - Passed with BUILD SUCCEEDED and installed on the booted iPhone 17 Pro simulator.
     - `codesign -d --entitlements :- .../RIVRHealthAI.app | plutil -p -` returned `{}` for the final built simulator app, so this local artifact still does not prove the HealthKit entitlement/authorization sheet path.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -showBuildSettings -destination 'generic/platform=iOS'
+    - Device build settings showed `CODE_SIGN_ENTITLEMENTS = RIVRHealthAI/RIVRHealthAI.entitlements`, `ENTITLEMENTS_ALLOWED = YES`, and `ENTITLEMENTS_DESTINATION = Signature`.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/RIVRHealthAI.xcarchive archive
+    - Failed before archive output because the target has no development team configured.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/RIVRHealthAI.xcarchive archive DEVELOPMENT_TEAM=<local certificate team> -allowProvisioningUpdates
+    - Failed before archive output because Xcode rejected the configured Apple account login and no matching iOS App Development provisioning profile for `com.rivrhealth.app` was available locally.
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
     - Re-run after native share-sheet action: passed.
