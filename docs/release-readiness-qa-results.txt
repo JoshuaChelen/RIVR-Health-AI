@@ -251,6 +251,7 @@ Requirement-to-artifact checklist:
     - Follow-up Apple Health validation build without `CODE_SIGNING_ALLOWED=NO`.
     - Passed with BUILD SUCCEEDED and installed on the booted iPhone 17 Pro simulator.
     - `codesign -d --entitlements :- .../RIVRHealthAI.app | plutil -p -` returned `{}` for the final built simulator app, so this local artifact still does not prove the HealthKit entitlement/authorization sheet path.
+    - Re-run after native scan fallback hardening: passed with BUILD SUCCEEDED.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -showBuildSettings -destination 'generic/platform=iOS'
     - Device build settings showed `CODE_SIGN_ENTITLEMENTS = RIVRHealthAI/RIVRHealthAI.entitlements`, `ENTITLEMENTS_ALLOWED = YES`, and `ENTITLEMENTS_DESTINATION = Signature`.
   - npx expo config --type introspect --json
@@ -262,6 +263,7 @@ Requirement-to-artifact checklist:
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
     - Re-run after native share-sheet action: passed.
+    - Re-run after native scan fallback hardening: passed.
   - xcrun simctl launch 719A2948-505A-4897-B603-1F270D286F8F com.rivrhealth.app
     - Passed and launched the bundled app directly to the native welcome/auth flow, bypassing the Expo dev launcher confirmation prompt.
     - Re-run after native share-sheet action: passed and launched the rebuilt Release app to Home with the persisted QA session.
@@ -270,6 +272,7 @@ Requirement-to-artifact checklist:
   - xcrun simctl openurl 719A2948-505A-4897-B603-1F270D286F8F rivrhealth://<route>
     - Passed for timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health.
     - Screenshots captured under /tmp/rivr_deeplink_smoke confirmed each route rendered the intended native screen without launch crash or obvious first-viewport layout breakage.
+    - Re-run for Documents after native scan fallback hardening: Documents rendered the updated Scan Document hint, "Take photos or choose images — compiled into one PDF."
     - Re-run in native dark appearance for the same routes. Screenshots captured under /tmp/rivr_deeplink_dark_smoke confirmed readable first-viewport dark rendering without obvious overlap. The simulator was restored to light appearance afterward.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.

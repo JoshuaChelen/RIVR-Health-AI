@@ -19,6 +19,7 @@ Audit result:
 - Native Share Records generated a 3x5 Card secure link and the Open system share sheet action opened the real iOS share sheet. The share token is not documented.
 - Profile photo positive media QA selected an image from the iOS Photos picker, completed the crop/choose flow, observed Remove photo after upload, then removed the avatar to restore the QA account state.
 - Native document scan positive-path QA was attempted after resetting camera permission. The iOS camera permission prompt was allowed, but subsequent Scan Document taps returned to Documents without opening a camera UI, scan modal, selected page preview, or upload action in this simulator run.
+- The native scan entry point was hardened after that QA result: Scan Document now opens the scan session first so users can choose either Take Photo or From Library, instead of auto-launching camera and returning to Documents when camera capture is unavailable or canceled. The rebuilt Release simulator app renders the updated Documents scan hint.
 - Native PDF upload positive-path QA was attempted. The native document picker opened, but this simulator exposed only an empty picker shell plus Cancel to Maestro and no selectable PDF source; Cancel returned to the app.
 - Native PDF source staging was attempted. `xcrun simctl addmedia` rejected the PDF as an unsupported file type, and manually staging a PDF in the simulator's local FileProvider storage did not produce a usable Files UI; launching Files captured a blank screen. The staged file was deleted afterward.
 - Web PDF upload positive-path QA uploaded a temporary PDF through the Documents screen, rendered it as Ready, increased the pending count and process CTA, then removed it through the UI. A Supabase check confirmed 0 remaining rows for the temporary PDF.
@@ -157,6 +158,7 @@ Prompt-to-artifact checklist:
   - Maestro verified the native Share Records system share sheet by generating a 3x5 Card secure link, tapping Open system share sheet, and observing the iOS ShareSheet.RemoteContainerView with system activity actions.
   - Maestro verified profile-photo positive photo-library selection/upload/remove. Reopening the picker after upload showed Remove photo; reopening again after removal omitted Remove photo.
   - Maestro attempted native document scan positive path after allowing camera permission. The simulator did not provide a usable camera/document source to complete capture/upload; no document rows were added by this attempt.
+  - Scan Document was changed to open the scan modal first on native as well as web, preserving camera capture while exposing the From Library fallback immediately. This removes the camera-only entry path that blocked the simulator positive path.
   - Maestro attempted native PDF upload positive path. The document picker opened but exposed no selectable PDF source in this simulator run, so upload could not be completed.
   - Native PDF source staging attempt: generated a temporary PDF, `xcrun simctl addmedia booted /tmp/rivr-native-picker-qa.pdf` failed with file type unsupported, copying the PDF into the simulator's local FileProvider storage and launching Files produced a blank Files screen, and the staged PDF was removed from both `/tmp` and FileProvider storage.
   - Web PDF upload positive path used a temporary file named rivr-qa-upload.pdf. Upload inserted a Ready document, increased the pending count from 1 to 2, changed the process CTA to Process 2 items, then the UI Remove confirmation deleted it. A Supabase check showed 0 remaining documents with that title.
@@ -268,7 +270,7 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify Apple Health permission behavior on a signed device/TestFlight build and positive-path native document PDF upload or scan capture/upload.
+- Specifically verify Apple Health permission behavior on a signed device/TestFlight build and positive-path native document PDF upload or scan capture/upload. The native scan flow now has a safer library fallback, but the native positive upload path still needs touch/manual verification.
 - The local signed-to-run-locally simulator build is not sufficient for Apple Health sign-off because its inspected final app entitlements are `{}`.
 - The local generic iOS archive path is blocked by Apple account/provisioning state, not by an app compile error or missing project team setting.
 - Optionally re-run seeded edit/save on native mobile with stable touch automation or manual device access; native seeded list rendering is already verified.

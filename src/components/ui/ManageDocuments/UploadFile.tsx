@@ -628,23 +628,10 @@ export function UploadFile({ onUploaded }: Props) {
     }
   }
 
-  // On native: auto-launch camera so the first page is captured immediately,
-  //            then open the session modal.
-  // On web:    open the modal directly — the user can choose camera or library
-  //            inside the modal. Auto-launching the browser camera without a
-  //            user gesture inside the modal feels abrupt on desktop.
+  // Open the session first so camera-unavailable devices and simulators still
+  // expose the From Library fallback instead of returning to Documents.
   async function handleStartScan() {
-    if (Platform.OS === "web") {
-      setScanPages([]);
-      setScanStatus(null);
-      setScanError(false);
-      setScanOpen(true);
-      return;
-    }
-
-    const page = await takeCameraPhoto();
-    if (!page) return;
-    setScanPages([page]);
+    setScanPages([]);
     setScanStatus(null);
     setScanError(false);
     setScanOpen(true);
@@ -838,7 +825,7 @@ export function UploadFile({ onUploaded }: Props) {
   // Scan hint varies by platform so the copy matches what the user will see.
   const scanHint = Platform.OS === "web"
     ? "Select images — compiled into one PDF for upload"
-    : "Take photos of each page — compiled into one PDF";
+    : "Take photos or choose images — compiled into one PDF";
 
   return (
     <>
