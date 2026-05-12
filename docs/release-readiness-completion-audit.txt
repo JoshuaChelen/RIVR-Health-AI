@@ -18,6 +18,7 @@ Audit result:
 - Share Records now includes a native Share Link action in the generated-link modal. The action is implemented through React Native's native Share API and the Release iOS simulator build passes.
 - Native Share Records generated a 3x5 Card secure link and the Open system share sheet action opened the real iOS share sheet. The share token is not documented.
 - Profile photo positive media QA selected an image from the iOS Photos picker, completed the crop/choose flow, observed Remove photo after upload, then removed the avatar to restore the QA account state.
+- Native document scan positive-path QA was attempted after resetting camera permission. The iOS camera permission prompt was allowed, but subsequent Scan Document taps returned to Documents without opening a camera UI, scan modal, selected page preview, or upload action in this simulator run.
 - Native permission metadata was checked: app.json and the generated iOS Info.plist include the required usage strings for camera, photo library, microphone, Apple Health read, and Apple Health write prompts.
 - The rebuilt Release app containing the native Share Link action was installed and launched on the iPhone 17 Pro simulator. It opened to Home with the persisted QA session.
 - Native dark appearance was smoke-tested on the Release app Home screen and then through native deep links for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health.
@@ -138,6 +139,7 @@ Prompt-to-artifact checklist:
   - After the formatter fix and rebuild, Apple Health displayed "HealthKit authorization failed: Missing com.apple.developer.healthkit entitlement." instead of [object Object].
   - Maestro verified the native Share Records system share sheet by generating a 3x5 Card secure link, tapping Open system share sheet, and observing the iOS ShareSheet.RemoteContainerView with system activity actions.
   - Maestro verified profile-photo positive photo-library selection/upload/remove. Reopening the picker after upload showed Remove photo; reopening again after removal omitted Remove photo.
+  - Maestro attempted native document scan positive path after allowing camera permission. The simulator did not provide a usable camera/document source to complete capture/upload; no document rows were added by this attempt.
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
 - Status:
   - Incomplete.

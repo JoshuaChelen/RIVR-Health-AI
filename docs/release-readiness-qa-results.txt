@@ -385,6 +385,10 @@ Manual QA attempt:
   - Reopening the profile-photo sheet showed Remove photo, confirming the avatar upload/profile update path completed.
   - Tapped Remove photo afterward and reopened the sheet; Remove photo was gone, confirming the QA account was restored to its prior no-avatar state.
   - This covers profile-photo library selection/upload/remove. Positive document PDF upload or scan capture/upload remains separate.
+- Native document scan positive-path attempt:
+  - Reset camera permission, opened Documents, tapped Scan Document, and allowed the real iOS camera permission prompt.
+  - After permission grant, the app returned to Documents. Tapping Scan Document again did not open a camera UI, scan modal, selected page preview, or upload action in this simulator run.
+  - No document rows were added by this attempt. The positive document PDF upload or scan capture/upload path remains open for a real device or a simulator/media setup that can provide a camera/document source.
 
 7. Code quality requirements
 - Evidence:
