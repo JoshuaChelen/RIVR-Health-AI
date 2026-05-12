@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  nativeMediaLaunchFailedMessage,
   nativePermissionDeniedMessage,
   nativePermissionErrorMessage,
   permissionWasGranted,
@@ -29,6 +30,15 @@ describe("native permission helpers", () => {
   it("returns a fallback message when a native permission request throws", () => {
     expect(nativePermissionErrorMessage("microphone")).toBe(
       "Could not request microphone access. Check device settings and try again."
+    );
+  });
+
+  it("returns a clear message when native media launch fails after permission", () => {
+    expect(nativeMediaLaunchFailedMessage("camera")).toBe(
+      "Could not open the camera. Try again or choose photos from your library."
+    );
+    expect(nativeMediaLaunchFailedMessage("photoLibrary")).toBe(
+      "Could not open the photo library. Try again or use the camera."
     );
   });
 });

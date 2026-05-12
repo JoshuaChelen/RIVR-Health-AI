@@ -18,11 +18,14 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
 import {
+  aiQuestionEndpoint,
+  askHealthQuestion,
+  type AiQuestionResult,
+} from "../../lib/aiQuestionSearch";
+import {
   clinicalTagsForEvent,
   formatTimelineDateMain,
-  healthCardMatchesQuery,
   normalizeTimelineEvent,
-  timelineMatchesQuery,
   type DatePrecision,
   type NormalizedTimelineEvent,
 } from "../../lib/timeline";
@@ -56,7 +59,8 @@ export function TimelineScreen({ navigation }: Props) {
   const [err, setErr]               = useState<string | null>(null);
   const [patientDob, setPatientDob] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [healthCard, setHealthCard] = useState<any>(null);
+  const [aiResult, setAiResult] = useState<AiQuestionResult>({ status: "idle" });
+  const [aiSearching, setAiSearching] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
 
   const flatListRef = useRef<FlatList<RenderRow>>(null);
@@ -97,21 +101,13 @@ export function TimelineScreen({ navigation }: Props) {
         const { data: userRes } = await supabase.auth.getUser();
         const userId = userRes?.user?.id;
         if (userId) {
-          const [profileResult, healthResult] = await Promise.all([
-            supabase
-              .from("user_profiles")
-              .select("date_of_birth")
-              .eq("user_id", userId)
-              .maybeSingle(),
-            supabase
-              .from("health_profiles")
-              .select("card_json, summary_json")
-              .eq("user_id", userId)
-              .maybeSingle(),
-          ]);
+          const profileResult = await supabase
+            .from("user_profiles")
+            .select("date_of_birth")
+            .eq("user_id", userId)
+            .maybeSingle();
           const profileRow = profileResult.data;
           setPatientDob((profileRow as { date_of_birth?: string | null } | null)?.date_of_birth ?? null);
-          setHealthCard(healthResult.data ?? null);
         }
       }
 
@@ -156,19 +152,53 @@ export function TimelineScreen({ navigation }: Props) {
     load(0, false);
   }, [load]);
 
-  const visibleEvents = useMemo(
-    () => events.filter((event) => timelineMatchesQuery(event, searchQuery)),
-    [events, searchQuery],
-  );
-  const hasHealthCardSearchMatch = useMemo(
-    () => healthCardMatchesQuery(healthCard, searchQuery),
-    [healthCard, searchQuery],
-  );
+  useEffect(() => {
+    const question = searchQuery.trim();
+    if (!question) {
+      setAiSearching(false);
+      setAiResult({ status: "idle" });
+      return;
+    }
+
+    let cancelled = false;
+    setAiSearching(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const endpoint = aiQuestionEndpoint();
+        const { data } = await supabase.auth.getSession();
+        const result = await askHealthQuestion(question, {
+          endpoint: endpoint ?? "",
+          accessToken: data.session?.access_token ?? null,
+        });
+
+        if (!cancelled) {
+          setAiResult(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setAiResult({
+            status: "unavailable",
+            message: "AI search is unavailable right now. Try again after the AI worker is connected.",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setAiSearching(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   const rows: RenderRow[] = useMemo(() => {
     const out: RenderRow[] = [];
-    const dated   = visibleEvents.filter((e) => !!e.occurred_at && !!e.date_precision);
-    const undated = visibleEvents.filter((e) =>  !e.occurred_at ||  !e.date_precision);
+    const dated   = events.filter((e) => !!e.occurred_at && !!e.date_precision);
+    const undated = events.filter((e) =>  !e.occurred_at ||  !e.date_precision);
 
     // Dated rows with month dividers.
     let lastMonthKey: string | null = null;
@@ -207,7 +237,7 @@ export function TimelineScreen({ navigation }: Props) {
     }
 
     return out;
-  }, [visibleEvents]);
+  }, [events]);
 
   const undatedCount = useMemo(
     () => events.filter((e) => !e.occurred_at || !e.date_precision).length,
@@ -399,20 +429,20 @@ export function TimelineScreen({ navigation }: Props) {
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search injuries, dates, meds, body parts..."
+            placeholder="Ask AI about your records..."
             placeholderTextColor={colors.subtle}
             showSoftInputOnFocus
             style={styles.searchInput}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
-            accessibilityLabel="Search timeline"
+            accessibilityLabel="Ask AI about your health records"
           />
           {searchQuery ? (
             <Pressable
               accessible
               accessibilityRole="button"
-              accessibilityLabel="Clear timeline search"
+              accessibilityLabel="Clear AI search"
               onPress={() => setSearchQuery("")}
               hitSlop={8}
             >
@@ -436,40 +466,45 @@ export function TimelineScreen({ navigation }: Props) {
           </Pressable>
         </View>
         {searchQuery ? (
-          <AppText style={styles.searchResultText}>
-            {visibleEvents.length} matching event{visibleEvents.length === 1 ? "" : "s"}
-            {hasHealthCardSearchMatch ? " + health card match" : ""}
-          </AppText>
+          <AppText style={styles.searchResultText}>AI searches your uploaded records and timeline.</AppText>
         ) : (
           <AppText style={styles.searchHint}>
-            Try left thumb injury, 2018, or medications after surgery.
+            Ask what medications you were taking after surgery, or what records mention shoulder pain.
           </AppText>
         )}
       </View>
-      {searchQuery && hasHealthCardSearchMatch ? (
-        <View style={styles.healthCardMatch}>
-          <View style={styles.healthCardMatchIcon}>
-            <Ionicons name="id-card-outline" size={15} color={colors.teal} />
+      {searchQuery.trim() ? (
+        <View style={styles.aiAnswerCard}>
+          <View style={styles.aiAnswerIcon}>
+            <Ionicons name="sparkles-outline" size={15} color={colors.teal} />
           </View>
           <View style={{ flex: 1 }}>
-            <AppText style={styles.healthCardMatchTitle}>Health card match</AppText>
-            <AppText style={styles.healthCardMatchBody} numberOfLines={2}>
-              Your emergency card or AI summary contains matching medications, conditions, allergies, procedures, or notes.
+            <AppText style={styles.aiAnswerTitle}>AI answer from your records</AppText>
+            <AppText style={styles.aiAnswerBody}>
+              {aiSearching
+                ? "Reviewing your uploaded documents, health summary, and timeline..."
+                : aiResult.status === "answered"
+                  ? aiResult.answer
+                  : aiResult.status === "unavailable"
+                    ? aiResult.message
+                    : "Type a question to ask about your health records."}
             </AppText>
+            {aiResult.status === "answered" && aiResult.sources.length > 0 ? (
+              <View style={styles.aiSources}>
+                {aiResult.sources.map((source, index) => (
+                  <View key={`${source.title}-${index}`} style={styles.aiSourcePill}>
+                    <AppText style={styles.aiSourceText} numberOfLines={1}>
+                      {source.type ? `${source.type}: ` : ""}{source.title}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
-          <Pressable
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Open health summary"
-            onPress={() => navigation.navigate("HealthSummary")}
-            hitSlop={8}
-          >
-            <Ionicons name="chevron-forward" size={17} color={colors.teal} />
-          </Pressable>
         </View>
       ) : null}
     </>
-  ), [err, load, undatedCount, scrollToUnknown, styles, colors, searchQuery, visibleEvents.length, hasHealthCardSearchMatch, navigation, startVoiceSearch, voiceListening]);
+  ), [err, load, undatedCount, scrollToUnknown, styles, colors, searchQuery, startVoiceSearch, voiceListening, aiSearching, aiResult]);
 
   const listEmpty = useMemo(() => {
     if (loading) {
@@ -477,19 +512,6 @@ export function TimelineScreen({ navigation }: Props) {
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.teal} accessibilityLabel="Loading timeline" />
           <AppText style={styles.loadingText}>Loading your health timeline…</AppText>
-        </View>
-      );
-    }
-    if (!err && searchQuery.trim() && !hasHealthCardSearchMatch) {
-      return (
-        <View style={styles.emptyWrap}>
-          <View style={styles.emptyIconWrap}>
-            <Ionicons name="search-outline" size={24} color={colors.teal} />
-          </View>
-          <AppText style={styles.emptyTitle}>No matching timeline events</AppText>
-          <AppText style={styles.emptyBody}>
-            Try a year, body part, diagnosis, medication, surgery, or symptom.
-          </AppText>
         </View>
       );
     }
@@ -513,7 +535,7 @@ export function TimelineScreen({ navigation }: Props) {
       );
     }
     return null;
-  }, [loading, err, navigation, styles, colors, searchQuery, hasHealthCardSearchMatch]);
+  }, [loading, err, navigation, styles, colors]);
 
   const listFooter = useMemo(() => (
     <>
@@ -780,7 +802,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontWeight: typescale.weight.semibold,
     paddingHorizontal: spacing.xs,
   },
-  healthCardMatch: {
+  aiAnswerCard: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
     backgroundColor: c.surface,
@@ -793,7 +815,7 @@ const useStyles = createStyles((c) => StyleSheet.create({
     gap: spacing.sm,
     ...shadows.xs,
   },
-  healthCardMatchIcon: {
+  aiAnswerIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -801,16 +823,36 @@ const useStyles = createStyles((c) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  healthCardMatchTitle: {
+  aiAnswerTitle: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.bold,
     color: c.text,
   },
-  healthCardMatchBody: {
+  aiAnswerBody: {
     marginTop: 2,
     fontSize: typescale.size.xs,
     color: c.textSub,
     lineHeight: typescale.size.xs * typescale.lineHeight.normal,
+  },
+  aiSources: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  aiSourcePill: {
+    maxWidth: "100%",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bgSecondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  aiSourceText: {
+    fontSize: typescale.size.xs,
+    color: c.textSub,
+    fontWeight: typescale.weight.medium,
   },
 
   // Timeline wrapper

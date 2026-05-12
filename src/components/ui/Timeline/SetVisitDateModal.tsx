@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  TextInput,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
@@ -53,6 +54,7 @@ export function SetVisitDateModal({
   const [precision, setPrecision] = useState<Precision>("day");
   const [saving, setSaving]       = useState(false);
   const [err, setErr]             = useState<string | null>(null);
+  const dateInputRef = useRef<TextInput>(null);
 
   const reset = () => {
     setValue("");
@@ -160,11 +162,12 @@ export function SetVisitDateModal({
                   onPress={() => {
                     setPrecision(p.key);
                     setErr(null);
+                    requestAnimationFrame(() => dateInputRef.current?.focus());
                   }}
                   disabled={saving}
                   accessible
                   accessibilityRole="button"
-                  accessibilityLabel={`Precision ${p.label}`}
+                  accessibilityLabel={`Set date precision to ${p.label} and edit date`}
                   accessibilityState={{ selected: active }}
                   style={({ pressed }) => [
                     styles.pill,
@@ -182,6 +185,7 @@ export function SetVisitDateModal({
 
           {/* Date input */}
           <TextField
+            ref={dateInputRef}
             label="Visit date"
             value={value}
             onChangeText={(t) => {

@@ -133,8 +133,8 @@ Requirements:
 - Do not break existing timeline/document functionality.
 - If voice input is already supported or easy to add safely, add voice search using platform-supported input.
 - If voice input is risky for release, implement typed search cleanly and put voice behind a feature flag or graceful fallback.
-- Prefer local deterministic search/matching first unless the existing app already has a safe AI search path.
-- Add helper functions for search normalization and matching.
+- Use an AI-answer search path for natural questions. The app must send the typed question to the worker/edge answer endpoint and must not pretend keyword matches are AI answers.
+- Keep the timeline visible if AI search is unavailable, and show a clear fallback message instead of filtering the timeline locally.
 
 5. App-Wide Release Quality Audit
 

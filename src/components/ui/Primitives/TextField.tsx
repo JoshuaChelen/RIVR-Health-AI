@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { forwardRef, useMemo, useState } from "react";
 import { View, TextInput, StyleSheet, TextInputProps, Pressable } from "react-native";
 import { AppText } from "./AppText";
 import { radius, shadows, typescale } from "../../../theme/tokens";
@@ -11,7 +11,10 @@ type Props = TextInputProps & {
   disabled?: boolean;
 };
 
-export function TextField({ label, style, rightAccessory, onFocus, onBlur, disabled, ...props }: Props) {
+export const TextField = forwardRef<TextInput, Props>(function TextField(
+  { label, style, rightAccessory, onFocus, onBlur, disabled, ...props },
+  ref,
+) {
   const [focused, setFocused] = useState(false);
   const styles = useStyles();
   const { colors } = useTheme();
@@ -34,6 +37,7 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
       {label ? <AppText variant="label" style={styles.label}>{label}</AppText> : null}
       <View style={[styles.wrap, !disabled && focused && styles.wrapFocused, disabled && styles.wrapDisabled]}>
         <TextInput
+          ref={ref}
           {...props}
           accessibilityLabel={props.accessibilityLabel ?? label}
           editable={disabled ? false : props.editable}
@@ -48,7 +52,7 @@ export function TextField({ label, style, rightAccessory, onFocus, onBlur, disab
       </View>
     </View>
   );
-}
+});
 
 export function SmallTextButton({ label, onPress }: { label: string; onPress: () => void }) {
   const styles = useStyles();

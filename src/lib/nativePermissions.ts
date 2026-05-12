@@ -30,3 +30,12 @@ export function nativePermissionErrorMessage(kind: NativePermissionKind): string
       return "Could not request microphone access. Check device settings and try again.";
   }
 }
+
+export function nativeMediaLaunchFailedMessage(kind: "camera" | "photoLibrary"): string {
+  switch (kind) {
+    case "camera":
+      return "Could not open the camera. Try again or choose photos from your library.";
+    case "photoLibrary":
+      return "Could not open the photo library. Try again or use the camera.";
+  }
+}

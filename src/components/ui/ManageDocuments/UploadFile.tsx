@@ -28,6 +28,7 @@ import {
 } from "../../../lib/documents";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
 import {
+  nativeMediaLaunchFailedMessage,
   nativePermissionDeniedMessage,
   nativePermissionErrorMessage,
   permissionWasGranted,
@@ -574,6 +575,8 @@ export function UploadFile({ onUploaded }: Props) {
           "Camera unavailable",
           "Your browser could not access a camera. Use \"From Library\" to select images instead."
         );
+      } else {
+        Alert.alert("Camera unavailable", nativeMediaLaunchFailedMessage("camera"));
       }
       return null;
     }
@@ -599,25 +602,30 @@ export function UploadFile({ onUploaded }: Props) {
       }
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images",
-      allowsMultipleSelection: true,
-      // 0.75 keeps intermediate files small; prepareNativePage re-encodes
-      // large images anyway, so there is no meaningful quality benefit to
-      // a higher value here.
-      quality: 0.75,
-      exif: false,
-    });
-    if (result.canceled || !result.assets?.length) return [];
-    return result.assets
-      .filter((a) => !!a.uri)
-      .map((a) => ({
-        id: newId(),
-        uri: a.uri,
-        mimeType: a.mimeType ?? "image/jpeg",
-        width:  a.width  ?? 0,
-        height: a.height ?? 0,
-      }));
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsMultipleSelection: true,
+        // 0.75 keeps intermediate files small; prepareNativePage re-encodes
+        // large images anyway, so there is no meaningful quality benefit to
+        // a higher value here.
+        quality: 0.75,
+        exif: false,
+      });
+      if (result.canceled || !result.assets?.length) return [];
+      return result.assets
+        .filter((a) => !!a.uri)
+        .map((a) => ({
+          id: newId(),
+          uri: a.uri,
+          mimeType: a.mimeType ?? "image/jpeg",
+          width:  a.width  ?? 0,
+          height: a.height ?? 0,
+        }));
+    } catch {
+      Alert.alert("Photo library unavailable", nativeMediaLaunchFailedMessage("photoLibrary"));
+      return [];
+    }
   }
 
   // On native: auto-launch camera so the first page is captured immediately,

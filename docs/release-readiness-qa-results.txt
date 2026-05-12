@@ -79,17 +79,27 @@ Requirement-to-artifact checklist:
 
 4. Multimodal search UX
 - Evidence:
-  - src/lib/timeline.ts adds timelineMatchesQuery and healthCardMatchesQuery.
-  - src/screens/App/TimelineScreen.tsx adds typed natural search across timeline event text, dates, tags, data payload, document title, clinical tags, and health card / AI summary JSON.
-  - Search result count and no-result state are implemented.
-  - Health card matches show a small result card linking to Health Summary.
+  - Deterministic keyword matching was removed from src/lib/timeline.ts and TimelineScreen.
+  - src/lib/aiQuestionSearch.ts adds the typed-question contract for a worker/edge AI answer endpoint.
+  - supabase/functions/answer-health-question/index.ts implements that endpoint using authenticated Supabase context, processed document summaries, health profile JSON, timeline rows, and OpenAI with API keys read from environment variables.
+  - `npx deno check --node-modules-dir=auto supabase/functions/answer-health-question/index.ts` passes.
+  - `npx supabase functions deploy answer-health-question` deployed the function to the linked RIVR Health AI project.
+  - `npx supabase functions list` shows `answer-health-question` ACTIVE, version 1.
+  - A deployed unauthenticated smoke request returned HTTP 401 with a missing authorization header message, confirming the route is live and auth-gated.
+  - Authenticated deployed smoke requests from the local app's existing Supabase session returned HTTP 200 for the spec prompts:
+    - "Show me all injuries from 2018." returned a clear no-records answer with 0 sources after unsupported-source fallback hardening.
+    - "Find my left thumb injury." returned a clear no-records answer with 0 sources.
+    - "What medications was I taking after knee surgery?" returned a clear insufficient-information answer with 0 sources.
+    - "Show my timeline for shoulder pain." returned a clear no-events answer with 0 sources.
+    - "What medications am I taking for diabetes and blood pressure?" returned "You are taking Metformin 500 mg twice daily for diabetes and Lisinopril 10 mg daily for blood pressure." with one source.
+  - src/screens/App/TimelineScreen.tsx keeps the timeline visible while the user asks natural questions, shows an AI answer panel, and degrades to a clear unavailable message when the AI endpoint is not connected.
   - Voice search has a release-safe UI entry point behind EXPO_PUBLIC_ENABLE_VOICE_SEARCH=true.
   - When voice search is disabled or unavailable, the app shows a typed-search fallback instead of adding native speech permissions/dependencies.
   - The enabled path uses platform speech support on web only; native mobile keeps the typed-search fallback for App Store safety.
 - Status:
-  - Typed search implemented.
+  - Typed AI-question UI and Supabase Edge Function endpoint implemented and deployed. Production `OPENAI_API_KEY` is present in Supabase secrets. Authenticated deployed prompt QA passed for the spec examples plus a positive medication question.
   - Voice search is feature-flagged with a clear fallback.
-  - Automated tests now cover representative natural prompts for timeline and health-card matching.
+  - Automated tests now cover blank questions, endpoint POST behavior, answer/source parsing, and unavailable fallback.
 
 5. App-wide release quality audit
 - Evidence:
@@ -105,7 +115,7 @@ Requirement-to-artifact checklist:
   - iOS Timeline edit mode opened with normalized populated fields and day precision selected.
   - iOS Timeline save completed and returned to read-only details without freezing or crashing.
   - Additional iOS Timeline QA captured five consecutive complete no-op edit/save cycles on the same Penicillin allergy event. Each verified cycle showed populated normalized edit fields after tapping Edit and returned to read-only Details after Save without freezing or crashing.
-  - Typed mobile search was verified with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match. The search field was then cleared back to the normal list state.
+  - Earlier typed mobile keyword search QA was superseded by the AI-question search change. The new UI keeps the Timeline visible and shows an AI answer panel; end-to-end answer quality needs retesting after the worker/edge endpoint is connected.
   - iOS Timeline Pre-Visit switch toggled on from the list without navigating or freezing, then was toggled back off to preserve the QA account state.
   - iOS Health Summary opened from Home and rendered the overview, emergency card, conditions, medications, allergies, and Share control without crashing.
   - iOS Documents opened from Home and rendered upload PDF, scan document, voice note, pending count, ready document row, remove action, and process CTA. Processing/removal were not tapped to avoid mutating the QA document state.
@@ -114,7 +124,7 @@ Requirement-to-artifact checklist:
   - iOS AI Recommendations opened and rendered recommendation cards with priority labels and Add Data actions without crashing.
 - Status:
   - Partially complete.
-  - Completed since the initial gap list: repeated 5+ mobile edit/save cycle, typed mobile search verification, old/malformed seeded data render verification, destructive temporary document removal, deeper Pre-Visit selection, Share Records secure-link variants, native light/dark deep-link smoke, and native camera/photo-library/microphone denial fallback checks.
+  - Completed since the initial gap list: repeated 5+ mobile edit/save cycle, old/malformed seeded data render verification, destructive temporary document removal, deeper Pre-Visit selection, Share Records secure-link variants, native light/dark deep-link smoke, and native camera/photo-library/microphone denial fallback checks.
   - Remaining gaps: Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, successful positive-path document upload/capture, and one final native seeded-data pass before submission.
 
 6. Testing and validation
@@ -154,6 +164,7 @@ Requirement-to-artifact checklist:
     - Re-run after Apple Health startup hardening: passed, 4 test files and 16 tests.
     - Re-run after mobile keyboard input guard: passed, 5 test files and 17 tests.
     - Re-run after app-screen deep-link map: passed, 6 test files and 18 tests.
+    - Current run after AI-question search and App Store feedback fixes: passed, 8 test files and 26 tests.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
@@ -207,7 +218,7 @@ Requirement-to-artifact checklist:
     - Re-run after timeline save-payload tests: 17/17 checks passed.
   - npm audit fix
     - Reduced audit findings.
-  - npm audit --audit-level=moderate
+  - npm audit --audit-level=high
     - Previously reported 4 high severity vulnerabilities through react-native-health's nested @expo/config-plugins / @expo/plist / @xmldom/xmldom chain.
     - Re-run after @expo/config-plugins override: found 0 vulnerabilities.
     - Re-run at final verification: found 0 vulnerabilities.
@@ -330,7 +341,7 @@ Manual QA attempt:
 - Mobile Pre-Visit opened and rendered a ready note with two included medication events and Share/Edit Selection controls.
 - Mobile Share Records opened, allowed selecting the 3x5 Card, generated a secure link, showed the QR code and included item, and Copy Link placed a share.rivrhealth.ai URL on the simulator pasteboard.
 - Mobile AI Recommendations opened and rendered personalised recommendation cards with priority labels and Add Data actions.
-- Typed mobile search was verified on iOS simulator with the natural prompt "show rash"; the Timeline returned 1 matching event plus a health-card match, and clearing the search returned the normal list.
+- Earlier typed mobile keyword search QA was superseded by the AI-question search change. Retest natural questions on device after the worker/edge endpoint returns document-grounded answers.
 - Simulator automation access later failed again with "osascript is not allowed assistive access". CGEvent fallback was sufficient for the completed tap and keyboard checks after recalibration, but seeded old/malformed data render QA and deeper authenticated flow variants still need completion.
 - Native ios/ is ignored/generated in this repo, so no source-controlled Xcode project patch was made for the local simulator destination issue.
 - Follow-up mobile auth persistence QA found that the Release simulator app returned to Login after app termination because the Supabase client was not configured with React Native persistent storage. Fixed by configuring Supabase auth to use AsyncStorage, persist sessions, auto-refresh tokens, and disable URL session detection for native.
@@ -347,7 +358,7 @@ Manual QA attempt:
   - recent row showed "Occurred May 2, 2026, patient age 36";
   - 2018 row showed "Incident year 2018, patient age 28";
   - undated row appeared under "Unknown date section" with "Date unknown";
-  - typed search for "left thumb QA_LEGACY" returned exactly 1 matching event.
+  - the old deterministic typed search check was removed after the AI-question search change.
 - Details QA for the seeded old left-thumb row rendered normalized clinical scan chips: Side Left, Body Part Thumb, and Injury. Details also showed incident date, reported date, source, event type, and fallback "No summary provided yet."
 - Seeded old-row edit/save initially found a real bug: saving a blank summary tried to write summary=null, but the documents table requires summary to be non-null. Fixed buildTimelineEventSavePayload to emit DB-safe defaults for empty required text fields: title "Untitled event", summary "", category "Other", and event_type "other". Retrying the same save returned to read-only details without error.
 - Temporary legacy timeline rows were deleted after QA; follow-up Supabase check showed 0 remaining QA_LEGACY_20260511215204 rows.
@@ -392,14 +403,21 @@ Manual QA attempt:
 - Native PDF upload positive-path attempt:
   - Opened Documents and tapped Upload PDF. The native document picker opened, but this simulator exposed only an empty picker shell plus Cancel to Maestro and no selectable PDF source.
   - Cancel worked and returned to the app. Positive PDF upload remains open for a simulator/device with an accessible PDF file source.
+- App Store Connect screenshot feedback review:
+  - Visible feedback from Jonathan included: hands-free AI voice guidance, date precision taps not opening the keyboard, confusing "started processing" plus "nothing to process" messaging, and "Set event date in order" glitch.
+  - Date precision controls in Timeline Event Details and Set Visit Date now focus the date field after Day/Month/Year is tapped, so the phone keyboard opens for refinement.
+  - Document processing footer copy now shows "Processing started" plus a progress hint after jobs are enqueued instead of showing "Nothing to process" under a started-processing message.
+  - Hands-free AI voice guidance remains deferred for App Store safety. The app keeps voice search behind EXPO_PUBLIC_ENABLE_VOICE_SEARCH and the AI question endpoint is now text-first with a clear fallback.
 
 7. Code quality requirements
 - Evidence:
-  - Shared timeline/date/search/clinical helpers live in src/lib/timeline.ts.
+  - Shared timeline/date/clinical helpers live in src/lib/timeline.ts.
+  - AI-question search client behavior lives in src/lib/aiQuestionSearch.ts.
   - Shared share-link payload construction lives in src/lib/share.ts.
   - Shared native permission fallback handling lives in src/lib/nativePermissions.ts.
   - Lazy HealthKit permission construction lives in src/lib/health/healthkitPermissions.ts.
-  - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, natural timeline search, health-card search, edit-save payload construction, and impossible-age fallbacks.
+  - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, age/date display rules, clinical label/tag formatting, edit-save payload construction, and impossible-age fallbacks.
+  - src/lib/aiQuestionSearch.test.ts covers blank questions, endpoint POST behavior, answer/source parsing, and unavailable fallback.
   - src/lib/share.test.ts covers native share payload construction without embedding a real share token.
   - src/lib/nativePermissions.test.ts covers permission grant detection and fallback messages.
   - src/lib/health/healthkitPermissions.test.ts covers lazy HealthKit permission construction, missing-constant detection, and concise formatting for object-shaped/native HealthKit errors.
@@ -416,7 +434,7 @@ Manual QA attempt:
 Open risks / deferred items:
 - Full manual QA remains required on iOS simulator or a real mobile device using a test account with old and new timeline records.
 - Native auth session persistence is now fixed and verified on the iOS Release simulator after terminate/relaunch.
-- Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. Typed mobile search has been verified with "show rash". Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
+- Mobile timeline edit/save has been verified on simulator without a freeze across five consecutive captured no-op edit/save cycles. The old deterministic typed-search check was superseded by AI-question search and needs a fresh deployed-endpoint pass. Pre-Visit toggle has been smoke-tested once on simulator without a freeze. Seeded old/malformed timeline rows have now been verified on the web/mobile-layout rendering path and pure helper tests; a final real-device pass with a seeded dataset is still useful before App Store submission.
 - Some app-wide manual QA remains partial: Apple Health permission behavior on a signed device/TestFlight build, successful positive-path document PDF upload or scan capture/upload, and account/auth recovery flows with real email links. The iOS usage-description strings for permission prompts are present in source config and generated Info.plist, denied camera/photo-library/microphone prompts, profile-photo library upload/remove, and the native share sheet were exercised with Maestro, and dark theme has been scanned on authenticated web screens plus native light/dark deep-link smoke screens.
 - Fresh iOS prebuild now verifies that the fmt workaround is injected into ios/Podfile. A future pod install or CI/EAS build remains useful as a release pipeline check, but the source-controlled prebuild plugin path has been validated locally.
 - Native voice dictation remains deferred by design for release safety; the implemented feature flag enables only the low-risk web speech path where available.
@@ -429,12 +447,12 @@ Recommended remaining manual QA:
 - Timeline list on mobile, including old rows with missing title/category/source/summary/data/tags/date_precision.
 - Toggle Pre-Visit repeatedly from list and details.
 - Timeline records older than 24 months, newer than 24 months, missing incident date, missing reported date, and missing patient DOB.
-- Search prompts:
+- AI question prompts:
   - Show me all injuries from 2018.
   - Find my left thumb injury.
   - What medications was I taking after knee surgery?
   - Show my timeline for shoulder pain.
-  - Mobile typed-search smoke test completed with "show rash"; the listed prompts are covered by unit tests but still need broader manual data-specific QA when a seeded dataset is available.
+  - App-side request/fallback behavior is covered by unit tests. These prompts still need deployed endpoint QA against real processed documents.
 - Pre-Visit Note generation.
 - Share package creation, QR/copy/share modal, and share link open.
 - Health Summary / AI Summary rendering.

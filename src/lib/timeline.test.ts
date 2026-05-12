@@ -6,11 +6,9 @@ import {
   clinicalTagsForEvent,
   formatTimelineDateDetail,
   formatTimelineDateMain,
-  healthCardMatchesQuery,
   normalizeClinicalLabel,
   normalizeStoredDate,
   normalizeTimelineEvent,
-  timelineMatchesQuery,
 } from "./timeline";
 
 describe("timeline release helpers", () => {
@@ -108,26 +106,6 @@ describe("timeline release helpers", () => {
         { label: "Symptom", value: "Symptom" },
       ]),
     );
-  });
-
-  test("matches natural timeline and health-card search prompts", () => {
-    const event = normalizeTimelineEvent({
-      occurred_at: "2018-05-01",
-      title: "Left thumb injury",
-      summary: "Fracture after a fall",
-      tags: ["orthopedics"],
-    });
-
-    expect(timelineMatchesQuery(event, "Show me all injuries from 2018")).toBe(true);
-    expect(timelineMatchesQuery(event, "Find my left thumb injury")).toBe(true);
-    expect(timelineMatchesQuery(event, "Show my timeline for shoulder pain")).toBe(false);
-
-    expect(
-      healthCardMatchesQuery(
-        { medications: [{ name: "Ibuprofen", startedAfter: "knee surgery" }] },
-        "What medications was I taking after knee surgery?",
-      ),
-    ).toBe(true);
   });
 
   test("does not calculate impossible patient ages", () => {

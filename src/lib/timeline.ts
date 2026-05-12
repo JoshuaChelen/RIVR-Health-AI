@@ -275,42 +275,6 @@ export function normalizeClinicalLabel(label: string): string {
     .join(" ");
 }
 
-export function timelineMatchesQuery(event: NormalizedTimelineEvent, query: string): boolean {
-  const q = normalizeSearchText(query);
-  if (!q) return true;
-  const haystack = normalizeSearchText([
-    event.title,
-    event.summary,
-    event.category,
-    event.event_type,
-    event.source,
-    event.documentTitle,
-    event.occurred_at,
-    event.created_at,
-    event.tags.join(" "),
-    JSON.stringify(event.data ?? {}),
-    clinicalTagsForEvent(event).map((t) => `${t.label} ${t.value}`).join(" "),
-  ].filter(Boolean).join(" "));
-
-  const years = q.match(/\b(19|20)\d{2}\b/g) ?? [];
-  if (years.length > 0 && !years.some((year) => haystack.includes(year))) return false;
-
-  const stop = new Set(["show", "me", "all", "find", "my", "what", "was", "i", "taking", "after", "for", "from", "the", "timeline"]);
-  const terms = q.split(/\s+/).filter((term) => term.length > 1 && !stop.has(term) && !/^(19|20)\d{2}$/.test(term));
-  return terms.every((term) => haystack.includes(term));
-}
-
-export function healthCardMatchesQuery(card: unknown, query: string): boolean {
-  const q = normalizeSearchText(query);
-  if (!q || !card) return false;
-  const haystack = normalizeSearchText(JSON.stringify(card));
-  const years = q.match(/\b(19|20)\d{2}\b/g) ?? [];
-  if (years.length > 0 && !years.some((year) => haystack.includes(year))) return false;
-  const stop = new Set(["show", "me", "all", "find", "my", "what", "was", "i", "taking", "after", "for", "from", "the", "timeline", "health", "card"]);
-  const terms = q.split(/\s+/).filter((term) => term.length > 1 && !stop.has(term) && !/^(19|20)\d{2}$/.test(term));
-  return terms.length > 0 && terms.every((term) => haystack.includes(term));
-}
-
 function isWithinLastMonths(ymd: string | null | undefined, months: number): boolean {
   const dt = parseYmd(ymd);
   if (!dt) return false;
@@ -399,19 +363,4 @@ function dedupeTags(tags: ClinicalTag[]): ClinicalTag[] {
     seen.add(key);
     return true;
   });
-}
-
-function normalizeSearchText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/\bleft\b/g, "left l")
-    .replace(/\bright\b/g, "right r")
-    .replace(/\binjuries\b/g, "injury")
-    .replace(/\bdiagnoses\b/g, "diagnosis")
-    .replace(/\bsurgeries\b/g, "surgery")
-    .replace(/\bmedications\b/g, "medication")
-    .replace(/\bsymptoms\b/g, "symptom")
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }

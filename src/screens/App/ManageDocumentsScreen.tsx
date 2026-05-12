@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 import { supabase } from "../../lib/supabase";
+import { documentProcessingFooterCopy } from "../../lib/documentProcessingUi";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -25,6 +26,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
   const [starting, setStarting]         = useState(false);
   const [msg, setMsg]                   = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const footerCopy = documentProcessingFooterCopy({ starting, pendingCount, message: msg });
 
   // Sync pending badge into the native navigation header
   useLayoutEffect(() => {
@@ -140,26 +142,16 @@ export function ManageDocumentsScreen({ navigation }: Props) {
         ) : null}
 
         <PrimaryButton
-          label={
-            starting
-              ? "Starting…"
-              : pendingCount > 0
-              ? `Process ${pendingCount} item${pendingCount === 1 ? "" : "s"}`
-              : "Nothing to process"
-          }
+          label={footerCopy.buttonLabel}
           onPress={startProcessing}
-          disabled={starting || pendingCount === 0}
+          disabled={footerCopy.disabled}
           tone="teal"
           style={styles.processBtn}
         />
 
-        {pendingCount === 0 && !msg ? (
+        {footerCopy.hint ? (
           <AppText variant="caption" style={styles.noFiles}>
-            Upload files or save a change in Medical Profile, then tap Process.
-          </AppText>
-        ) : pendingCount > 0 ? (
-          <AppText variant="caption" style={styles.readyHint}>
-            {pendingCount} item{pendingCount === 1 ? "" : "s"} ready — tap Process to analyze.
+            {footerCopy.hint}
           </AppText>
         ) : null}
       </View>
@@ -213,10 +205,5 @@ const useStyles = createStyles((c) => StyleSheet.create({
     textAlign: "center",
     color: c.muted,
     paddingHorizontal: spacing.md,
-  },
-  readyHint: {
-    textAlign: "center",
-    color: c.teal,
-    fontWeight: typescale.weight.medium,
   },
 }));

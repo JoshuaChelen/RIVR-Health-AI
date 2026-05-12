@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -59,6 +59,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]   = useState<Draft | null>(null);
   const [patientDob, setPatientDob] = useState<string | null>(null);
+  const dateInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!id) {
@@ -200,6 +201,7 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
   const clinicalRows = useMemo(() => {
     return item?.data ? flattenData(item.data) : [];
   }, [item?.data]);
+  const dateHint = dateInputHint(draft?.date_precision ?? "day");
 
   return (
     <Screen edges={["left", "right", "bottom"]}>
@@ -343,11 +345,12 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
                 <View style={styles.twoCol}>
                   <View style={{ flex: 1 }}>
-                    <FormField label="Date (YYYY-MM-DD)">
+                    <FormField label={`Date (${dateHint})`}>
                       <TextInput
+                        ref={dateInputRef}
                         value={draft?.occurred_at ?? ""}
                         onChangeText={(t) => setDraft((d) => (d ? { ...d, occurred_at: t } : d))}
-                        placeholder="2025-11-17"
+                        placeholder={dateInputPlaceholder(draft?.date_precision ?? "day")}
                         placeholderTextColor={colors.muted}
                         showSoftInputOnFocus
                         keyboardType="numbers-and-punctuation"
@@ -364,7 +367,14 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
                           return (
                             <Pressable
                               key={p}
-                              onPress={() => setDraft((d) => (d ? { ...d, date_precision: p } : d))}
+                              onPress={() => {
+                                setDraft((d) => (d ? { ...d, date_precision: p } : d));
+                                requestAnimationFrame(() => dateInputRef.current?.focus());
+                              }}
+                              accessible
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set date precision to ${p} and edit date`}
+                              accessibilityState={{ selected: active }}
                               style={({ pressed }) => [
                                 styles.segment,
                                 active && styles.segmentActive,
@@ -600,6 +610,18 @@ function prettySource(x?: string | null) {
   if (s === "wearable")        return "Wearable";
   if (s === "ai_guided")       return "AI Guided";
   return (x ?? "").trim() || "Unknown";
+}
+
+function dateInputHint(precision: Draft["date_precision"]) {
+  if (precision === "year") return "YYYY";
+  if (precision === "month") return "YYYY-MM";
+  return "YYYY-MM-DD";
+}
+
+function dateInputPlaceholder(precision: Draft["date_precision"]) {
+  if (precision === "year") return "2025";
+  if (precision === "month") return "2025-11";
+  return "2025-11-17";
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
