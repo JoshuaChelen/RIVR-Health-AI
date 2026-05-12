@@ -170,6 +170,9 @@ Requirement-to-artifact checklist:
     - Re-run after mobile keyboard input guard: passed, 5 test files and 17 tests.
     - Re-run after app-screen deep-link map: passed, 6 test files and 18 tests.
     - Current run after AI-question search and App Store feedback fixes: passed, 8 test files and 26 tests.
+    - Re-run after native scan fallback regression guard: passed, 9 test files and 28 tests.
+  - npm test -- src/lib/documentScanFlow.test.ts
+    - Passed after adding a regression guard that Scan Document opens the scan session before asking for camera/library input.
   - npm test
     - Added Vitest and timeline helper coverage.
     - Passed: 1 test file, 8 tests.
