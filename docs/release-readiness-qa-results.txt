@@ -247,6 +247,10 @@ Requirement-to-artifact checklist:
     - Re-run after Apple Health startup hardening: passed with BUILD SUCCEEDED.
     - Re-run after app-screen deep-link map: passed with BUILD SUCCEEDED.
     - Output ended with BUILD SUCCEEDED.
+  - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'id=719A2948-505A-4897-B603-1F270D286F8F' build
+    - Follow-up Apple Health validation build without `CODE_SIGNING_ALLOWED=NO`.
+    - Passed with BUILD SUCCEEDED and installed on the booted iPhone 17 Pro simulator.
+    - `codesign -d --entitlements :- .../RIVRHealthAI.app | plutil -p -` returned `{}` for the final built simulator app, so this local artifact still does not prove the HealthKit entitlement/authorization sheet path.
   - xcrun simctl install 719A2948-505A-4897-B603-1F270D286F8F /Users/darwashi/Library/Developer/Xcode/DerivedData/RIVRHealthAI-albhxnmfzdppvmddbwdayswfwgdo/Build/Products/Release-iphonesimulator/RIVRHealthAI.app
     - Passed.
     - Re-run after native share-sheet action: passed.
