@@ -271,8 +271,12 @@ Requirement-to-artifact checklist:
     - EAS incremented the remote build number from 9 to 10 for the current build.
     - EAS reported active remote iOS distribution credentials and an active provisioning profile for `com.rivrhealth.app`.
   - npx eas build:view ba3acdc8-fea3-4469-a75a-7e5387539d4c --json
-    - Current production build status was `IN_PROGRESS` when checked.
+    - Current production build status initially reported `IN_PROGRESS`; a later build-list check showed it finished.
     - Build profile is production, distribution is store, app build version is 10, and git commit hash matches the latest release-readiness commit.
+  - Current EAS production IPA entitlement and Info.plist inspection
+    - Downloaded build 10 IPA, inspected it, and removed it from `/tmp`.
+    - `codesign -d --entitlements :- Payload/RIVRHealthAI.app | plutil -p -` showed `com.apple.developer.healthkit` true, `com.apple.developer.healthkit.access` as an empty array, the expected team identifier, and the expected application identifier.
+    - `plutil -p Payload/RIVRHealthAI.app/Info.plist` showed bundle identifier `com.rivrhealth.app`, version `1.0.0`, build `10`, and the expected HealthKit, camera, photo library, and microphone usage descriptions.
   - npx eas build:view a6d8b306-11cf-47c2-995c-4b3dc23a7c84 --json
     - Superseded build 9 finished and produced an IPA artifact.
     - The IPA was downloaded, inspected with `codesign -d --entitlements`, and then removed from `/tmp`.
