@@ -38,6 +38,7 @@ Audit result:
 - EAS submit was attempted for build number 10, but EAS refused non-interactive submission because App Store Connect API keys are not set up. TestFlight/device validation remains blocked until an App Store Connect API key is configured for EAS Submit or submission is run interactively by an account holder.
 - Interactive EAS submit was then attempted for build number 10. EAS successfully reached Apple Developer login and offered to generate an App Store Connect API key, then Apple required two-factor authentication. The submit process was stopped at the 2FA prompt before upload after confirming the build is suitable for TestFlight QA but not yet a fully verified final release.
 - App Store Connect was checked after the submit pause. The TestFlight iOS Builds and Build Uploads views show existing builds through build 8 only; build 10 is not present in TestFlight/App Store Connect yet.
+- docs/testflight-build-10-submit-runbook.txt now captures the exact EAS submit command, expected Apple prompts, success checks, and known 2FA/API-key blocker for build 10.
 - docs/testflight-build-10-qa-checklist.txt now captures the remaining device-only QA steps for build 10: Apple Health runtime authorization, native PDF upload, native scan camera, native scan library fallback, Timeline edit/save/toggle, and AI question search.
 - The superseded EAS production build number 9 also finished and its IPA was inspected. Its signed app entitlements include HealthKit as expected, but build number 10 is the current artifact because it includes the later document-scan accessibility commit.
 - Password recovery link QA used a temporary Supabase auth user and generated recovery link. The hosted reset-web page verified the link, accepted a new password, reached the Password updated success state, the new password signed in, the old password was rejected, and the temporary auth user was deleted afterward.
@@ -288,3 +289,4 @@ Blocking items before marking complete:
 - The local generic iOS archive path is blocked by Apple account/provisioning state, not by an app compile error or missing project team setting.
 - Optionally re-run seeded edit/save on native mobile with stable touch automation or manual device access; native seeded list rendering is already verified.
 - Use docs/testflight-build-10-qa-checklist.txt to record the remaining TestFlight/device results.
+- Use docs/testflight-build-10-submit-runbook.txt to complete the build 10 TestFlight submission.
