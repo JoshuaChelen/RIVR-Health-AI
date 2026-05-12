@@ -284,6 +284,10 @@ Requirement-to-artifact checklist:
     - Interactive submit reached Apple Developer login and App Store Connect API key generation.
     - Submission stopped at Apple's two-factor authentication prompt before upload after confirming this should be treated as a TestFlight QA build, not a final release.
     - No upload was completed.
+  - App Store Connect TestFlight iOS Builds and Build Uploads
+    - Checked after the submit pause.
+    - iOS Builds and Build Uploads show existing builds through build 8 only.
+    - Build 10 is not yet visible in TestFlight/App Store Connect.
   - docs/testflight-build-10-qa-checklist.txt
     - Added a device QA checklist for build 10 covering Apple Health runtime authorization, native PDF upload, native scan camera, native scan library fallback, Timeline edit/save/toggle, and AI question search.
   - npx eas build:view a6d8b306-11cf-47c2-995c-4b3dc23a7c84 --json
