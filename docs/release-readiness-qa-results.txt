@@ -280,6 +280,10 @@ Requirement-to-artifact checklist:
   - npx eas submit --platform ios --id ba3acdc8-fea3-4469-a75a-7e5387539d4c --non-interactive --no-wait
     - Failed before upload because EAS Submit requires App Store Connect API key setup and cannot create API keys in non-interactive mode.
     - No TestFlight runtime validation was completed from this machine.
+  - npx eas submit --platform ios --id ba3acdc8-fea3-4469-a75a-7e5387539d4c --wait
+    - Interactive submit reached Apple Developer login and App Store Connect API key generation.
+    - Submission stopped at Apple's two-factor authentication prompt before upload after confirming this should be treated as a TestFlight QA build, not a final release.
+    - No upload was completed.
   - npx eas build:view a6d8b306-11cf-47c2-995c-4b3dc23a7c84 --json
     - Superseded build 9 finished and produced an IPA artifact.
     - The IPA was downloaded, inspected with `codesign -d --entitlements`, and then removed from `/tmp`.
