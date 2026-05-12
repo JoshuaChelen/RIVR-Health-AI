@@ -171,6 +171,7 @@ Requirement-to-artifact checklist:
     - Re-run after app-screen deep-link map: passed, 6 test files and 18 tests.
     - Current run after AI-question search and App Store feedback fixes: passed, 8 test files and 26 tests.
     - Re-run after native scan fallback regression guard: passed, 9 test files and 28 tests.
+    - Re-run after document scan accessibility labels: passed, 9 test files and 28 tests.
   - npm test -- src/lib/documentScanFlow.test.ts
     - Passed after adding a regression guard that Scan Document opens the scan session before asking for camera/library input.
   - npm test
@@ -292,6 +293,9 @@ Requirement-to-artifact checklist:
     - Passed for timeline, documents, pre-visit, share, health-summary, ai-insights, profile, medical-profile, story, and apple-health.
     - Screenshots captured under /tmp/rivr_deeplink_smoke confirmed each route rendered the intended native screen without launch crash or obvious first-viewport layout breakage.
     - Re-run for Documents after native scan fallback hardening: Documents rendered the updated Scan Document hint, "Take photos or choose images — compiled into one PDF."
+  - Document scan accessibility hardening
+    - Added accessibility labels for scan page reorder controls and the scan upload button.
+    - Added native accessibility hints to the Upload PDF and Scan Document action rows so screen readers expose the same action context shown visually.
     - Re-run in native dark appearance for the same routes. Screenshots captured under /tmp/rivr_deeplink_dark_smoke confirmed readable first-viewport dark rendering without obvious overlap. The simulator was restored to light appearance afterward.
   - xcrun simctl list devices available
     - Passed: available iOS simulators are present, including iPhone 17 Pro.

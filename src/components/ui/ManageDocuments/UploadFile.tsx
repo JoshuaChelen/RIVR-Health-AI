@@ -226,6 +226,9 @@ function PageThumb({
         <Pressable
           onPress={onMoveLeft}
           disabled={index === 0}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Move page left"
           style={({ pressed }) => [
             thumbStyles.arrowBtn,
             index === 0 && thumbStyles.arrowBtnOff,
@@ -239,6 +242,9 @@ function PageThumb({
         <Pressable
           onPress={onMoveRight}
           disabled={index === total - 1}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Move page right"
           style={({ pressed }) => [
             thumbStyles.arrowBtn,
             index === total - 1 && thumbStyles.arrowBtnOff,
@@ -406,6 +412,9 @@ function ScanModal({
           <Pressable
             onPress={onUpload}
             disabled={busy || pages.length === 0}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={pages.length === 0 ? "Add pages to upload" : "Upload scanned PDF"}
             style={({ pressed }) => [
               modalStyles.uploadBtn,
               (busy || pages.length === 0) && modalStyles.uploadBtnDisabled,
@@ -967,6 +976,7 @@ function ActionRow({
       accessible
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityHint={hint}
       style={({ pressed }) => [
         cardStyles.row,
         pressed && !disabled && cardStyles.rowPressed,
