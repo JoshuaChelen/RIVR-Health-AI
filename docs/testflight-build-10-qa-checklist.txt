@@ -1,0 +1,123 @@
+RIVR Health AI TestFlight QA checklist for build 10
+
+Build under test:
+- EAS build ID: ba3acdc8-fea3-4469-a75a-7e5387539d4c
+- iOS build number: 10
+- Git commit: 148baf5e9422fb21437008dddbd3c4ec1b45e688
+- Bundle ID: com.rivrhealth.app
+
+Purpose:
+- Verify the remaining device-only release-readiness gaps from docs/release-readiness-agent-plan.txt.
+- Treat this as QA validation, not final App Store release approval.
+
+Before testing:
+- Install build 10 from TestFlight on a real iPhone.
+- Sign in with the QA account.
+- Keep at least one small PDF available in the iOS Files app.
+- Keep one medical/photo image available in Photos for From Library scan testing.
+
+1. Apple Health runtime authorization
+- Open Home.
+- Open Apple Health.
+- Tap Connect Apple Health.
+- Expected:
+  - The real iOS Health permission flow appears, or the app shows a clear user-facing unavailable/permission message.
+  - No crash.
+  - No "[object Object]" error.
+  - If permission is granted, the Apple Health screen returns to a stable connected or permission-aware state.
+- Record result:
+  - Pass/fail:
+  - Exact message shown, if any:
+  - Screenshot captured:
+
+2. Native PDF upload from Files
+- Open Documents.
+- Tap Upload PDF.
+- Choose a PDF from Files.
+- Expected:
+  - Picker opens.
+  - File selection returns to RIVR.
+  - Upload completes or shows a clear error.
+  - Uploaded document appears in the document list.
+  - Pending count/process CTA updates.
+  - App does not freeze or crash.
+- Cleanup:
+  - Remove the uploaded QA PDF from Documents.
+- Record result:
+  - Pass/fail:
+  - Uploaded file name:
+  - Cleanup confirmed:
+
+3. Native scan document from camera
+- Open Documents.
+- Tap Scan Document.
+- Tap Take Photo.
+- Allow camera access if prompted.
+- Capture one page.
+- Upload PDF.
+- Expected:
+  - Scan modal opens before camera capture.
+  - Captured page appears in preview.
+  - Upload completes or shows a clear error.
+  - Uploaded scanned document appears in the list.
+  - App does not freeze or crash.
+- Cleanup:
+  - Remove the uploaded scanned document.
+- Record result:
+  - Pass/fail:
+  - Cleanup confirmed:
+
+4. Native scan document from library fallback
+- Open Documents.
+- Tap Scan Document.
+- Tap From Library.
+- Choose one image.
+- Upload PDF.
+- Expected:
+  - Photos picker opens.
+  - Selected image appears as a scan page.
+  - Upload completes or shows a clear error.
+  - Uploaded scanned document appears in the list.
+  - App does not freeze or crash.
+- Cleanup:
+  - Remove the uploaded scanned document.
+- Record result:
+  - Pass/fail:
+  - Cleanup confirmed:
+
+5. Timeline edit/save and pre-visit toggle
+- Open Timeline.
+- Open an existing event.
+- Tap Edit.
+- Save without making a destructive change.
+- Return to the list.
+- Toggle the event's Pre-Visit switch on, then back off.
+- Expected:
+  - Edit screen opens with populated normalized fields.
+  - Save returns to read-only details.
+  - Toggle does not navigate unexpectedly.
+  - No freeze, crash, or layout glitch.
+- Record result:
+  - Pass/fail:
+  - Event tested:
+
+6. AI question search smoke check
+- Open Timeline.
+- Ask: "What medications am I taking for diabetes and blood pressure?"
+- Expected:
+  - Timeline remains visible.
+  - AI answer panel appears.
+  - Answer is sourced from available health data or clearly says there is not enough information.
+  - No deterministic keyword-only result is presented as an AI answer.
+- Record result:
+  - Pass/fail:
+  - Answer summary:
+
+Final sign-off:
+- Apple Health runtime checked:
+- Native PDF upload checked:
+- Native scan camera checked:
+- Native scan library fallback checked:
+- Timeline mobile stability checked:
+- AI question search checked:
+- Remaining issues:
