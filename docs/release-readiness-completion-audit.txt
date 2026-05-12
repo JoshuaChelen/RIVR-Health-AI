@@ -6,12 +6,12 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, positive-path document PDF upload or scan capture/upload, and a final native seeded-data pass.
+- The remaining uncovered requirements are Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, positive-path document PDF upload or scan capture/upload, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
 - Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. The Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state. Earlier keyword-search QA was superseded by the AI-question search change and needs deployed-endpoint retesting.
 - Native auth persistence was fixed by configuring Supabase auth to use React Native AsyncStorage. The rebuilt Release simulator app launched to Home from a QA session, was terminated, relaunched, and returned to Home instead of Login.
 - Mobile keyboard handling was hardened: shared TextField inputs explicitly request the soft keyboard on focus, raw TextInput typing surfaces were patched with showSoftInputOnFocus, and Timeline event details now uses KeyboardAvoidingView while editing.
-- Seeded legacy timeline render QA is now partially complete: temporary QA_LEGACY rows covered old/null/undated data shapes in the web/mobile-layout app, details, and edit/save. Those rows were cleaned up afterward. The old deterministic search check was removed after the AI-question search change.
+- Seeded legacy timeline render QA is complete for native list rendering: temporary QA_NATIVE rows covered recent day-precision, legacy 2018 year-precision, and undated medication shapes on the iPhone 17 Pro simulator. The rows rendered without crash/freeze and were cleaned up afterward. Earlier temporary QA_LEGACY rows covered old/null/undated data shapes in the web/mobile-layout app, details, and edit/save. The old deterministic search check was removed after the AI-question search change.
 - Destructive document removal was verified against a temporary QA_DELETE document row and cleaned up afterward.
 - Pre-Visit edit-selection and Pre-Visit Note share variant were verified in the web app.
 - Dark theme was scanned in the authenticated web app across Home, Timeline, Documents, Pre-Visit Note, Share Records, and AI Health Summary without crashes, obvious overlap, unreadable primary text, or broken navigation.
@@ -42,11 +42,12 @@ Prompt-to-artifact checklist:
   - src/components/ui/Timeline/TimelineCard.tsx separates navigation press handling from the Pre-Visit Switch, removing a likely mobile nested-gesture conflict.
   - src/lib/timeline.test.ts covers legacy row normalization, malformed date rejection, and timeline edit-save payload construction.
   - Temporary seeded QA_LEGACY rows verified old/null/undated render, details, and edit/save in the web/mobile-layout app.
+  - Temporary seeded QA_NATIVE rows verified native Timeline list rendering for recent, legacy 2018, and undated records without crash/freeze. The seeded rows were deleted afterward.
   - A seeded old-row save exposed and fixed a DB constraint bug where empty summaries saved as null. buildTimelineEventSavePayload now emits DB-safe defaults for required text fields.
   - No destructive migrations were added.
 - Status:
   - Implemented and covered by automated tests for pure logic.
-  - Native simulator edit/save freeze was verified on existing data; seeded old-data visual QA was verified on web/mobile layout. A real-device seeded-data pass remains useful before release.
+  - Native simulator edit/save freeze was verified on existing data; seeded old/new/undated visual QA was verified on native list rendering and web/mobile layout. Seeded edit/save on native remains useful if stable manual device or touch automation is available.
 
 2. Timeline date and age UX
 - Required:
@@ -62,7 +63,7 @@ Prompt-to-artifact checklist:
   - src/lib/timeline.test.ts covers old event year/age display, recent day-precision display, reported date display, and impossible-age fallbacks.
 - Status:
   - Implemented and unit-tested.
-  - Visual smoke coverage exists on iOS simulator and web/mobile-layout seeded records; a final real-device seeded-data pass remains useful.
+  - Visual smoke coverage exists on iOS simulator and web/mobile-layout seeded records. The final native seeded-data render pass confirmed recent, 2018 legacy, and unknown-date display behavior on the iPhone 17 Pro simulator.
 
 3. Clinical highlighting and formatting
 - Required:
@@ -131,6 +132,7 @@ Prompt-to-artifact checklist:
   - Supabase auth persistence was verified on the rebuilt iOS Release simulator: the app returned to Home after terminate/relaunch instead of returning to Login.
   - Code-level keyboard coverage was added for shared TextField inputs plus raw Timeline search/edit, Medical Profile symptoms, Story answer, and PhoneField inputs.
   - Seeded QA_LEGACY rows rendered in Timeline and Details on the web/mobile-layout path, then were deleted. The old 2018 event showed year-only main display, the recent event showed useful date detail, and the undated event showed Date unknown.
+  - Seeded QA_NATIVE rows rendered in the native iPhone 17 Pro simulator Timeline list, then were deleted. The recent May 2026 row showed full date, patient age, reported date, and clinical chips; the 2018 legacy row showed Incident year 2018, patient age, reported date, and side/body-part/injury chips; the undated medication row showed Unknown Date, Date unknown, Reported May 2026, and a medication chip.
   - A blank-summary seeded old-row save initially failed on a non-null DB summary constraint; the save helper was fixed and the same save then succeeded.
   - A temporary QA_DELETE document row verified the Remove confirmation modal and permanent delete path; the row was deleted and confirmed absent from Supabase.
   - Pre-Visit Note Edit selection routed to Timeline with selections preserved.
@@ -226,7 +228,7 @@ Prompt-to-artifact checklist:
 - Timeline no longer freezes/glitches on mobile during edit/save:
   - Status: Verified on the authenticated iOS simulator for five consecutive no-op edit/save round-trips without freezing or crashing. Original-user reproduction remains unavailable.
 - Old timeline data does not crash the app:
-  - Status: Implemented, unit-tested, and verified with seeded QA_LEGACY rows on the web/mobile-layout rendering path. A real-device seeded-data pass remains useful.
+  - Status: Implemented, unit-tested, verified with seeded QA_LEGACY rows on the web/mobile-layout rendering path, and verified with seeded QA_NATIVE rows in the native iPhone 17 Pro simulator Timeline list.
 - Timeline cards show incident year:
   - Status: Implemented and unit-tested.
 - Patient age at incident is calculated:
@@ -242,7 +244,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/details/edit/save, Pre-Visit edit selection, Share link variants including the native iOS share sheet, Profile photo library upload/remove, authenticated web dark theme screens, native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health, plus native microphone/camera/photo-library denial fallbacks were checked. Remaining gaps are Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and real email-link auth recovery flows.
+  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/details/edit/save, native seeded old/new/undated list render, Pre-Visit edit selection, Share link variants including the native iOS share sheet, Profile photo library upload/remove, authenticated web dark theme screens, native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health, plus native microphone/camera/photo-library denial fallbacks were checked. Remaining gaps are Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, real email-link auth recovery flows, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
 - App Store Connect screenshot feedback covered:
   - Status: Partially complete. Date precision taps now focus the date field/keyboard, Set Visit Date uses the same behavior, and processing footer copy no longer pairs started-processing with nothing-to-process. Hands-free AI voice guidance remains deferred behind the existing voice-search feature flag/text fallback for release safety.
 - Lint/typecheck/tests pass:
@@ -253,6 +255,6 @@ Prompt-to-artifact checklist:
   - Status: Partially verified by static checks and focused tests; requires manual QA for full confidence.
 
 Blocking items before marking complete:
-- Use a real device, a manually controlled simulator, or stable automation with assistive access for one final seeded old/new data pass on native mobile.
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
 - Specifically verify Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and real email-link auth recovery flows.
+- Optionally re-run seeded edit/save on native mobile with stable touch automation or manual device access; native seeded list rendering is already verified.

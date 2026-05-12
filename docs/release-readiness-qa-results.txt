@@ -32,6 +32,7 @@ Release-readiness commits:
 - 084ba5b document native permission dialog QA
 - 7a42603 harden HealthKit error formatting
 - current: document native share sheet QA
+- 96868d0 harden release search and mobile feedback flows
 
 Follow-up dependency hardening:
 - Expo SDK patch versions aligned to Expo Doctor expected versions.
@@ -54,7 +55,7 @@ Requirement-to-artifact checklist:
   - src/components/ui/Timeline/TimelineCard.tsx separates the navigation Pressable from the Pre-Visit Switch footer. This removes the nested switch-inside-navigation press target that is a likely mobile gesture conflict/freeze source.
 - Status:
   - Implemented.
-  - Needs authenticated device/simulator QA to prove the reported mobile freeze is fully resolved.
+  - Authenticated iOS simulator QA covered the repeated edit/save freeze path on existing data without a freeze. Seeded legacy/new/undated rows also rendered in the native Timeline list without crash. Pointer automation was not reliable enough in the final seeded pass to honestly re-run edit/save on the seeded rows.
 
 2. Timeline date and patient age UX
 - Evidence:
@@ -66,7 +67,7 @@ Requirement-to-artifact checklist:
   - Missing incident/reported dates fall back to explicit unknown text.
 - Status:
   - Implemented.
-  - Needs manual QA with seeded old/new records for exact display confirmation.
+  - Native seeded QA confirmed a recent row showed full incident date, patient age, and reported date; a 2018 legacy row showed year-only main-list display and patient age; and an undated row showed Date unknown plus reported date.
 
 3. Clinical highlighting and formatting
 - Evidence:
@@ -125,7 +126,8 @@ Requirement-to-artifact checklist:
 - Status:
   - Partially complete.
   - Completed since the initial gap list: repeated 5+ mobile edit/save cycle, old/malformed seeded data render verification, destructive temporary document removal, deeper Pre-Visit selection, Share Records secure-link variants, native light/dark deep-link smoke, and native camera/photo-library/microphone denial fallback checks.
-  - Remaining gaps: Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, successful positive-path document upload/capture, and one final native seeded-data pass before submission.
+  - Final native seeded-data render pass completed on the iPhone 17 Pro simulator with temporary rows for recent day-precision, legacy 2018 year-precision, and undated medication records. All three rows rendered without crash/freeze and were deleted from Supabase afterward.
+  - Remaining gaps: Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, successful positive-path document upload/capture, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
 
 6. Testing and validation
 - Commands run and results:
