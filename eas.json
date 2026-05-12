@@ -15,10 +15,7 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "ios": {
-        "appleTeamId": "NUGFXB4PHG"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {

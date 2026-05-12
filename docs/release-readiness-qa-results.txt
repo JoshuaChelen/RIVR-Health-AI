@@ -259,6 +259,15 @@ Requirement-to-artifact checklist:
     - Device build settings showed `CODE_SIGN_ENTITLEMENTS = RIVRHealthAI/RIVRHealthAI.entitlements`, `ENTITLEMENTS_ALLOWED = YES`, and `ENTITLEMENTS_DESTINATION = Signature`.
   - npx expo config --type introspect --json
     - After signing config hardening, Expo config resolved `ios.bundleIdentifier` to `com.rivrhealth.app`, `ios.appleTeamId` to the Apple team identifier, and HealthKit entitlement to true.
+  - npx eas whoami
+    - Passed; EAS CLI is authenticated.
+  - npx eas build:list --platform ios --limit 3 --non-interactive
+    - Initially exposed an invalid EAS build-profile field, which was removed.
+    - Re-run passed and listed recent iOS preview/production builds.
+  - Existing EAS production IPA entitlement inspection
+    - Downloaded the April 29, 2026 production IPA listed by EAS.
+    - `codesign -d --entitlements :- Payload/RIVRHealthAI.app | plutil -p -` showed `com.apple.developer.healthkit` true, `com.apple.developer.healthkit.access` as an empty array, the expected team identifier, and the expected application identifier.
+    - This verifies HealthKit entitlement packaging for that EAS store build, but it is not a current-build runtime Apple Health authorization test.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/RIVRHealthAI.xcarchive archive
     - After signing config hardening, failed before archive output because no matching iOS App Development provisioning profile for `com.rivrhealth.app` was available locally and automatic signing was disabled.
   - xcodebuild -workspace ios/RIVRHealthAI.xcworkspace -scheme RIVRHealthAI -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/RIVRHealthAI.xcarchive archive -allowProvisioningUpdates
