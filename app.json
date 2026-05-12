@@ -35,6 +35,7 @@
     ],
     "ios": {
       "supportsTablet": true,
+      "appleTeamId": "NUGFXB4PHG",
       "entitlements": {
         "com.apple.developer.healthkit": true
       },
