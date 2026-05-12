@@ -6,7 +6,7 @@ Objective:
 Audit result:
 - Not complete.
 - Static validation, automated helper coverage, dependency hygiene, lint, typecheck, tests, worker build, Expo Doctor, and audit checks are passing.
-- The remaining uncovered requirements are Apple Health permission behavior on a signed device/TestFlight build, real email-link auth recovery flows, positive-path document PDF upload or scan capture/upload, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
+- The remaining uncovered requirements are Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and seeded edit/save on native mobile if stable touch automation or manual device access is available. Password recovery link handling has now been verified with a temporary Supabase auth user; external mailbox delivery was not separately verified.
 - The iOS simulator destination blocker was resolved by installing the iOS 26.4.1 Simulator runtime. The Expo dev launcher prompt was bypassed by building and installing a Release simulator app directly.
 - Real mobile Timeline smoke tests now exist: the app authenticated into an existing QA account, opened Timeline, opened an event, entered edit mode, saved, and returned to read-only details without freezing. A later calibrated simulator run captured five consecutive no-op edit/save round-trips on the same event without freezing or crashing. The Timeline list Pre-Visit switch was toggled on without navigating or freezing, then toggled back off to preserve the QA account state. Earlier keyword-search QA was superseded by the AI-question search change and needs deployed-endpoint retesting.
 - Native auth persistence was fixed by configuring Supabase auth to use React Native AsyncStorage. The rebuilt Release simulator app launched to Home from a QA session, was terminated, relaunched, and returned to Home instead of Login.
@@ -27,6 +27,7 @@ Audit result:
 - Native microphone, camera, and photo-library denial flows were exercised with Maestro against the iPhone 17 Pro simulator. Each denied prompt returned to a stable app fallback message.
 - Apple Health startup was hardened so HealthKit permission constants are read lazily after native module availability checks rather than at module import time. The rebuilt Release app installed and launched to Home after this change.
 - Apple Health error handling was hardened after native QA exposed an object-shaped HealthKit authorization failure. The screen now formats native errors without [object Object] and extracts the concise localized description.
+- Password recovery link QA used a temporary Supabase auth user and generated recovery link. The hosted reset-web page verified the link, accepted a new password, reached the Password updated success state, the new password signed in, the old password was rejected, and the temporary auth user was deleted afterward.
 
 Prompt-to-artifact checklist:
 
@@ -114,7 +115,7 @@ Prompt-to-artifact checklist:
   - Web unauthenticated QA covered Welcome, Login, Sign up, Forgot password, and Update password validation/loading states.
   - Web QA found and fixed an offline banner issue where the banner remained in the accessibility tree while online.
   - Web QA found and fixed the missing auth form field ID warning by giving shared TextField inputs stable native IDs when callers do not provide one. A follow-up Chrome warning remains because React Native Web password fields are not wrapped in native HTML forms.
-  - Disposable web signup was blocked by expected email verification; no mailbox/test admin path was available.
+  - Disposable web signup was blocked by expected email verification; no mailbox path was available for full email-delivery QA.
   - iOS simulator authenticated with an existing QA account and reached Home and Timeline.
   - iOS Timeline list visually showed useful recent incident date detail, patient age, reported date, clinical chips, typed-search field, and Pre-Visit controls.
   - iOS Timeline details visually showed full incident date, separate reported date, patient age sentence, details rows, and clinical chips.
@@ -151,9 +152,10 @@ Prompt-to-artifact checklist:
   - Maestro attempted native document scan positive path after allowing camera permission. The simulator did not provide a usable camera/document source to complete capture/upload; no document rows were added by this attempt.
   - Maestro attempted native PDF upload positive path. The document picker opened but exposed no selectable PDF source in this simulator run, so upload could not be completed.
   - Simulator text input required calibrated CGEvent key events because paste and AppleScript input were unreliable in this environment.
+  - Password recovery link QA generated a Supabase recovery link for a temporary confirmed auth user, opened the hosted reset-web flow, filled a new password, reached the Password updated success state, verified the new password could sign in, verified the old password was rejected, and deleted the temporary auth user.
 - Status:
   - Incomplete.
-  - Remaining gaps are narrower: native real-device seeded-data pass, Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and real email-link auth recovery flows.
+  - Remaining gaps are narrower: Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
 
 6. Testing and validation
 - Required commands:
@@ -244,7 +246,7 @@ Prompt-to-artifact checklist:
 - Voice search is safe or feature-flagged:
   - Status: Implemented with feature flag and fallback.
 - Every major screen/button manually checked:
-  - Status: Not complete. Web unauthenticated auth screens and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/details/edit/save, native seeded old/new/undated list render, Pre-Visit edit selection, Share link variants including the native iOS share sheet, Profile photo library upload/remove, authenticated web dark theme screens, native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health, plus native microphone/camera/photo-library denial fallbacks were checked. Remaining gaps are Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, real email-link auth recovery flows, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
+  - Status: Not complete. Web unauthenticated auth screens, generated recovery-link password reset, and authenticated iOS/web Home, Health Summary, Documents, destructive temp document remove, Timeline, seeded old-row render/details/edit/save, native seeded old/new/undated list render, Pre-Visit edit selection, Share link variants including the native iOS share sheet, Profile photo library upload/remove, authenticated web dark theme screens, native light/dark deep-link smoke coverage for Timeline, Documents, Pre-Visit Note, Share Records, AI Health Summary, AI Recommendations, Profile, Medical Profile, Story, and Apple Health, plus native microphone/camera/photo-library denial fallbacks were checked. Remaining gaps are Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and seeded edit/save on native mobile if stable touch automation or manual device access is available.
 - App Store Connect screenshot feedback covered:
   - Status: Partially complete. Date precision taps now focus the date field/keyboard, Set Visit Date uses the same behavior, and processing footer copy no longer pairs started-processing with nothing-to-process. Hands-free AI voice guidance remains deferred behind the existing voice-search feature flag/text fallback for release safety.
 - Lint/typecheck/tests pass:
@@ -256,5 +258,5 @@ Prompt-to-artifact checklist:
 
 Blocking items before marking complete:
 - Re-run the major-flow manual QA checklist from docs/release-readiness-qa-results.txt.
-- Specifically verify Apple Health permission behavior on a signed device/TestFlight build, positive-path document PDF upload or scan capture/upload, and real email-link auth recovery flows.
+- Specifically verify Apple Health permission behavior on a signed device/TestFlight build and positive-path document PDF upload or scan capture/upload.
 - Optionally re-run seeded edit/save on native mobile with stable touch automation or manual device access; native seeded list rendering is already verified.
