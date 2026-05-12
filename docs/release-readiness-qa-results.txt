@@ -266,12 +266,13 @@ Requirement-to-artifact checklist:
     - Initially exposed an invalid EAS build-profile field, which was removed.
     - Re-run passed and listed recent iOS preview/production builds.
   - npx eas build --platform ios --profile production --non-interactive --no-wait
-    - Queued current iOS production build `a6d8b306-11cf-47c2-995c-4b3dc23a7c84` from commit `82575b173ad5b2b713f7ca2fe61feee3e16924cc`.
-    - EAS incremented the remote build number from 8 to 9.
+    - Queued iOS production build `a6d8b306-11cf-47c2-995c-4b3dc23a7c84` from commit `82575b173ad5b2b713f7ca2fe61feee3e16924cc`; this build was superseded by the later accessibility commit.
+    - Queued current iOS production build `ba3acdc8-fea3-4469-a75a-7e5387539d4c` from commit `148baf5e9422fb21437008dddbd3c4ec1b45e688`.
+    - EAS incremented the remote build number from 9 to 10 for the current build.
     - EAS reported active remote iOS distribution credentials and an active provisioning profile for `com.rivrhealth.app`.
-  - npx eas build:view a6d8b306-11cf-47c2-995c-4b3dc23a7c84 --json
+  - npx eas build:view ba3acdc8-fea3-4469-a75a-7e5387539d4c --json
     - Current production build status was `IN_PROGRESS` when checked.
-    - Build profile is production, distribution is store, SDK version is 54.0.0, app build version is 9, and git commit hash matches the queued release-readiness commit.
+    - Build profile is production, distribution is store, app build version is 10, and git commit hash matches the latest release-readiness commit.
   - Existing EAS production IPA entitlement inspection
     - Downloaded the April 29, 2026 production IPA listed by EAS.
     - `codesign -d --entitlements :- Payload/RIVRHealthAI.app | plutil -p -` showed `com.apple.developer.healthkit` true, `com.apple.developer.healthkit.access` as an empty array, the expected team identifier, and the expected application identifier.
