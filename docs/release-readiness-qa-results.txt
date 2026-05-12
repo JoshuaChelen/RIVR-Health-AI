@@ -411,6 +411,10 @@ Manual QA attempt:
 - Native PDF upload positive-path attempt:
   - Opened Documents and tapped Upload PDF. The native document picker opened, but this simulator exposed only an empty picker shell plus Cancel to Maestro and no selectable PDF source.
   - Cancel worked and returned to the app. Positive PDF upload remains open for a simulator/device with an accessible PDF file source.
+- Native PDF source staging attempt:
+  - Generated a temporary PDF and tried `xcrun simctl addmedia booted /tmp/rivr-native-picker-qa.pdf`; CoreSimulator rejected it as an unsupported file type.
+  - Copied the temporary PDF into the simulator local FileProvider storage and launched Files; the screenshot was a blank Files screen, so this did not create a usable picker source.
+  - Removed the temporary PDF from `/tmp` and the simulator FileProvider storage afterward.
 - App Store Connect screenshot feedback review:
   - Visible feedback from Jonathan included: hands-free AI voice guidance, date precision taps not opening the keyboard, confusing "started processing" plus "nothing to process" messaging, and "Set event date in order" glitch.
   - Date precision controls in Timeline Event Details and Set Visit Date now focus the date field after Day/Month/Year is tapped, so the phone keyboard opens for refinement.
