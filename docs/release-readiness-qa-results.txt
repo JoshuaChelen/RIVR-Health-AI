@@ -273,6 +273,11 @@ Requirement-to-artifact checklist:
   - npx eas build:view ba3acdc8-fea3-4469-a75a-7e5387539d4c --json
     - Current production build status was `IN_PROGRESS` when checked.
     - Build profile is production, distribution is store, app build version is 10, and git commit hash matches the latest release-readiness commit.
+  - npx eas build:view a6d8b306-11cf-47c2-995c-4b3dc23a7c84 --json
+    - Superseded build 9 finished and produced an IPA artifact.
+    - The IPA was downloaded, inspected with `codesign -d --entitlements`, and then removed from `/tmp`.
+    - Signed entitlements include `com.apple.developer.healthkit` true, `com.apple.developer.healthkit.access` as an empty array, the expected team identifier, and the expected application identifier.
+    - Build 10 remains the current pending build because it includes the later document-scan accessibility commit.
   - Existing EAS production IPA entitlement inspection
     - Downloaded the April 29, 2026 production IPA listed by EAS.
     - `codesign -d --entitlements :- Payload/RIVRHealthAI.app | plutil -p -` showed `com.apple.developer.healthkit` true, `com.apple.developer.healthkit.access` as an empty array, the expected team identifier, and the expected application identifier.
