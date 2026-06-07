@@ -32,14 +32,25 @@
         }
       ],
       "./plugins/with-ios-fmt-xcode-fix",
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "EmergencyCard",
+            "ios": "./assets/branding/app-icon-emergency-card.png"
+          }
+        ]
+      ]
     ],
     "ios": {
       "supportsTablet": true,
       "appleTeamId": "NUGFXB4PHG",
       "entitlements": {
         "com.apple.developer.healthkit": true,
-        "com.apple.security.application-groups": ["group.com.rivrhealth.app"]
+        "com.apple.security.application-groups": [
+          "group.com.rivrhealth.app"
+        ]
       },
       "infoPlist": {
         "NSHealthShareUsageDescription": "We read Apple Health data to show your vitals on the home screen.",

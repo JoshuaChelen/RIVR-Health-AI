@@ -42,6 +42,12 @@ import {
 
 import { captureException } from "../../lib/sentry";
 import { clearEmergencyCardWidget } from "../../lib/emergencyCardWidget";
+import {
+  supportsAlternateIcons,
+  setAlternateAppIcon,
+  getAppIconName,
+  resetAppIcon,
+} from "expo-alternate-app-icons";
 import { radius, shadows, spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
 import { useTheme } from "../../context/ThemeContext";
@@ -124,6 +130,55 @@ const dr = StyleSheet.create({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
+const APP_ICON_OPTIONS = [
+  {
+    id: "default" as const,
+    label: "RIVR",
+    sub: "Default",
+    preview: require("../../../assets/branding/app-icon.png"),
+  },
+  {
+    id: "EmergencyCard" as const,
+    label: "Emergency",
+    sub: "Medical ID",
+    preview: require("../../../assets/branding/app-icon-emergency-card.png"),
+  },
+];
+
+const iconTileStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  tile: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+  },
+  preview: {
+    width: 56,
+    height: 56,
+    borderRadius: 13,
+  },
+  label: {
+    fontSize: typescale.size.sm,
+    fontWeight: typescale.weight.semibold,
+  },
+  sub: {
+    fontSize: typescale.size.xs,
+  },
+  check: {
+    position: "absolute",
+    top: spacing.xs,
+    right: spacing.xs,
+  },
+});
+
 export function ProfileScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors, preference, setPreference } = useTheme();
@@ -136,6 +191,32 @@ export function ProfileScreen({ navigation }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [currentIcon, setCurrentIcon] = useState<string | null>(() =>
+    Platform.OS === "ios" ? getAppIconName() : null,
+  );
+  const [iconBusy, setIconBusy] = useState(false);
+
+  const handleIconSelect = useCallback(
+    async (id: "default" | "EmergencyCard") => {
+      const target = id === "default" ? null : id;
+      if (iconBusy || !supportsAlternateIcons || target === currentIcon) return;
+      setIconBusy(true);
+      try {
+        if (target === null) {
+          await resetAppIcon();
+        } else {
+          await setAlternateAppIcon(target);
+        }
+        setCurrentIcon(target);
+      } catch (e) {
+        captureException(e);
+        Alert.alert("Icon change failed", "Please try again.");
+      } finally {
+        setIconBusy(false);
+      }
+    },
+    [iconBusy, currentIcon],
+  );
   const avatarUrl = useAvatarUrl(profile?.avatar_path ?? null);
 
   // ── Edit drafts (one per section) ──────────────────────────
@@ -816,6 +897,59 @@ async function saveEmergency() {
               </View>
             </View>
           </Card>
+
+          {/* ── App Icon card (iOS alternate icons) ──────── */}
+          {Platform.OS === "ios" && supportsAlternateIcons ? (
+            <Card style={styles.settingsCard}>
+              <View style={styles.settingsCardHeader}>
+                <View style={styles.settingsIconWrap}>
+                  <Ionicons name="apps-outline" size={18} color={colors.teal} />
+                </View>
+                <AppText style={styles.settingsCardTitle}>App Icon</AppText>
+              </View>
+              <View style={styles.settingsDivider} />
+              <View style={styles.settingsCardBody}>
+                <AppText style={styles.settingsHint}>Pick the icon shown on your Home Screen.</AppText>
+                <View style={iconTileStyles.row}>
+                  {APP_ICON_OPTIONS.map((opt) => {
+                    const isActive = (opt.id === "default" ? null : opt.id) === currentIcon;
+                    return (
+                      <Pressable
+                        key={opt.id}
+                        accessible
+                        accessibilityRole="button"
+                        accessibilityLabel={`${opt.label} app icon${isActive ? ", selected" : ""}`}
+                        accessibilityState={{ selected: isActive, disabled: iconBusy }}
+                        disabled={iconBusy}
+                        onPress={() => handleIconSelect(opt.id)}
+                        style={[
+                          iconTileStyles.tile,
+                          {
+                            borderColor: isActive ? colors.teal : colors.border,
+                            backgroundColor: isActive ? colors.tealSoft : colors.surface,
+                          },
+                        ]}
+                      >
+                        <Image source={opt.preview} style={iconTileStyles.preview} resizeMode="cover" />
+                        <AppText style={[iconTileStyles.label, { color: isActive ? colors.teal : colors.text }]}>
+                          {opt.label}
+                        </AppText>
+                        <AppText style={[iconTileStyles.sub, { color: colors.muted }]}>{opt.sub}</AppText>
+                        {isActive ? (
+                          <View style={iconTileStyles.check}>
+                            <Ionicons name="checkmark-circle" size={16} color={colors.teal} />
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <AppText style={styles.settingsHint}>
+                  iOS shows a quick confirmation when the icon changes.
+                </AppText>
+              </View>
+            </Card>
+          ) : null}
 
           {/* ── Account card ─────────────────────────────── */}
           <Card style={styles.settingsCard}>
