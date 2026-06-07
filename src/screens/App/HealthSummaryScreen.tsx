@@ -21,6 +21,7 @@ import { syncEmergencyCardToWidget } from "../../lib/emergencyCardWidget";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
+import { AddWidgetCard } from "../../components/ui/Widget/AddWidgetCard";
 import { radius, shadows, spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
 import { useTheme } from "../../context/ThemeContext";
@@ -281,6 +282,9 @@ export default function HealthSummaryScreen({ navigation }: Props) {
             </View>
           </>
         ) : null}
+
+        {/* ── Add widget to Home Screen ─────────────────────── */}
+        <AddWidgetCard />
 
         {/* ── Full Summary ──────────────────────────────────── */}
         {showContent && fullSummary ? (
