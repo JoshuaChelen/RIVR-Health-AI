@@ -41,6 +41,7 @@ import {
 } from "../../lib/nativePermissions";
 
 import { captureException } from "../../lib/sentry";
+import { clearEmergencyCardWidget } from "../../lib/emergencyCardWidget";
 import { radius, shadows, spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
 import { useTheme } from "../../context/ThemeContext";
@@ -851,7 +852,7 @@ async function saveEmergency() {
               accessibilityRole="button"
               accessibilityLabel="Sign out"
               accessibilityHint="Signs you out of your account"
-              onPress={async () => { await supabase.auth.signOut(); }}
+              onPress={async () => { clearEmergencyCardWidget(); await supabase.auth.signOut(); }}
               style={({ pressed }) => [styles.settingsRow, styles.settingsRowLast, pressed && styles.settingsRowPressed]}
             >
               <Ionicons name="log-out-outline" size={18} color={colors.muted} />
@@ -906,6 +907,7 @@ async function saveEmergency() {
                           const body = await res.json();
                           if (!res.ok) throw new Error(body.error ?? "Failed to delete account");
 
+                          clearEmergencyCardWidget();
                           await supabase.auth.signOut();
                         } catch (e: any) {
                           captureException(e);

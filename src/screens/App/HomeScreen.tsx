@@ -15,6 +15,7 @@ import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
 import { captureException } from "../../lib/sentry";
+import { syncEmergencyCardToWidget } from "../../lib/emergencyCardWidget";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -100,6 +101,10 @@ export function HomeScreen({ navigation }: Props) {
 
       setScore(typeof resolvedScore === "number" ? resolvedScore : null);
       setLabel(typeof resolvedLabel === "string" ? resolvedLabel : null);
+      syncEmergencyCardToWidget(
+        healthProfile?.card_json ?? evalResult?.three_by_five_card ?? null,
+        healthProfile?.updated_at ?? null,
+      );
 
       const recs = buildRecommendations(
         healthProfile?.summary_json ?? null,

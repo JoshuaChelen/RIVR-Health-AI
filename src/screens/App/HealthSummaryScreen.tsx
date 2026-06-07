@@ -17,6 +17,7 @@ import { useAvatarUrl } from "../../lib/avatar";
 import { getCurrentUserId } from "../../lib/auth";
 import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
 import { captureException } from "../../lib/sentry";
+import { syncEmergencyCardToWidget } from "../../lib/emergencyCardWidget";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
@@ -99,6 +100,10 @@ export default function HealthSummaryScreen({ navigation }: Props) {
       setEvalCreatedAt(ev?.created_at ?? null);
       setLatestDocProcessedAt(latestDoc.data?.processed_at ?? null);
       setUserProfile(up);
+      syncEmergencyCardToWidget(
+        p?.card_json ?? ev?.result?.three_by_five_card ?? null,
+        p?.updated_at ?? null,
+      );
     } catch (e: any) {
       captureException(e);
       setError(e?.message ?? "Failed to load health summary.");
