@@ -24,7 +24,7 @@ reach the full card in one tap.
 | Large (`systemLarge`) | Full card — all fields + one-line summary |
 | Tooling | `@bacons/apple-targets` v4.0.7 (pinned exact) |
 | Data transport | App Group `group.com.rivrhealth.app` via `ExtensionStorage` (no network in widget) |
-| Tap target | `rivrhealth://emergency-card` → `HealthSummaryScreen` |
+| Tap target | `rivrhealth://health-summary` (existing route) → `HealthSummaryScreen` |
 
 ## 3. Architecture & data flow
 
@@ -42,7 +42,7 @@ health_profiles.card_json  ──app loads/updates profile──▶  syncEmergen
                                                                  │  UserDefaults(suiteName:).string(forKey:)
                                                                  ▼
                                               SwiftUI widget renders by widgetFamily
-                                                                 │  .widgetURL(rivrhealth://emergency-card)
+                                                                 │  .widgetURL(rivrhealth://health-summary)
                                                                  ▼
                                               tap → React Navigation linking → HealthSummaryScreen
 ```
@@ -110,13 +110,13 @@ export function clearEmergencyCardWidget(): void;   // ExtensionStorage.remove("
 - `src/screens/App/HomeScreen.tsx` — call the same in `load()` after `getHealthProfile` (~lines 72–132).
 - **Sign-out path** — call `clearEmergencyCardWidget()` wherever the session is cleared, so one user's PHI is never left in the App Group for the next user. (Locate the existing logout/`supabase.auth.signOut` handler during implementation.)
 
-### 4.4 Deep link — `src/navigation/linking.ts` (1 line) + test
+### 4.4 Deep link — no code change
 
-```ts
-HealthSummary: ["health-summary", "emergency-card"],   // was: "health-summary"
-```
-Update `src/navigation/linking.test.ts` to assert `emergency-card` resolves to `HealthSummary`.
-The scheme (`rivrhealth`), `NavigationContainer linking={appLinking}`, and the route already exist.
+The widget taps the **existing** route `rivrhealth://health-summary`, which already maps to
+`HealthSummaryScreen` (`src/navigation/linking.ts:31`). React Navigation's `config.screens` takes a
+single path string per screen, so a second alias would require a custom `getStateFromPath` — avoided
+as unnecessary. The scheme (`rivrhealth`), `NavigationContainer linking={appLinking}`, and the route
+already exist, so nothing in the JS app needs to change for the tap to work (cold or warm launch).
 
 ### 4.5 App config — `app.json`
 
@@ -208,8 +208,8 @@ Mapping is 1:1 from `three_by_five_card` (`worker/src/schemas.ts:100–114`). Fi
 ## 10. Success criteria
 
 - `npx tsc --noEmit` clean; `expo lint` clean.
-- Vitest: `mapCardToPayload` unit test (null blood type, empty arrays, missing contact) + linking test
-  asserting `emergency-card` → `HealthSummary`.
+- Vitest: `mapCardToPayload` unit test (null blood type, empty arrays, missing contact). The existing
+  `linking.test.ts` already covers `health-summary` → `HealthSummary`; no new linking test needed.
 - On device (TestFlight): widget appears in the gallery in all three sizes; each renders correctly;
   tapping opens the full Emergency Card; data refreshes after running an evaluation; teaser shows no PHI;
   widget clears after logout.
