@@ -31,13 +31,15 @@
           }
         }
       ],
-      "./plugins/with-ios-fmt-xcode-fix"
+      "./plugins/with-ios-fmt-xcode-fix",
+      "@bacons/apple-targets"
     ],
     "ios": {
       "supportsTablet": true,
       "appleTeamId": "NUGFXB4PHG",
       "entitlements": {
-        "com.apple.developer.healthkit": true
+        "com.apple.developer.healthkit": true,
+        "com.apple.security.application-groups": ["group.com.rivrhealth.app"]
       },
       "infoPlist": {
         "NSHealthShareUsageDescription": "We read Apple Health data to show your vitals on the home screen.",
