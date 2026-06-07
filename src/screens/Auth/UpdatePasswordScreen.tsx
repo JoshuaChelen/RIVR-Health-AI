@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import { clearEmergencyCardWidget } from "../../lib/emergencyCardWidget";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -62,6 +63,7 @@ export function UpdatePasswordScreen({ navigation }: Props) {
       if (error) throw error;
 
       setSuccess("Password updated. Please sign in again.");
+      clearEmergencyCardWidget();
       await supabase.auth.signOut();
       navigation.navigate("Login");
     } catch (e: any) {

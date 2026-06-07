@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import UIKit
 
 // MARK: - Brand colors + helpers
 
@@ -8,7 +9,13 @@ enum BrandColor {
   static let emergency = Color(hex: 0xDC2626)
   static let text = Color(hex: 0x0D1B2A)
   static let muted = Color(hex: 0x64748B)
-  static let background = Color("WidgetBackground")
+  // Self-contained adaptive surface (white / #0D1B2A) — avoids relying on the
+  // generated "$widgetBackground" asset name, which varies by tooling version.
+  static let background = Color(UIColor { trait in
+    trait.userInterfaceStyle == .dark
+      ? UIColor(red: 0x0D / 255, green: 0x1B / 255, blue: 0x2A / 255, alpha: 1)
+      : UIColor.white
+  })
 }
 
 extension Color {
