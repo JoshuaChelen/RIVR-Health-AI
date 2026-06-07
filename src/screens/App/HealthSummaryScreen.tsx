@@ -284,7 +284,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
         ) : null}
 
         {/* ── Add widget to Home Screen ─────────────────────── */}
-        <AddWidgetCard />
+        {showContent ? <AddWidgetCard /> : null}
 
         {/* ── Full Summary ──────────────────────────────────── */}
         {showContent && fullSummary ? (

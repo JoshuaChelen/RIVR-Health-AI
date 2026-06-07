@@ -927,6 +927,7 @@ async function saveEmergency() {
                           {
                             borderColor: isActive ? colors.teal : colors.border,
                             backgroundColor: isActive ? colors.tealSoft : colors.surface,
+                            opacity: iconBusy ? 0.6 : 1,
                           },
                         ]}
                       >

@@ -81,8 +81,14 @@ export function AddWidgetCard() {
         animationType="fade"
         onRequestClose={() => setSheetVisible(false)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setSheetVisible(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={styles.backdrop}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={() => setSheetVisible(false)}
+        >
+          <Pressable style={styles.sheet} accessibilityViewIsModal onPress={() => {}}>
             <View style={styles.accentBar} />
             <View style={styles.sheetBody}>
               <AppText variant="h2">Add the widget</AppText>
@@ -91,7 +97,7 @@ export function AddWidgetCard() {
               </AppText>
 
               {STEPS.map((step, i) => (
-                <View key={i} style={styles.stepRow}>
+                <View key={i} style={styles.stepRow} accessible accessibilityLabel={`Step ${i + 1}: ${step}`}>
                   <View style={styles.stepNum}>
                     <AppText variant="label" style={styles.stepNumText}>{i + 1}</AppText>
                   </View>
