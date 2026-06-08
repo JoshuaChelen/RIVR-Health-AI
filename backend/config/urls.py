@@ -3,6 +3,8 @@ from django.http import HttpRequest, JsonResponse
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.accounts.account_views import DeleteAccountView
+
 
 def healthz(_request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
@@ -19,4 +21,5 @@ urlpatterns = [
     path("api/", include("apps.timeline.urls")),
     path("api/", include("apps.health.urls")),
     path("api/", include("apps.jobs.urls")),
+    path("api/account", DeleteAccountView.as_view(), name="delete-account"),
 ]
