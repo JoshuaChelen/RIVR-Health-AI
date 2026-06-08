@@ -9,3 +9,5 @@ media/
 .coverage
 htmlcov/
 *.sqlite3
+docker-compose.local.yml
+celerybeat-schedule

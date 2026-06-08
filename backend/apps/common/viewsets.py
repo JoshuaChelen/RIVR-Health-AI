@@ -7,9 +7,8 @@ from .permissions import IsOwner
 class OwnedModelViewSet(viewsets.ModelViewSet):
     """A viewset whose rows are always scoped to the requesting user.
 
-    Replaces Supabase RLS: the queryset is filtered to the owner, so other
-    users' rows are invisible (404, never a 403 existence leak), and create
-    automatically stamps the owner.
+    The queryset is filtered to the owner, so other users' rows are invisible
+    (404, never a 403 existence leak), and create automatically stamps the owner.
     """
 
     owner_field = "user"
