@@ -5,6 +5,8 @@
   },
   "exclude": [
     "worker",
-    "supabase/functions"
+    "supabase/functions",
+    "web",
+    "backend"
   ]
 }
