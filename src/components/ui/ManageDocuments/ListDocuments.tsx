@@ -43,7 +43,7 @@ type Row =
   | { kind: "doc"; key: string; doc: DocRow };
 
 // ─── Job stage → user-facing label + progress percent ─────────────────────────
-// Mirrors the setStage() calls in worker/src/main.ts. Single-doc jobs progress
+// Mirrors the setStage() calls in the Django jobs pipeline (backend/apps/jobs/pipeline.py). Single-doc jobs progress
 // smoothly through these. Multi-doc jobs reuse the per-doc percentages until
 // all docs are done, then move into the job-level evaluation/backfill stages.
 type StageInfo = { label: string; percent: number };
