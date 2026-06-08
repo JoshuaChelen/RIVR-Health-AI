@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -20,7 +19,7 @@ function Verify() {
     <Card>
       <div className="space-y-3 text-center text-sm">
         {state === "working" && <p className="text-muted">Verifying your email…</p>}
-        {state === "ok" && <p className="text-sub">Your email is verified. <Link href="/dashboard" className="text-teal hover:underline">Continue</Link></p>}
+        {state === "ok" && <p className="text-sub">Your email is verified. You can return to the RIVR app.</p>}
         {state === "error" && <p className="text-red-600">This verification link is invalid or expired.</p>}
       </div>
     </Card>

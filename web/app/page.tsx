@@ -1,14 +1,12 @@
-"use client";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-import { useAuth } from "@/lib/auth";
-
 export default function Home() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  useEffect(() => {
-    if (!loading) router.replace(user ? "/dashboard" : "/login");
-  }, [user, loading, router]);
-  return <div className="grid min-h-screen place-items-center text-muted">Loading…</div>;
+  return (
+    <div className="grid min-h-screen place-items-center px-4 text-center">
+      <div className="max-w-md space-y-3">
+        <h1 className="text-3xl font-bold text-teal">RIVR Health</h1>
+        <p className="text-sub">
+          Your personal health record. Manage your records and share them securely from the RIVR app.
+        </p>
+      </div>
+    </div>
+  );
 }

@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState } from "react";
 
 import { Button, Card, Field, Input } from "@/components/ui";
@@ -26,7 +25,7 @@ export default function ForgotPasswordPage() {
       {sent ? (
         <div className="space-y-3 text-center">
           <p className="text-sm text-sub">If that email is registered, a reset link is on its way.</p>
-          <Link href="/login" className="text-sm text-teal hover:underline">Back to sign in</Link>
+          <p className="text-sm text-muted">You can close this tab and open the RIVR app.</p>
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
@@ -35,7 +34,6 @@ export default function ForgotPasswordPage() {
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
           <Button type="submit" disabled={busy} className="w-full">{busy ? "Sending…" : "Send reset link"}</Button>
-          <Link href="/login" className="block text-center text-sm text-muted hover:text-teal">Back to sign in</Link>
         </form>
       )}
     </Card>

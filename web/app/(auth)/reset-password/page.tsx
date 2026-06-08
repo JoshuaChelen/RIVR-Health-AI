@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -32,7 +31,7 @@ function ResetForm() {
   if (done) {
     return (
       <Card>
-        <p className="text-center text-sm text-sub">Password updated. <Link href="/login" className="text-teal hover:underline">Sign in</Link></p>
+        <p className="text-center text-sm text-sub">Password updated. Open the RIVR app to sign in.</p>
       </Card>
     );
   }
