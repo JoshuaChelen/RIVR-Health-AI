@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api/client";
 import { captureException } from "../../lib/sentry";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
@@ -68,9 +68,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-      const redirectTo = process.env.EXPO_PUBLIC_RESET_REDIRECT_TO;
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
-      if (error) throw error;
+      await api.post("/api/auth/password/forgot", { email: email.trim() });
       setMsg("If that email exists, you will receive a reset link shortly.");
     } catch (e: any) {
       captureException(e);

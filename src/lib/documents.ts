@@ -1,8 +1,6 @@
-import { supabase } from "./supabase";
 import { requestCancelJob } from "./aiJobs";
-import { uploadUriToStorage, uploadBytesToStorage } from "./storageUpload";
-
-const STORAGE_BUCKET = "documents";
+import { api } from "./api/client";
+import { deleteDocument as deleteDocumentApi, getProfile as getProfileData, uploadDocument } from "./api/data";
 
 type ManualProfileRow = {
   date_of_birth: string | null;
@@ -23,45 +21,14 @@ type ManualProfileRow = {
 export async function deleteDocument(docId: string, userId: string, storagePath: string | null) {
   // Must delete dependent rows first — FK constraints have no ON DELETE CASCADE.
   // timeline_events and document_facts both reference documents(id).
-  const { error: e1 } = await supabase
-    .from("timeline_events")
-    .delete()
-    .eq("document_id", docId)
-    .eq("user_id", userId);
-  if (e1) throw e1;
-
-  const { error: e2 } = await supabase
-    .from("document_facts")
-    .delete()
-    .eq("document_id", docId)
-    .eq("user_id", userId);
-  if (e2) throw e2;
-
-  // share_package_items has no user_id column — best effort
-  await supabase.from("share_package_items").delete().eq("document_id", docId);
-
-  const { error } = await supabase
-    .from("documents")
-    .delete()
-    .eq("id", docId)
-    .eq("user_id", userId);
-  if (error) throw error;
-
-  if (storagePath) {
-    await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]).catch(() => {});
-  }
+  // Server scopes to the JWT user; no userId filter needed.
+  await deleteDocumentApi(docId);
 }
 
 export async function cancelProcessing(docId: string, userId: string): Promise<void> {
   // Find the active job for this document and signal the worker to stop.
   // The worker is responsible for reverting the document status back to 'uploaded'.
-  const { data: jobs } = await supabase
-    .from("ai_jobs")
-    .select("id")
-    .eq("user_id", userId)
-    .in("status", ["queued", "running"])
-    .contains("document_ids", [docId])
-    .limit(1);
+  const { results: jobs } = await api.get<{ results: { id: string }[] }>("/api/ai-jobs/?status__in=queued,running&contains_document_id=" + encodeURIComponent(docId) + "&limit=1");
 
   if (jobs && jobs.length > 0) {
     await requestCancelJob(jobs[0].id);
@@ -82,19 +49,7 @@ export function safeFilename(name: string) {
  *   one row per user with source_type = 'manual_input'.
  */
 export async function upsertManualInputDocument(userId: string): Promise<void> {
-  const { data: profileRaw, error: profileError } = await supabase
-  .from("user_profiles")
-  .select(
-    "date_of_birth, sex_or_gender," +
-    "allergies, medications, medical_history," +
-    "surgical_history, family_history, hospitalizations," +
-    "social_history, current_symptoms," +
-    "smoking_status, alcohol_use, exercise_level"
-  )
-  .eq("user_id", userId)
-  .maybeSingle();
-
-if (profileError) throw profileError;
+  const profileRaw = await getProfileData();
 
 const profile = (profileRaw ?? null) as ManualProfileRow | null;
 
@@ -130,12 +85,8 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
     has_lifestyle: !!(profile?.smoking_status || profile?.alcohol_use || profile?.exercise_level),
   };
 
-  const { data: existing } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("source_type", "manual_input")
-    .maybeSingle();
+  const { results: existingDocs } = await api.get<{ results: any[] }>("/api/documents/?source_type=manual_input&limit=1");
+  const existing = existingDocs && existingDocs.length > 0 ? existingDocs[0] : null;
 
   if (!hasMeaningfulData) {
     if (existing?.id) {
@@ -145,30 +96,23 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
   }
 
   if (existing?.id) {
-    await supabase
-      .from("documents")
-      .update({
-        content_json: snapshot,
-        status: "uploaded",
-        processing_error: null,
-        processed_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id)
-      .eq("user_id", userId);
+    await api.patch("/api/documents/" + existing.id + "/", {
+      content_json: snapshot,
+      status: "uploaded",
+      processing_error: null,
+      processed_at: null,
+      updated_at: new Date().toISOString(),
+    });
   } else {
-    await supabase
-      .from("documents")
-      .insert({
-        user_id: userId,
-        title: "Medical Profile Record",
-        source_type: "manual_input",
-        content_json: snapshot,
-        status: "uploaded",
-        mime_type: "application/json",
-        processing_error: null,
-        processed_at: null,
-      });
+    await api.post("/api/documents/", {
+      title: "Medical Profile Record",
+      source_type: "manual_input",
+      content_json: snapshot,
+      status: "uploaded",
+      mime_type: "application/json",
+      processing_error: null,
+      processed_at: null,
+    });
   }
 }
 
@@ -181,55 +125,18 @@ export async function checkDuplicateDocument(
   title: string,
   sizeBytes: number,
 ): Promise<{ id: string; title: string; created_at: string } | null> {
-  const { data } = await supabase
-    .from("documents")
-    .select("id, title, created_at")
-    .eq("user_id", userId)
-    .eq("title", title)
-    .eq("size_bytes", sizeBytes)
-    .limit(1)
-    .maybeSingle();
+  const { results } = await api.get<{ results: any[] }>(
+    "/api/documents/?title=" + encodeURIComponent(title) + 
+    "&size_bytes=" + sizeBytes + "&limit=1"
+  );
 
-  return data ?? null;
-}
-
-export async function insertDocumentRow(params: {
-  userId: string;
-  title: string;
-  storagePath: string;      // can be PDF, audio, or image — stored in pdf_path
-  mimeType?: string | null;
-  sizeBytes?: number | null;
-  sourceType?: string | null;
-}) {
-  const { data, error } = await supabase
-    .from("documents")
-    .insert([
-      {
-        user_id: params.userId,
-        title: params.title,
-
-        // NOTE: we reuse pdf_path to store the original file path (PDF, audio, or image)
-        pdf_path: params.storagePath,
-
-        status: "uploaded",
-        mime_type: params.mimeType ?? "application/octet-stream",
-        size_bytes: typeof params.sizeBytes === "number" ? params.sizeBytes : null,
-        source_type: params.sourceType ?? undefined,
-
-        processing_error: null,
-        processed_at: null,
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as { id: string };
+  return (results && results.length > 0) ? results[0] : null;
 }
 
 /**
- * Shared upload pipeline: upload a file URI to storage then insert a documents row.
- * Used by UploadFile for PDF, gallery photo, and camera scan flows.
+ * Shared upload pipeline: upload a file URI in one multipart request that both
+ * stores the file and creates the documents row. Used by UploadFile for PDF,
+ * gallery photo, and camera scan flows.
  */
 export async function uploadAndInsertDocument(params: {
   userId: string;
@@ -240,30 +147,17 @@ export async function uploadAndInsertDocument(params: {
   title?: string;
 }): Promise<{ id: string }> {
   const cleanName = safeFilename(params.fileName);
-  const folder = params.sourceType.startsWith("image") ? "medical-images" : "medical-documents";
-  const storagePath = `${params.userId}/${folder}/${Date.now()}_${cleanName}`;
-
-  const { sizeBytes } = await uploadUriToStorage({
-    bucket: "documents",
-    storagePath,
-    uri: params.uri,
-    contentType: params.mimeType,
-    upsert: false,
-  });
-
-  return insertDocumentRow({
-    userId: params.userId,
-    title: params.title ?? cleanName,
-    storagePath,
-    mimeType: params.mimeType,
-    sizeBytes,
-    sourceType: params.sourceType,
-  });
+  const doc = await uploadDocument(
+    { uri: params.uri, name: cleanName, type: params.mimeType } as unknown as Blob,
+    params.sourceType,
+    params.title ?? cleanName,
+  );
+  return doc as { id: string };
 }
 
 /**
- * Upload pre-compiled bytes (e.g. a Uint8Array from pdf-lib on web) to storage
- * then insert a documents row. No URI or temp file required.
+ * Upload pre-compiled bytes (e.g. a Uint8Array from pdf-lib on web) in one
+ * multipart request. No URI or temp file required.
  */
 export async function uploadBytesAndInsertDocument(params: {
   userId: string;
@@ -274,22 +168,11 @@ export async function uploadBytesAndInsertDocument(params: {
   title?: string;
 }): Promise<{ id: string }> {
   const cleanName = safeFilename(params.fileName);
-  const storagePath = `${params.userId}/medical-documents/${Date.now()}_${cleanName}`;
-
-  const { sizeBytes } = await uploadBytesToStorage({
-    bucket: "documents",
-    storagePath,
-    bytes: params.bytes,
-    contentType: params.mimeType,
-    upsert: false,
-  });
-
-  return insertDocumentRow({
-    userId: params.userId,
-    title: params.title ?? cleanName,
-    storagePath,
-    mimeType: params.mimeType,
-    sizeBytes,
-    sourceType: params.sourceType,
-  });
+  const file = new File(
+    [new Blob([params.bytes as unknown as BlobPart], { type: params.mimeType })],
+    cleanName,
+    { type: params.mimeType },
+  );
+  const doc = await uploadDocument(file as unknown as Blob, params.sourceType, params.title ?? cleanName);
+  return doc as { id: string };
 }

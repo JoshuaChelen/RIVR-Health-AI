@@ -10,11 +10,11 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
 import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
 import { getCurrentUserId } from "../../lib/auth";
+import { api } from "../../lib/api/client";
 import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
 import { captureException } from "../../lib/sentry";
 import { syncEmergencyCardToWidget } from "../../lib/emergencyCardWidget";
@@ -86,15 +86,9 @@ export default function HealthSummaryScreen({ navigation }: Props) {
         getHealthProfile(userId),
         getLatestEvaluation(userId),
         getProfile(userId),
-        supabase
-          .from("documents")
-          .select("processed_at")
-          .eq("user_id", userId)
-          .eq("status", "processed")
-          .not("processed_at", "is", null)
-          .order("processed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        api.get<{ results: any[] }>(
+          "/api/documents/?limit=1&offset=0&status=processed&ordering=-processed_at",
+        ).then((res) => ({ data: res.results?.[0] ?? null })),
       ]);
       setProfile(p);
       setEval(ev?.result ?? null);
@@ -115,30 +109,17 @@ export default function HealthSummaryScreen({ navigation }: Props) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // ── Realtime: reload when health_profiles row is updated ────────────────────
+  // ── Polling: reload when health_profiles row is updated ──────────────────────
   useEffect(() => {
     const userId = userIdRef.current;
     if (!userId) return;
 
-    const channel = supabase
-      .channel(`health-profile:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "health_profiles",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          // Health profile was updated (e.g. after a new evaluation) — reload.
-          load();
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      load();
+    }, 4000);
 
-    return () => { supabase.removeChannel(channel); };
-  }, [loading, load]);
+    return () => { clearInterval(interval); };
+  }, [load]);
 
 
   // ── Derived data ────────────────────────────────────────────────────────────

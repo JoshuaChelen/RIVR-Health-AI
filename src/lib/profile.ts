@@ -1,4 +1,3 @@
-import { supabase } from "./supabase";
 import type {
   AllergyItem,
   MedicationItem,
@@ -102,13 +101,7 @@ export type UserProfile = {
 };
 
 export async function getProfile(userId: string): Promise<UserProfile | null> {
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
+  const data = await import("./api/data").then((m) => m.getProfile());
   return data;
 }
 
@@ -116,12 +109,6 @@ export async function upsertProfile(
   userId: string,
   patch: Partial<Omit<UserProfile, "id" | "user_id" | "created_at" | "updated_at">>
 ): Promise<UserProfile> {
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .upsert({ user_id: userId, ...patch }, { onConflict: "user_id" })
-    .select("*")
-    .single();
-
-  if (error) throw error;
+  const data = await import("./api/data").then((m) => m.updateProfile(patch));
   return data;
 }

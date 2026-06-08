@@ -14,12 +14,9 @@ import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
 import { ScoreRing } from "../../components/ui/Home/ScoreRing";
 
-import { supabase } from "../../lib/supabase";
-import {
-  getHealthProfile,
-  getLatestJob,
-  getLatestEvaluation,
-} from "../../lib/aiJobs";
+import { getHealthProfile, getLatestEvaluation } from "../../lib/api/data";
+import { getLatestJob } from "../../lib/aiJobs";
+import { useSession } from "../../context/SessionContext";
 
 import { spacing, radius, typescale, shadows } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
@@ -51,19 +48,19 @@ export function ShinScoreScreen({ navigation }: Props) {
     }, [])
   );
 
+  const { user } = useSession();
   const load = useCallback(async () => {
     setError(null);
-    const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userRes?.user) {
+    if (!user) {
       setError("Not signed in.");
       setLoading(false);
       return;
     }
     try {
       const [j, p, ev] = await Promise.all([
-        getLatestJob(userRes.user.id),
-        getHealthProfile(userRes.user.id),
-        getLatestEvaluation(userRes.user.id),
+        getLatestJob(),
+        getHealthProfile(),
+        getLatestEvaluation(),
       ]);
       setJob(j);
       setProfile(p);

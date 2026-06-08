@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
-import { supabase } from "../../lib/supabase";
+import { useSession } from "../../context/SessionContext";
 import { captureException } from "../../lib/sentry";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
@@ -29,6 +29,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "SignUp">;
 
 export function SignUpScreen({ navigation }: Props) {
   const styles = useStyles();
+  const { signUp } = useSession();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
@@ -78,9 +79,8 @@ export function SignUpScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
-      if (error) throw error;
-      setSuccessText(data.session ? "Account created!" : "Check your inbox to verify your email.");
+      const result = await signUp(email.trim(), password);
+      setSuccessText(result ? "Account created!" : "Check your inbox to verify your email.");
     } catch (e: any) {
       captureException(e);
       setErrorText(e?.message ?? "Sign up failed.");

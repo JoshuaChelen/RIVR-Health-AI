@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-import { supabase } from "../../../lib/supabase";
 import { captureException } from "../../../lib/sentry";
+import { listTimeline, updateTimelineEvent } from "../../../lib/api/data";
 import { AppText } from "../Primitives/AppText";
 import { TextField } from "../Primitives/TextField";
 import { PrimaryButton } from "../Primitives/PrimaryButton";
@@ -97,13 +97,15 @@ export function SetVisitDateModal({
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("timeline_events")
-        .update({ occurred_at, date_precision: precision })
-        .eq("document_id", documentId)
-        .is("occurred_at", null);
-
-      if (error) throw error;
+      const { results } = await listTimeline(`?document=${documentId}`);
+      const undated = (results as { id: string; occurred_at: string | null }[]).filter(
+        (ev) => !ev.occurred_at,
+      );
+      await Promise.all(
+        undated.map((ev) =>
+          updateTimelineEvent(ev.id, { occurred_at, date_precision: precision }),
+        ),
+      );
 
       reset();
       onSaved();

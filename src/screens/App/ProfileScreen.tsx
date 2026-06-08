@@ -19,9 +19,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
-import { supabase } from "../../lib/supabase";
-import { getProfile, upsertProfile, type UserProfile } from "../../lib/profile";
-import { uploadAvatar, removeAvatar, useAvatarUrl } from "../../lib/avatar";
+import { useSession } from "../../context/SessionContext";
+import { getProfile, updateProfile, uploadAvatar } from "../../lib/api/data";
+import type { UserProfile } from "../../lib/profile";
+import { useAvatarUrl } from "../../lib/avatar";
 import { getCurrentUserId } from "../../lib/auth";
 import { parseDob, dobIsoToInput, dobIsoToDisplay, computeAge, formatDobAsTyped } from "../../lib/profileUtils";
 import { PhoneField, parseStoredPhone, COUNTRIES, type Country } from "../../components/ui/Primitives/PhoneField";
@@ -182,6 +183,7 @@ const iconTileStyles = StyleSheet.create({
 export function ProfileScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors, preference, setPreference } = useTheme();
+  const { signOut } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingSection, setEditingSection] = useState<EditSection | null>(null);
@@ -243,8 +245,7 @@ export function ProfileScreen({ navigation }: Props) {
 
   // ── Load ────────────────────────────────────────────────────
   const reloadProfile = useCallback(async () => {
-    const userId = await getCurrentUserId();
-    const p = await getProfile(userId);
+    const p = await getProfile();
     setProfile(p);
   }, []);
 
@@ -253,9 +254,8 @@ export function ProfileScreen({ navigation }: Props) {
       let active = true;
       (async () => {
         try {
-          const userId = await getCurrentUserId();
           if (!active) return;
-          const p = await getProfile(userId);
+          const p = await getProfile();
           if (active) setProfile(p);
         } catch (e) {
           captureException(e);
@@ -321,13 +321,12 @@ export function ProfileScreen({ navigation }: Props) {
   }
 
   async function saveSection(
-    patch: Parameters<typeof upsertProfile>[1]
+    patch: Partial<Omit<UserProfile, "id" | "user_id" | "created_at" | "updated_at">>
   ) {
     setSaveError(null);
     setSaving(true);
     try {
-      const userId = await getCurrentUserId();
-      const updated = await upsertProfile(userId, patch);
+      const updated = await updateProfile(patch);
       setProfile(updated);
       setEditingSection(null);
     } catch (e: any) {
@@ -379,13 +378,13 @@ export function ProfileScreen({ navigation }: Props) {
 
       if (result.canceled || !result.assets?.[0]?.uri) return;
 
-      if (!profile?.user_id) {
-        setAvatarError("Sign in to update your photo.");
-        return;
-      }
-
       setAvatarBusy(true);
-      await uploadAvatar(profile.user_id, result.assets[0].uri);
+      const imageFile = {
+        uri: result.assets[0].uri,
+        name: "avatar.jpg",
+        type: "image/jpeg",
+      } as any;
+      await uploadAvatar(imageFile);
       await reloadProfile();
     } catch (e: any) {
       captureException(e);
@@ -396,16 +395,15 @@ export function ProfileScreen({ navigation }: Props) {
     } finally {
       setAvatarBusy(false);
     }
-  }, [profile?.user_id, reloadProfile]);
+  }, [reloadProfile]);
 
   const handleRemoveAvatar = useCallback(async () => {
     setPickerOpen(false);
     setAvatarError(null);
-    if (!profile?.user_id) return;
 
     setAvatarBusy(true);
     try {
-      await removeAvatar(profile.user_id, profile.avatar_path ?? null);
+      await updateProfile({ avatar_path: null });
       await reloadProfile();
     } catch (e: any) {
       captureException(e);
@@ -413,7 +411,7 @@ export function ProfileScreen({ navigation }: Props) {
     } finally {
       setAvatarBusy(false);
     }
-  }, [profile?.user_id, profile?.avatar_path, reloadProfile]);
+  }, [reloadProfile]);
 
   // ── Section save handlers ───────────────────────────────────
   async function saveBasic() {
@@ -987,7 +985,7 @@ async function saveEmergency() {
               accessibilityRole="button"
               accessibilityLabel="Sign out"
               accessibilityHint="Signs you out of your account"
-              onPress={async () => { clearEmergencyCardWidget(); await supabase.auth.signOut(); }}
+              onPress={async () => { clearEmergencyCardWidget(); await signOut(); }}
               style={({ pressed }) => [styles.settingsRow, styles.settingsRowLast, pressed && styles.settingsRowPressed]}
             >
               <Ionicons name="log-out-outline" size={18} color={colors.muted} />
@@ -1024,26 +1022,20 @@ async function saveEmergency() {
                       onPress: async () => {
                         setDeleting(true);
                         try {
-                          const { data: sessionData } = await supabase.auth.getSession();
-                          const token = sessionData.session?.access_token;
-                          if (!token) throw new Error("Not signed in");
-
                           const res = await fetch(
-                            `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/delete-account`,
+                            `${process.env.EXPO_PUBLIC_API_URL}/api/account/delete/`,
                             {
                               method: "POST",
-                              headers: {
-                                Authorization: `Bearer ${token}`,
-                                "Content-Type": "application/json",
-                              },
                             }
                           );
 
-                          const body = await res.json();
-                          if (!res.ok) throw new Error(body.error ?? "Failed to delete account");
+                          if (!res.ok) {
+                            const body = await res.json();
+                            throw new Error(body.error ?? "Failed to delete account");
+                          }
 
                           clearEmergencyCardWidget();
-                          await supabase.auth.signOut();
+                          await signOut();
                         } catch (e: any) {
                           captureException(e);
                           setDeleting(false);
@@ -1106,7 +1098,7 @@ async function saveEmergency() {
 
 function storySummary(profile: UserProfile | null): string {
   if (!profile?.story_answers) return "Reflect on your personal health context";
-  const count = Object.values(profile.story_answers).filter((v) => v?.trim()).length;
+  const count = Object.values(profile.story_answers).filter((v) => String(v ?? "").trim()).length;
   if (count === 0) return "Reflect on your personal health context";
   if (count === 10) return "All 10 questions answered";
   return `${count} of 10 questions answered`;

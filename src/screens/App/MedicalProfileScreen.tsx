@@ -12,10 +12,10 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
 import { getProfile, upsertProfile, type UserProfile } from "../../lib/profile";
 import { upsertManualInputDocument } from "../../lib/documents";
 import { getCurrentUserId } from "../../lib/auth";
+import { listDocuments, enqueueDocumentProcessing } from "../../lib/api/data";
 import {
   makeId, safeList, joinParts,
   type AllergyItem, type MedicationItem, type MedHistoryItem,
@@ -276,36 +276,19 @@ export function MedicalProfileScreen({ navigation }: Props) {
 const didHandleExitRef = useRef(false);
 
 const enqueueManualProfileIfPending = useCallback(async () => {
-  const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw userErr;
-  if (!user) return;
+  const userId = await getCurrentUserId();
+  if (!userId) return;
 
-  const { data: manualDoc, error: docErr } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("source_type", "manual_input")
-    .eq("status", "uploaded")
-    .maybeSingle();
-
-  if (docErr) throw docErr;
-  if (!manualDoc?.id) return;
-
-  const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
-  if (sessErr) throw sessErr;
-
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Not signed in");
-
-  const { error: jobErr } = await supabase.functions.invoke(
-    "enqueue-document-processing",
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      body: { documentIds: [manualDoc.id] },
-    }
+  // Query documents to find the manual input document with status 'uploaded'
+  const { results } = await listDocuments();
+  const manualDoc = results.find(
+    (doc) => doc.source_type === "manual_input" && doc.status === "uploaded"
   );
 
-  if (jobErr) throw jobErr;
+  if (!manualDoc?.id) return;
+
+  // Enqueue the manual document for processing
+  await enqueueDocumentProcessing([manualDoc.id]);
 }, []);
 
 useFocusEffect(

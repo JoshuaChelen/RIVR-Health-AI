@@ -1,107 +1,50 @@
 // src/lib/aiJobs.ts
-import { supabase } from "./supabase";
+import {
+  cancelJob,
+  enqueueDocumentProcessing as enqueueDocumentProcessingApi,
+  enqueueProfileEvaluation as enqueueProfileEvaluationApi,
+  getHealthProfile as getHealthProfileApi,
+  getLatestEvaluation as getLatestEvaluationApi,
+  listDocuments,
+  listJobs,
+} from "./api/data";
 
-async function getAuthToken(): Promise<string> {
-  const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
-  if (sessErr) throw sessErr;
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Not signed in");
-  return token;
-}
-
-export async function enqueueDocumentProcessing(documentIds: string[]) {
-  const token = await getAuthToken();
-
-  const { data, error } = await supabase.functions.invoke("enqueue-document-processing", {
-    headers: { Authorization: `Bearer ${token}` },
-    body: { documentIds },
-  });
-
-  if (error) throw error;
-  return data?.jobId as string;
+export async function enqueueDocumentProcessing(documentIds: string[]): Promise<string> {
+  return enqueueDocumentProcessingApi(documentIds);
 }
 
 /**
- * Enqueue a profile-only health evaluation.
- *
- * No documents are required — the worker will evaluate the user's manually
- * entered profile data (allergies, medications, medical history, story
- * answers, etc.) alongside any previously processed document facts.
- *
- * Returns the jobId. If a queued or running profile evaluation already exists
- * for this user the server returns the existing jobId with reused=true, so
- * calling this multiple times in quick succession is safe.
+ * Enqueue a profile-only health evaluation. The worker evaluates the user's
+ * manually entered profile data alongside any previously processed document
+ * facts. The server reuses an existing queued/running evaluation if present.
  */
 export async function enqueueProfileEvaluation(): Promise<string> {
-  const token = await getAuthToken();
-
-  const { data, error } = await supabase.functions.invoke("enqueue-document-processing", {
-    headers: { Authorization: `Bearer ${token}` },
-    body: { jobType: "profile_evaluation" },
-  });
-
-  if (error) throw error;
-  return data?.jobId as string;
+  return enqueueProfileEvaluationApi();
 }
 
-export async function getHealthProfile(userId: string) {
-  const { data, error } = await supabase
-    .from("health_profiles")
-    .select("user_id,score,score_label,summary_json,card_json,sources,updated_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+export async function getHealthProfile(_userId?: string) {
+  return getHealthProfileApi();
 }
 
-export async function getLatestEvaluation(userId: string) {
-  const { data, error } = await supabase
-    .from("health_evaluations")
-    .select("id,created_at,score,result")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+export async function getLatestEvaluation(_userId?: string) {
+  return getLatestEvaluationApi();
 }
 
 // NEW: your HealthSummaryScreen needs these
-export async function getLatestJob(userId: string) {
-  const { data, error } = await supabase
-    .from("ai_jobs")
-    .select("id,job_type,status,error,document_ids,created_at,updated_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+export async function getLatestJob(_userId?: string) {
+  const result = await listJobs("?limit=1&ordering=-created_at");
+  return result.results[0] ?? null;
 }
 
-export async function getAllDocumentIds(userId: string) {
-  const { data, error } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return (data ?? []).map((r: any) => String(r.id));
+export async function getAllDocumentIds(_userId?: string): Promise<string[]> {
+  const result = await listDocuments("?limit=1000&ordering=-created_at");
+  return result.results.map((r: { id: string }) => String(r.id));
 }
 
 export async function requestCancelJob(jobId: string): Promise<void> {
-  const { error } = await supabase
-    .from("ai_jobs")
-    .update({ cancel_requested: true })
-    .eq("id", jobId);
-  if (error) throw error;
+  await cancelJob(jobId);
 }
 
-// keep your old name if you want
 export async function startAiJob(documentIds: string[]) {
   return enqueueDocumentProcessing(documentIds);
 }

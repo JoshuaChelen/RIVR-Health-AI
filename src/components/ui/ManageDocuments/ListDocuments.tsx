@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { supabase } from "../../../lib/supabase";
+import { useSession } from "../../../context/SessionContext";
+import { listDocuments, listJobs } from "../../../lib/api/data";
 import { deleteDocument, cancelProcessing } from "../../../lib/documents";
 import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -611,27 +612,20 @@ export function ListDocuments({
   }, [getAnim]);
 
   // Resolve userId once
+  const { user } = useSession();
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data?.user?.id ?? null);
-    });
-  }, []);
+    setUserId(user?.id ?? null);
+  }, [user?.id]);
 
   // Initial fetch (paginated)
   const fetchDocs = useCallback(async (offset: number, append: boolean) => {
     if (!userId) return;
     try {
-      const { data, error: fetchErr } = await supabase
-        .from("documents")
-        .select("id,title,created_at,status,processing_error,pdf_path,source_type")
-        .eq("user_id", userId)
-        .neq("status", "processed")
-        .order("created_at", { ascending: false })
-        .range(offset, offset + DOC_PAGE_SIZE - 1);
+      const result = await listDocuments(
+        `?exclude_status=processed&offset=${offset}&limit=${DOC_PAGE_SIZE}&ordering=-created_at`
+      );
 
-      if (fetchErr) { setError(fetchErr.message); return; }
-
-      const rows = (data ?? []) as DocRow[];
+      const rows = (result.results ?? []) as DocRow[];
       setHasMore(rows.length === DOC_PAGE_SIZE);
 
       if (append) {
@@ -670,145 +664,114 @@ export function ListDocuments({
     fetchDocs(0, false);
   }, [fetchDocs]);
 
-  // Realtime subscription
+  // Polling for document status updates (replaces realtime subscription)
   useEffect(() => {
     if (!userId) return;
 
-    const channel = supabase
-      .channel(`docs-status:${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "documents", filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const updated = payload.new as DocRow;
+    const interval = setInterval(async () => {
+      try {
+        const result = await listDocuments(
+          `?exclude_status=processed&offset=0&limit=100&ordering=-created_at`
+        );
+        const updated = (result.results ?? []) as DocRow[];
 
-          if (updated.status === "processed") {
-            getAnim(updated.id);
-            animateOut(updated.id, { kind: "processed", speed: "normal" }, () => {
-              setDocs((prev) => prev.filter((d) => d.id !== updated.id));
-              animsRef.current.delete(updated.id);
-            });
-          } else {
-            // Worker reverted doc to 'uploaded' after acknowledging cancellation
-            if (updated.status === "uploaded") {
-              setStoppingIds((prev) => { const s = new Set(prev); s.delete(updated.id); return s; });
+        // Process updates and inserts
+        const updatedMap = new Map(updated.map((d) => [d.id, d]));
+        const currentMap = new Map(docs.map((d) => [d.id, d]));
+
+        setDocs((prev) => {
+          let changed = false;
+          const next: DocRow[] = [];
+
+          // Update or remove existing docs
+          for (const d of prev) {
+            const newData = updatedMap.get(d.id);
+            if (!newData) {
+              // Doc was deleted or processed
+              if (d.status !== "processed") {
+                changed = true;
+              }
+              continue;
             }
-            setDocs((prev) => {
-              const exists = prev.some((d) => d.id === updated.id);
-              if (exists) return prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d));
-              if (updated.status !== "processed") return [updated, ...prev];
-              return prev;
-            });
+            if (newData.status === "processed") {
+              // Process completed
+              getAnim(newData.id);
+              animateOut(newData.id, { kind: "processed", speed: "normal" }, () => {
+                animsRef.current.delete(newData.id);
+              });
+              changed = true;
+              continue;
+            }
+            if (JSON.stringify(d) !== JSON.stringify(newData)) {
+              changed = true;
+              if (newData.status === "uploaded") {
+                setStoppingIds((prev) => { const s = new Set(prev); s.delete(newData.id); return s; });
+              }
+            }
+            next.push(newData);
+            updatedMap.delete(d.id);
           }
 
-          onStatusChangeRef.current?.();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "documents", filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const newDoc = payload.new as DocRow;
-          if (newDoc.status === "processed") return;
-          getAnim(newDoc.id, true);
-          setDocs((prev) => {
-            if (prev.some((d) => d.id === newDoc.id)) return prev;
-            return [newDoc, ...prev];
-          });
-          onStatusChangeRef.current?.();
-        }
-      )
-      .subscribe();
+          // Add new docs
+          for (const [id, newDoc] of updatedMap) {
+            if (newDoc.status !== "processed") {
+              changed = true;
+              getAnim(newDoc.id, true);
+              next.unshift(newDoc);
+            }
+          }
 
-    return () => { supabase.removeChannel(channel); };
-  }, [animateOut, getAnim, userId]);
+          if (changed) {
+            onStatusChangeRef.current?.();
+          }
+          return changed ? next : prev;
+        });
+      } catch (e) {
+        // Silent fail on polling
+      }
+    }, 4000);
 
-  // Realtime subscription on ai_jobs so each processing doc card can render
-  // a real progress bar (and stage label) bound to the worker's setStage()
-  // calls. We attach the stage to a specific doc when progress.currentDocId
-  // is set (per-doc stages); otherwise we attach to every doc in the job
-  // (job-level stages like loading_manual_profile / openai_eval / saving_profile).
-  useEffect(() => {
-    if (!userId) return;
+    return () => clearInterval(interval);
+  }, [userId, getAnim, animateOut]);
 
-    const handleJobUpdate = (payload: any) => {
-      const job = payload.new ?? payload.record ?? null;
-      if (!job) return;
-      const stage: string = String(job.stage ?? "");
-      const info = STAGE_INFO[stage];
-      if (!info) return; // unknown stage — leave existing progress in place
-      const docIds: string[] = Array.isArray(job.document_ids) ? job.document_ids : [];
-      const currentDocId: string | null =
-        job.progress && typeof job.progress === "object"
-          ? (job.progress.currentDocId ?? null)
-          : null;
+  // Polling for ai_jobs stage (handled in next effect)
 
-      setJobStage((prev) => {
-        const next = new Map(prev);
-        if (currentDocId) {
-          next.set(currentDocId, info);
-        } else {
-          for (const id of docIds) next.set(id, info);
-        }
-        return next;
-      });
-    };
-
-    const channel = supabase
-      .channel(`ai-jobs-stage:${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "ai_jobs", filter: `user_id=eq.${userId}` },
-        handleJobUpdate,
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "ai_jobs", filter: `user_id=eq.${userId}` },
-        handleJobUpdate,
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [userId]);
-
-  // Polling fallback for ai_jobs stage — runs only while at least one doc is
-  // in 'processing'. The realtime subscription above is faster when it works,
-  // but if ai_jobs isn't in the supabase_realtime publication on this project
-  // we'd never get any events, so the bar would stay stuck. Polling ensures
-  // the bar advances regardless of realtime config.
+  // Polling for ai_jobs stage — runs only while at least one doc is
+  // in 'processing'. Polling ensures the bar advances.
   const hasProcessingDocs = docs.some((d) => (d.status ?? "") === "processing");
   useEffect(() => {
     if (!userId || !hasProcessingDocs) return;
 
     const tick = async () => {
-      const { data } = await supabase
-        .from("ai_jobs")
-        .select("id, document_ids, stage, progress")
-        .eq("user_id", userId)
-        .in("status", ["queued", "running"]);
+      try {
+        const result = await listJobs(`?status__in=queued,running&limit=100`);
+        const data = result.results ?? [];
 
-      if (!data || data.length === 0) return;
+        if (!data || data.length === 0) return;
 
-      setJobStage((prev) => {
-        const next = new Map(prev);
-        for (const job of data) {
-          const stage = String((job as any).stage ?? "");
-          const info = STAGE_INFO[stage];
-          if (!info) continue;
-          const docIds: string[] = Array.isArray((job as any).document_ids)
-            ? ((job as any).document_ids as string[])
-            : [];
-          const progress = (job as any).progress;
-          const currentDocId: string | null =
-            progress && typeof progress === "object" ? (progress.currentDocId ?? null) : null;
-          if (currentDocId) {
-            next.set(currentDocId, info);
-          } else {
-            for (const id of docIds) next.set(id, info);
+        setJobStage((prev) => {
+          const next = new Map(prev);
+          for (const job of data) {
+            const stage = String((job as any).stage ?? "");
+            const info = STAGE_INFO[stage];
+            if (!info) continue;
+            const docIds: string[] = Array.isArray((job as any).document_ids)
+              ? ((job as any).document_ids as string[])
+              : [];
+            const progress = (job as any).progress;
+            const currentDocId: string | null =
+              progress && typeof progress === "object" ? (progress.currentDocId ?? null) : null;
+            if (currentDocId) {
+              next.set(currentDocId, info);
+            } else {
+              for (const id of docIds) next.set(id, info);
+            }
           }
-        }
-        return next;
-      });
+          return next;
+        });
+      } catch (e) {
+        // Silent fail on polling
+      }
     };
 
     // Tick once immediately so the bar updates without waiting a full interval.
@@ -847,49 +810,7 @@ export function ListDocuments({
     }
   }
 
-  // Polling fallback
-  const hasProcessing = docs.some((d) => d.status === "processing");
-  useEffect(() => {
-    if (!userId || !hasProcessing) return;
 
-    const interval = setInterval(async () => {
-      const processingIds = docsRef.current
-        .filter((d) => d.status === "processing")
-        .map((d) => d.id);
-      if (processingIds.length === 0) return;
-
-      const { data } = await supabase
-        .from("documents")
-        .select("id,title,created_at,status,processing_error,pdf_path,source_type")
-        .eq("user_id", userId)
-        .in("id", processingIds);
-
-      if (!data) return;
-
-      for (const updated of data) {
-        const current = docsRef.current.find((d) => d.id === updated.id);
-        if (!current) continue;
-
-        if (updated.status === "processed") {
-          animateOut(updated.id, { kind: "processed", speed: "normal" }, () => {
-            setDocs((prev) => prev.filter((d) => d.id !== updated.id));
-            animsRef.current.delete(updated.id);
-            onStatusChangeRef.current?.();
-          });
-        } else if (updated.status !== current.status) {
-          if (updated.status === "uploaded" || updated.status === "failed") {
-            setStoppingIds((prev) => { const s = new Set(prev); s.delete(updated.id); return s; });
-          }
-          setDocs((prev) =>
-            prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d))
-          );
-          onStatusChangeRef.current?.();
-        }
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [animateOut, hasProcessing, userId]);
 
   const rows: Row[] = useMemo(() => {
     // Dedupe by id. Race between the realtime INSERT subscription and the

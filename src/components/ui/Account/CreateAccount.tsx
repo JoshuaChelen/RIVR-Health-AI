@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { View, StyleSheet } from "react-native";
-import { supabase } from "../../../lib/supabase";
+import { useSession } from "../../../context/SessionContext";
 
 import { Card } from "../Primitives/Card";
 import { AppText } from "../Primitives/AppText";
@@ -19,6 +19,7 @@ type Props = {
 
 export default function CreateAccount({ onSuccess, onGoToLogin }: Props) {
   const { colors } = useTheme();
+  const { signUp } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -49,18 +50,11 @@ export default function CreateAccount({ onSuccess, onGoToLogin }: Props) {
     try {
       setBusy(true);
 
-      const { data, error } = await supabase.auth.signUp({
-        email: e,
-        password,
-      });
-
-      if (error) throw error;
+      await signUp(e, password);
 
       // If email confirmations are enabled, session may be null
       setSuccessText(
-        data.session
-          ? "Account created. You are signed in."
-          : "Account created. Check your inbox to verify your email."
+        "Account created. Check your inbox to verify your email."
       );
 
       onSuccess?.();

@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
+import { useSession } from "../../context/SessionContext";
+import { getTimelineEvent, updateTimelineEvent, getProfile } from "../../lib/api/data";
 import {
   buildTimelineEventSavePayload,
   clinicalTagsForEvent,
@@ -50,6 +51,7 @@ type Draft = {
 export function TimelineEventDetailsScreen({ route, navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const { user } = useSession();
   const id = route.params?.id;
 
   const [item, setItem]     = useState<TimelineEventRow | null>(null);
@@ -72,37 +74,26 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
       setBusy(true);
       setErr(null);
       try {
-        const { data, error } = await supabase
-          .from("timeline_events")
-          .select("*")
-          .eq("id", id)
-          .single();
+        const row = await getTimelineEvent(id);
+        if (!row) throw new Error("Timeline event not found");
 
-        if (error) throw error;
-
-        const row = normalizeTimelineEvent(data as any);
-        setItem(row);
+        const normalizedRow = normalizeTimelineEvent(row as any);
+        setItem(normalizedRow);
         setDraft({
-          title:          (row.title ?? "").toString(),
-          summary:        (row.summary ?? "").toString(),
-          occurred_at:    (row.occurred_at ?? "").toString(),
-          date_precision: (row.date_precision ?? "day") as "day" | "month" | "year",
-          category:       (row.category ?? "").toString(),
-          event_type:     (row.event_type ?? "").toString(),
-          tagsCsv:        Array.isArray(row.tags) ? row.tags.join(", ") : "",
+          title:          (normalizedRow.title ?? "").toString(),
+          summary:        (normalizedRow.summary ?? "").toString(),
+          occurred_at:    (normalizedRow.occurred_at ?? "").toString(),
+          date_precision: (normalizedRow.date_precision ?? "day") as "day" | "month" | "year",
+          category:       (normalizedRow.category ?? "").toString(),
+          event_type:     (normalizedRow.event_type ?? "").toString(),
+          tagsCsv:        Array.isArray(normalizedRow.tags) ? normalizedRow.tags.join(", ") : "",
         });
 
-        const t = (row?.title ?? "Details").toString();
+        const t = (normalizedRow?.title ?? "Details").toString();
         navigation.setOptions({ title: t.length > 26 ? "Details" : t });
 
-        const { data: userRes } = await supabase.auth.getUser();
-        const userId = userRes?.user?.id;
-        if (userId) {
-          const { data: profileRow } = await supabase
-            .from("user_profiles")
-            .select("date_of_birth")
-            .eq("user_id", userId)
-            .maybeSingle();
+        if (user?.id) {
+          const profileRow = await getProfile();
           setPatientDob((profileRow as { date_of_birth?: string | null } | null)?.date_of_birth ?? null);
         }
       } catch (e: any) {
@@ -121,13 +112,11 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
     setItem({ ...item, included_in_previsit: next });
     setSaving(true);
     setErr(null);
-    const { error } = await supabase
-      .from("timeline_events")
-      .update({ included_in_previsit: next })
-      .eq("id", item.id);
-    if (error) {
+    try {
+      await updateTimelineEvent(item.id, { included_in_previsit: next });
+    } catch (e: any) {
       setItem({ ...item, included_in_previsit: !next });
-      setErr(error.message);
+      setErr(e?.message ?? "Failed to update event");
     }
     setSaving(false);
   };
@@ -159,16 +148,8 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
 
     try {
       setSaving(true);
-      const { data, error } = await supabase
-        .from("timeline_events")
-        .update(payloadResult.payload)
-        .eq("id", item.id)
-        .select("*")
-        .single();
-
-      if (error) throw error;
-
-      const updated = normalizeTimelineEvent(data as any);
+      const updated = await updateTimelineEvent(item.id, payloadResult.payload);
+      const normalizedUpdated = normalizeTimelineEvent(updated as any);
       setItem(updated);
       setDraft({
         title:          (updated.title ?? "").toString(),

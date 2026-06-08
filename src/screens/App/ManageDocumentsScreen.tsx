@@ -2,7 +2,8 @@ import React, { useEffect, useLayoutEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
+import { useSession } from "../../context/SessionContext";
+import { listDocuments, enqueueDocumentProcessing } from "../../lib/api/data";
 import { documentProcessingFooterCopy } from "../../lib/documentProcessingUi";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -21,6 +22,7 @@ type Props = NativeStackScreenProps<AppStackParamList, "ManageDocuments">;
 export function ManageDocumentsScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const { user } = useSession();
 
   const [refreshKey, setRefreshKey]     = useState(0);
   const [starting, setStarting]         = useState(false);
@@ -50,17 +52,10 @@ export function ManageDocumentsScreen({ navigation }: Props) {
   }, [navigation, pendingCount, styles, colors]);
 
   async function loadPendingCount() {
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes?.user;
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("documents")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("status", "uploaded");
-
-    if (!error) setPendingCount((data ?? []).length);
+    const { results } = await listDocuments("status=uploaded");
+    setPendingCount((results ?? []).length);
   }
 
   useEffect(() => {
@@ -72,18 +67,9 @@ export function ManageDocumentsScreen({ navigation }: Props) {
     setStarting(true);
 
     try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
       if (!user) throw new Error("Not signed in");
 
-      const { data: pending, error } = await supabase
-        .from("documents")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "uploaded")
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
+      const { results: pending } = await listDocuments("status=uploaded&ordering=created_at");
 
       const ids = (pending ?? []).map((r: any) => String(r.id));
       if (ids.length === 0) {
@@ -91,23 +77,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
         return;
       }
 
-      const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
-      if (sessErr) throw sessErr;
-
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Not signed in");
-
-      for (const id of ids) {
-        const { error: jobErr } = await supabase.functions.invoke(
-          "enqueue-document-processing",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            body: { documentIds: [id] },
-          }
-        );
-
-        if (jobErr) throw jobErr;
-      }
+      await enqueueDocumentProcessing(ids);
 
       setMsg(`Started processing ${ids.length} item(s).`);
 

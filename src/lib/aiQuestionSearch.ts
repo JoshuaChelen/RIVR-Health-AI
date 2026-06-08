@@ -1,3 +1,5 @@
+import { askHealthQuestion as apiAskHealthQuestion } from "./api/data";
+
 export type AiQuestionSource = {
   title: string;
   type?: string;
@@ -9,21 +11,7 @@ export type AiQuestionResult =
   | { status: "answered"; answer: string; sources: AiQuestionSource[] }
   | { status: "unavailable"; message: string };
 
-type FetchLike = (input: string, init: {
-  method: "POST";
-  headers: Record<string, string>;
-  body: string;
-}) => Promise<{
-  ok: boolean;
-  status?: number;
-  json: () => Promise<unknown>;
-}>;
 
-type AskHealthQuestionOptions = {
-  endpoint: string;
-  accessToken?: string | null;
-  fetchImpl?: FetchLike;
-};
 
 const UNAVAILABLE_MESSAGE =
   "AI search is unavailable right now. Try again after the AI worker is connected.";
@@ -31,49 +19,20 @@ const UNAVAILABLE_MESSAGE =
 export function aiQuestionEndpoint(): string | null {
   const configured = process.env.EXPO_PUBLIC_AI_QUESTION_ANSWER_URL?.trim();
   if (configured) return configured;
-
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-  if (!supabaseUrl) return null;
-  return `${supabaseUrl.replace(/\/$/, "")}/functions/v1/answer-health-question`;
+  return null;
 }
 
-export async function askHealthQuestion(
-  question: string,
-  options: AskHealthQuestionOptions,
-): Promise<AiQuestionResult> {
+export async function askHealthQuestion(question: string): Promise<AiQuestionResult> {
   const trimmed = question.trim();
   if (!trimmed) return { status: "idle" };
 
-  if (!options.endpoint) {
-    return unavailable();
-  }
-
-  const fetchImpl = options.fetchImpl ?? fetch;
-
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (options.accessToken) {
-      headers.Authorization = `Bearer ${options.accessToken}`;
-    }
-
-    const response = await fetchImpl(options.endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ question: trimmed }),
-    });
-
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok) return unavailable();
-
-    const answer = stringValue((json as any)?.answer);
-    if (!answer) return unavailable();
+    const { answer, sources } = await apiAskHealthQuestion(trimmed);
 
     return {
       status: "answered",
       answer,
-      sources: normalizeSources((json as any)?.sources),
+      sources: normalizeSources(sources),
     };
   } catch {
     return unavailable();

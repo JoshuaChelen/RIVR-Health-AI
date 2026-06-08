@@ -20,12 +20,8 @@ import * as Print from "expo-print";
 import * as FileSystem from "expo-file-system/legacy";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
-import { supabase } from "../../../lib/supabase";
-import {
-  uploadAndInsertDocument,
-  uploadBytesAndInsertDocument,
-  checkDuplicateDocument,
-} from "../../../lib/documents";
+import { uploadDocument, listDocuments } from "../../../lib/api/data";
+import { getCurrentUserId } from "../../../lib/auth";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
 import {
   nativeMediaLaunchFailedMessage,
@@ -483,9 +479,8 @@ export function UploadFile({ onUploaded }: Props) {
     setPdfStatus("Checking auth…");
 
     try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      if (!user) throw new Error("Not signed in");
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error("Not signed in");
 
       let uploaded = 0;
 
@@ -500,7 +495,8 @@ export function UploadFile({ onUploaded }: Props) {
         // DuplicateConfirmModal so the prompt is styled consistently and works
         // on web (Alert.alert renders nothing on web, leaving the upload hung).
         if (fileSize > 0) {
-          const dup = await checkDuplicateDocument(user.id, fileName, fileSize);
+          const { results } = await listDocuments(`name=${fileName}`);
+          const dup = results.find((d: any) => d.file_size === fileSize);
           if (dup) {
             const dupDate = new Date(dup.created_at).toLocaleDateString(undefined, {
               month: "short", day: "numeric", year: "numeric",
@@ -513,13 +509,8 @@ export function UploadFile({ onUploaded }: Props) {
         }
 
         setPdfStatus(`Uploading ${i + 1} of ${assets.length}…`);
-        await uploadAndInsertDocument({
-          userId:     user.id,
-          uri:        asset.uri,
-          fileName,
-          mimeType:   asset.mimeType ?? "application/pdf",
-          sourceType: "pdf",
-        });
+        const file = { uri: asset.uri, name: fileName, type: asset.mimeType ?? "application/pdf" } as any;
+        await uploadDocument(file, "pdf");
         uploaded += 1;
       }
 
@@ -716,9 +707,8 @@ export function UploadFile({ onUploaded }: Props) {
     let pdfUri: string | null = null;
 
     try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      if (!user) throw new Error("Not signed in");
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error("Not signed in");
 
       const pageCount = scanPages.length;
       const fileName  = `scan_${Date.now()}.pdf`;
@@ -733,14 +723,9 @@ export function UploadFile({ onUploaded }: Props) {
         const pdfBytes = await compileScanPagesForWeb(scanPages);
 
         setScanStatus("Uploading…");
-        await uploadBytesAndInsertDocument({
-          userId:     user.id,
-          bytes:      pdfBytes,
-          fileName,
-          mimeType:   "application/pdf",
-          sourceType: "scanned_pdf",
-          title,
-        });
+        const blob = new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
+        const file = new File([blob], fileName, { type: "application/pdf" });
+        await uploadDocument(file, "scanned_pdf", title);
       } else {
         // ── Native path (iOS + Android) ───────────────────────────────────────
         // Each page is resized (if > MAX_SCAN_WIDTH) and JPEG-encoded via the
@@ -786,14 +771,8 @@ export function UploadFile({ onUploaded }: Props) {
         pdfUri = result.uri;
 
         setScanStatus("Uploading…");
-        await uploadAndInsertDocument({
-          userId:     user.id,
-          uri:        pdfUri,
-          fileName,
-          mimeType:   "application/pdf",
-          sourceType: "scanned_pdf",
-          title,
-        });
+        const file = { uri: pdfUri, name: fileName, type: "application/pdf" } as any;
+        await uploadDocument(file, "scanned_pdf", title);
       }
 
       // ── Success ──────────────────────────────────────────────────────────────

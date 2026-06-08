@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useSession } from "../../../context/SessionContext";
 import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Audio } from "expo-av";
 
@@ -9,9 +10,8 @@ import { GhostButton } from "../Primitives/GhostButton";
 import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
 
-import { uploadUriToStorage } from "../../../lib/storageUpload";
-import { insertDocumentRow, safeFilename } from "../../../lib/documents";
-import { supabase } from "../../../lib/supabase";
+import { safeFilename } from "../../../lib/documents";
+import { uploadDocument } from "../../../lib/api/data";
 import {
   nativePermissionDeniedMessage,
   nativePermissionErrorMessage,
@@ -30,6 +30,7 @@ function mmss(ms: number) {
 }
 
 export function RecordVoiceNote({ onUploaded }: Props) {
+  const { user } = useSession();
   const styles = useStyles();
   const [recording, setRecording]   = useState<Audio.Recording | null>(null);
   const [uri, setUri]               = useState<string | null>(null);
@@ -131,30 +132,9 @@ export function RecordVoiceNote({ onUploaded }: Props) {
     setStatus(null);
 
     try {
-      const { data: auth, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      if (!auth.user) throw new Error("Not signed in");
-
-      const userId = auth.user.id;
       const filename = safeFilename(`voice_note_${Date.now()}.m4a`);
-      const storagePath = `${userId}/voice-notes/${filename}`;
-
-      const { sizeBytes } = await uploadUriToStorage({
-        bucket: "documents",
-        storagePath,
-        uri,
-        contentType: "audio/mp4",
-        upsert: false,
-      });
-
-      await insertDocumentRow({
-        userId,
-        title: filename,
-        storagePath,
-        mimeType: "audio/mp4",
-        sizeBytes,
-        sourceType: "voice_note",
-      });
+      const formData = new FormData();
+      await uploadDocument({ uri, name: filename, type: "audio/mp4" } as any, "voice_note", filename);
 
       setStatus("Voice note saved and ready to process.");
       setUri(null);

@@ -10,8 +10,9 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
-import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import { api } from "../../lib/api/client";
+import { useSession } from "../../context/SessionContext";
 import { clearEmergencyCardWidget } from "../../lib/emergencyCardWidget";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
@@ -30,6 +31,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "UpdatePassword">;
 export function UpdatePasswordScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const { user, signOut } = useSession();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [busy, setBusy]         = useState(false);
@@ -38,11 +40,8 @@ export function UpdatePasswordScreen({ navigation }: Props) {
   const [success, setSuccess]   = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      setReady(!!data.session);
-    })();
-  }, []);
+    setReady(!!user);
+  }, [user]);
 
   const update = async () => {
     setErr(null);
@@ -59,12 +58,11 @@ export function UpdatePasswordScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      await api.post("/api/auth/password/change", { current_password: "", new_password: password });
 
       setSuccess("Password updated. Please sign in again.");
       clearEmergencyCardWidget();
-      await supabase.auth.signOut();
+      await signOut();
       navigation.navigate("Login");
     } catch (e: any) {
       captureException(e);

@@ -1,4 +1,5 @@
-import { supabase } from "../supabase";
+import { createTimelineEvents } from "../api/data";
+import { api } from "../api/client";
 import type { AppleHealthSnapshot } from "./healthkit.ios";
 
 export type AppleHealthSyncResult = {
@@ -119,23 +120,18 @@ export async function syncAppleHealthToTimeline(
     return { ok: true, wrote: 0 };
   }
 
-  const { error: deleteError } = await supabase
-    .from("timeline_events")
-    .delete()
-    .eq("user_id", userId)
-    .eq("source", "apple_health")
-    .eq("occurred_at", today);
-
-  if (deleteError) {
-    return { ok: false, wrote: 0, error: deleteError.message };
+  try {
+    await api.del(`/api/timeline/?source=apple_health&occurred_at=${today}`);
+  } catch (error) {
+    return { ok: false, wrote: 0, error: error instanceof Error ? error.message : String(error) };
   }
 
-  const { error: insertError } = await supabase
-    .from("timeline_events")
-    .insert(rows);
-
-  if (insertError) {
-    return { ok: false, wrote: 0, error: insertError.message };
+  try {
+    // Remove user_id from rows as the server scopes to the authenticated user
+    const rowsToInsert = rows.map(({ user_id, ...rest }) => rest);
+    await createTimelineEvents(rowsToInsert);
+  } catch (error) {
+    return { ok: false, wrote: 0, error: error instanceof Error ? error.message : String(error) };
   }
 
   return { ok: true, wrote: rows.length };

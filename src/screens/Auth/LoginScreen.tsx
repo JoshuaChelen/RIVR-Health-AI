@@ -13,8 +13,8 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
-import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import { useSession } from "../../context/SessionContext";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -32,6 +32,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 export function LoginScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const { signIn } = useSession();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy]         = useState(false);
@@ -68,11 +69,7 @@ export function LoginScreen({ navigation }: Props) {
     }
     try {
       setBusy(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (error) throw error;
+      await signIn(email.trim(), password);
     } catch (e: any) {
       captureException(e);
       setErrorText(e?.message ?? "Login failed.");

@@ -10,8 +10,8 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
-import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import { createShare } from "../../lib/api/data";
 import { buildShareLinkMessage } from "../../lib/share";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -108,24 +108,7 @@ export function ShareScreen() {
     setCopied(false);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Not signed in");
-
-      const { data: pkg, error } = await supabase.functions.invoke(
-        "create-share-package",
-        {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          body: {
-            shareTypes: Array.from(selected),
-            expiresInMinutes: 1,
-            maxViews: 2,
-          },
-        }
-      );
-
-      if (error) throw error;
+      const pkg = await createShare(Array.from(selected));
       if (pkg?.shareUrl) setShareUrl(pkg.shareUrl);
       else throw new Error("No share URL returned");
     } catch (e: any) {

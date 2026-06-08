@@ -7,7 +7,8 @@ import React, {
   useState,
 } from "react";
 import { Platform } from "react-native";
-import { supabase } from "../lib/supabase";
+import { useSession } from "./SessionContext";
+import { linkHealth, unlinkHealth, getProfile } from "../lib/api/data";
 import {
   getHealthAvailability,
   linkAppleHealth,
@@ -118,6 +119,8 @@ export function AppleHealthProvider({
 
   // ── refresh ────────────────────────────────────────────────────────────────
 
+  const { user } = useSession();
+
   const refresh = useCallback(async () => {
     // If user has not connected (or has disconnected), never attempt HealthKit reads.
     if (!profileLinkedRef.current) {
@@ -177,10 +180,8 @@ export function AppleHealthProvider({
 
       setErrorText(null);
 
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (userId) {
-        const syncResult = await syncAppleHealthToTimeline(userId, snap);
+      if (user?.id) {
+        const syncResult = await syncAppleHealthToTimeline(user.id, snap);
         if (!syncResult.ok) {
           setErrorText(
             syncResult.error ?? "Data read OK, but timeline sync failed."
@@ -228,13 +229,8 @@ export function AppleHealthProvider({
       // Authorization granted — mark as linked so refresh() proceeds.
       profileLinkedRef.current = true;
 
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (userId) {
-        await supabase
-          .from("user_profiles")
-          .update({ health_linked_at: new Date().toISOString() })
-          .eq("user_id", userId);
+      if (user?.id) {
+        await linkHealth();
       }
 
       await refresh();
@@ -258,32 +254,21 @@ export function AppleHealthProvider({
     // Persist disconnect in profile so it survives an app restart.
     // health_linked_at = null signals "not connected" on next cold start.
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (userId) {
-        await supabase
-          .from("user_profiles")
-          .update({ health_linked_at: null })
-          .eq("user_id", userId);
+      if (user?.id) {
+        await unlinkHealth();
       }
     } catch {
       // Local state is already cleared. DB update is best-effort.
     }
-  }, [clearHealthData]);
+  }, [clearHealthData, user?.id]);
 
   // ── mount: check profile then conditionally refresh ────────────────────────
 
   useEffect(() => {
     (async () => {
       try {
-        const { data: auth } = await supabase.auth.getUser();
-        const userId = auth.user?.id;
-        if (userId) {
-          const { data: profile } = await supabase
-            .from("user_profiles")
-            .select("health_linked_at")
-            .eq("user_id", userId)
-            .maybeSingle();
+        if (user?.id) {
+          const profile = await getProfile();
 
           // health_linked_at is set iff the user has previously authorized.
           // null means never connected or explicitly disconnected.
@@ -299,7 +284,7 @@ export function AppleHealthProvider({
     })();
     // refresh is stable (useCallback with [] deps). Safe to omit from dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user, refresh]);
 
   return (
     <AppleHealthContext.Provider
