@@ -54,7 +54,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
   async function loadPendingCount() {
     if (!user) return;
 
-    const { results } = await listDocuments("status=uploaded");
+    const { results } = await listDocuments("?status=uploaded");
     setPendingCount((results ?? []).length);
   }
 
@@ -69,7 +69,7 @@ export function ManageDocumentsScreen({ navigation }: Props) {
     try {
       if (!user) throw new Error("Not signed in");
 
-      const { results: pending } = await listDocuments("status=uploaded&ordering=created_at");
+      const { results: pending } = await listDocuments("?status=uploaded&ordering=created_at");
 
       const ids = (pending ?? []).map((r: any) => String(r.id));
       if (ids.length === 0) {

@@ -83,7 +83,7 @@ export function HomeScreen({ navigation }: Props) {
         getHealthProfile(userId),
         getLatestEvaluation(userId),
         getProfile(userId),
-        listDocuments("status:processed").then(res => ({
+        listDocuments("?status=processed").then(res => ({
           data: res.results[0] ?? null
         })),
       ]);

@@ -5,6 +5,7 @@ from .models import Document
 
 class DocumentFilter(filters.FilterSet):
     status = filters.CharFilter(field_name="status", lookup_expr="iexact")
+    title = filters.CharFilter(field_name="title", lookup_expr="iexact")
     status__in = filters.BaseInFilter(field_name="status", lookup_expr="in")
     exclude_status = filters.CharFilter(field_name="status", exclude=True)
     source_type = filters.CharFilter(field_name="source_type", lookup_expr="iexact")

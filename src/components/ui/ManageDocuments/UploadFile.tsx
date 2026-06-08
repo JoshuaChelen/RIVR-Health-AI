@@ -495,8 +495,8 @@ export function UploadFile({ onUploaded }: Props) {
         // DuplicateConfirmModal so the prompt is styled consistently and works
         // on web (Alert.alert renders nothing on web, leaving the upload hung).
         if (fileSize > 0) {
-          const { results } = await listDocuments(`name=${fileName}`);
-          const dup = results.find((d: any) => d.file_size === fileSize);
+          const { results } = await listDocuments(`?title=${encodeURIComponent(fileName)}`);
+          const dup = results.find((d: any) => d.size_bytes === fileSize);
           if (dup) {
             const dupDate = new Date(dup.created_at).toLocaleDateString(undefined, {
               month: "short", day: "numeric", year: "numeric",
@@ -718,7 +718,7 @@ export function UploadFile({ onUploaded }: Props) {
         // ── Web path ──────────────────────────────────────────────────────────
         // pdf-lib (via scanPdf.web.ts) compiles the images into PDF bytes
         // entirely in-memory. No temp file is written; bytes are uploaded
-        // directly to Supabase Storage.
+        // directly via uploadDocument().
         setScanStatus("Compiling PDF…");
         const pdfBytes = await compileScanPagesForWeb(scanPages);
 
