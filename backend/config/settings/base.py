@@ -14,7 +14,10 @@ env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
 # --- Core ---------------------------------------------------------------------
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-insecure-change-me")
+SECRET_KEY = env(
+    "DJANGO_SECRET_KEY",
+    default="dev-insecure-change-me-0123456789-abcdefghijklmnopqrstuvwxyz",
+)
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*"])
 
@@ -27,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # third-party
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "corsheaders",
     "drf_spectacular",
@@ -127,6 +131,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # --- CORS ---------------------------------------------------------------------
@@ -154,4 +159,5 @@ AI_MODEL_OCR = env("AI_MODEL_OCR", default="gpt-4o-mini")
 AI_MODEL_TRANSCRIBE = env("AI_MODEL_TRANSCRIBE", default="whisper-1")
 
 # --- Frontend / share ---------------------------------------------------------
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 SHARE_PUBLIC_URL = env("SHARE_PUBLIC_URL", default="http://localhost:3000/share")
