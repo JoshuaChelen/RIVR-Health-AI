@@ -43,6 +43,24 @@ def test_profile_auto_created_and_updatable(user, client_for):
     assert resp.json()["allergies"][0]["allergen"] == "Nuts"
 
 
+def test_profile_optional_text_fields_accept_null(user, client_for):
+    # The mobile onboarding/profile screens send null for empty optional text
+    # fields; those map to blank=True/null=False CharFields. null must be coerced
+    # to "" instead of failing with "This field may not be null." (400).
+    c = client_for(user)
+    resp = c.patch(
+        "/api/profile",
+        {"email": None, "mobile_phone": None, "occupation": None, "marital_status": None,
+         "number_of_children": None},
+        format="json",
+    )
+    assert resp.status_code == 200, resp.json()
+    body = resp.json()
+    assert body["email"] == "" and body["mobile_phone"] == ""
+    assert body["occupation"] == "" and body["marital_status"] == ""
+    assert body["number_of_children"] is None  # genuinely nullable, stays null
+
+
 def test_link_unlink_health(user, client_for):
     c = client_for(user)
     assert c.post("/api/profile/link-health").json()["health_linked_at"] is not None
