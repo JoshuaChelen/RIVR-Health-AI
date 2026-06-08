@@ -21,5 +21,6 @@ urlpatterns = [
     path("api/", include("apps.timeline.urls")),
     path("api/", include("apps.health.urls")),
     path("api/", include("apps.jobs.urls")),
+    path("api/", include("apps.shares.urls")),
     path("api/account", DeleteAccountView.as_view(), name="delete-account"),
 ]

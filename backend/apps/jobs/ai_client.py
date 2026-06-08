@@ -466,3 +466,24 @@ def transcribe_audio(buf: bytes, mime: str | None) -> str:
             os.unlink(tmp.name)
         except OSError:
             pass
+
+
+_QA_SYSTEM = (
+    "You answer a patient's question about their own health records for a personal "
+    "health app. Use ONLY the supplied context. Do not diagnose, prescribe, or give "
+    "medical advice beyond what the records state. If the context does not contain the "
+    "answer, say so plainly and return an empty sources list. Return JSON: {answer, sources}."
+)
+
+
+def answer_health_question(question: str, context: str):
+    from .schemas import QAAnswer
+
+    client = _client()
+    model = getattr(settings, "AI_MODEL_QUESTION_ANSWER", None) or settings.AI_MODEL_EVAL
+    messages = [
+        {"role": "system", "content": _QA_SYSTEM},
+        {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"},
+    ]
+    resp = client.responses.parse(model=model, input=messages, text_format=QAAnswer)
+    return resp.output_parsed

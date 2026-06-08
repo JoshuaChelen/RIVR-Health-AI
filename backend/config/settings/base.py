@@ -139,6 +139,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 30,
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
+    "DEFAULT_THROTTLE_RATES": {"share_resolve": "30/min"},
 }
 
 SPECTACULAR_SETTINGS = {
@@ -184,7 +186,13 @@ AI_MODEL_EXTRACT = env("AI_MODEL_EXTRACT", default="gpt-4o-2024-08-06")
 AI_MODEL_EVAL = env("AI_MODEL_EVAL", default="gpt-4o-2024-08-06")
 AI_MODEL_OCR = env("AI_MODEL_OCR", default="gpt-4o-mini")
 AI_MODEL_TRANSCRIBE = env("AI_MODEL_TRANSCRIBE", default="whisper-1")
+AI_MODEL_QUESTION_ANSWER = env("AI_MODEL_QUESTION_ANSWER", default="")
 
 # --- Frontend / share ---------------------------------------------------------
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 SHARE_PUBLIC_URL = env("SHARE_PUBLIC_URL", default="http://localhost:3000/share")
+
+# --- Shares -------------------------------------------------------------------
+SHARE_EXPIRES_MINUTES = env.int("SHARE_EXPIRES_MINUTES", default=1)
+SHARE_MAX_VIEWS = env.int("SHARE_MAX_VIEWS", default=2)
+SHARE_MAX_PIN_ATTEMPTS = env.int("SHARE_MAX_PIN_ATTEMPTS", default=5)

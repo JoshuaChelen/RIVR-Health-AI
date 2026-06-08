@@ -180,3 +180,16 @@ def get_openai_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
         JSON schema dict suitable for OpenAI structured output format
     """
     return model_class.model_json_schema()
+
+
+class QASource(BaseModel):
+    """A cited source for a QA answer."""
+    title: str
+    type: str  # "document" | "timeline" | "health_summary"
+    detail: Optional[str] = None
+
+
+class QAAnswer(BaseModel):
+    """Answer to a patient health question, with sources."""
+    answer: str
+    sources: List[QASource] = Field(default_factory=list)
