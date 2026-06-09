@@ -1,7 +1,7 @@
 """Unit tests for the PyMuPDF text+image extractor and batched OCR."""
 import fitz  # PyMuPDF
 
-from apps.jobs import extraction
+from apps.jobs import ai_client, extraction
 
 
 def _png(w: int, h: int) -> bytes:
@@ -62,3 +62,42 @@ def test_extract_pdf_blank_page_uses_render_fallback():
 def test_extract_pdf_bad_bytes_returns_empty():
     content = extraction.extract_pdf(b"not a pdf")
     assert content.pages == []
+
+
+class _FakeResp:
+    def __init__(self, text):
+        self.output_text = text
+
+
+class _FakeResponses:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return _FakeResp(f"text{len(self.calls)}")
+
+
+class _FakeClient:
+    def __init__(self, calls):
+        self.responses = _FakeResponses(calls)
+
+
+def test_ocr_images_empty_returns_empty():
+    assert ai_client.ocr_images([]) == ""
+
+
+def test_ocr_images_batches_and_concatenates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ai_client, "_client", lambda: _FakeClient(calls))
+    out = ai_client.ocr_images([b"img"] * 25, batch_size=10)
+    assert len(calls) == 3  # 10 + 10 + 5
+    assert out == "text1\ntext2\ntext3"
+
+
+def test_ocr_images_uses_default_batch_size(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ai_client, "_client", lambda: _FakeClient(calls))
+    monkeypatch.setattr(ai_client, "OCR_BATCH_SIZE", 3)
+    ai_client.ocr_images([b"img"] * 7)  # ceil(7/3) = 3 calls
+    assert len(calls) == 3
