@@ -2,7 +2,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { Button, Card, ErrorText, Field, Input } from "@/components/ui";
+import { Button, Card, CtaLink, ErrorText, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 
 function ResetForm() {
@@ -30,8 +30,9 @@ function ResetForm() {
 
   if (done) {
     return (
-      <Card>
-        <p className="text-center text-sm text-sub">Password updated. Open the RIVR app to sign in.</p>
+      <Card className="space-y-3 text-center">
+        <p className="text-sm text-sub">Password updated.</p>
+        <CtaLink href="rivrhealth://auth/confirmed">Open RIVR Health</CtaLink>
       </Card>
     );
   }

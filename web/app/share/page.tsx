@@ -2,7 +2,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { Button, Card, Field, Input } from "@/components/ui";
+import { Button, Card, ErrorText, Field, Input, Logo } from "@/components/ui";
 import { apiBase } from "@/lib/api";
 
 interface ResolveResult {
@@ -34,7 +34,9 @@ function ShareView() {
   return (
     <div className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-md">
-        <h1 className="mb-6 text-center text-2xl font-bold text-teal">RIVR Health</h1>
+        <div className="mb-6 flex justify-center">
+          <Logo size={64} />
+        </div>
         <Card className="space-y-4">
           <h2 className="font-semibold">Shared health record</h2>
           {result?.items ? (
@@ -54,7 +56,7 @@ function ShareView() {
                   <Input value={pin} onChange={(e) => setPin(e.target.value)} />
                 </Field>
               )}
-              {result?.error && <p className="text-sm text-red-600">{result.error}</p>}
+              <ErrorText>{result?.error}</ErrorText>
               <Button onClick={resolve} disabled={busy || !token}>{busy ? "Opening…" : "View records"}</Button>
               <p className="text-xs text-muted">These links expire quickly and have a limited number of views.</p>
             </>
