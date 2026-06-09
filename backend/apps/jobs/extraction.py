@@ -2,18 +2,17 @@
 
 Provides pure helper functions for:
 - Apple Health timeline aggregation
-- PDF text extraction
-- OCR requirement detection
-- PDF page rendering to PNG
+- PDF text + image extraction (PyMuPDF)
 """
 
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from django.conf import settings
 
-# OCR configuration defaults
-OCR_MIN_CHARS = getattr(settings, "OCR_MIN_CHARS", 200)
-OCR_MAX_PAGES = getattr(settings, "OCR_MAX_PAGES", 10)
+# Minimum pixel dimension for an embedded image to be worth OCR-ing.
+# Images smaller than this on BOTH axes (logos, icons, signature glyphs) are skipped.
+MIN_IMAGE_PX = getattr(settings, "OCR_MIN_IMAGE_PX", 100)
 
 
 def apple_health_snapshot(
@@ -80,83 +79,70 @@ def apple_health_snapshot(
     }
 
 
-def extract_pdf_text(data: bytes) -> str:
-    """Extract text from PDF bytes using pypdf.
+@dataclass
+class PageContent:
+    text: str
+    images: list[bytes] = field(default_factory=list)
 
-    Mirrors pdf-parse library behavior (JavaScript version).
 
-    Args:
-        data: Raw PDF file bytes
+@dataclass
+class PdfContent:
+    pages: list[PageContent] = field(default_factory=list)
 
-    Returns:
-        Extracted text, trimmed. Empty string on error.
-    """
+
+def _render_page_to_png(page) -> Optional[bytes]:
+    """Render a single page to PNG (fallback for pages with no text and no raster image)."""
     try:
-        import io
+        import fitz
 
-        from pypdf import PdfReader
-
-        reader = PdfReader(io.BytesIO(data))
-        text_parts = []
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text_parts.append(page_text)
-        text = "".join(text_parts).strip()
-        return text
+        rect = page.rect
+        longest = max(rect.width, rect.height)
+        scale = min(2.0, 1300 / longest) if longest > 0 else 1.0
+        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+        return pix.tobytes("png")
     except Exception:
-        return ""
+        return None
 
 
-def render_pdf_pages_to_png(
-    data: bytes, max_pages: int = 3
-) -> list[bytes]:
-    """Render PDF pages to PNG images using PyMuPDF (fitz).
+def extract_pdf(data: bytes, *, min_image_px: int = MIN_IMAGE_PX) -> PdfContent:
+    """Extract the text layer and every qualifying embedded image, per page.
 
-    Mirrors pdfjs page rendering behavior with scaling constraints.
-    Each page is rendered at scale up to 2x, capped to keep max dimension <= 1300px.
-
-    Args:
-        data: Raw PDF file bytes
-        max_pages: Maximum number of pages to render (default 3)
-
-    Returns:
-        List of PNG image bytes, one per rendered page.
-        Empty list on error.
-
-    Notes:
-        - Uses fitz.Document for PDF processing
-        - Canvas size is ceil'd to integer pixels
-        - Output format is PNG with 96 DPI base
+    Each page yields its text plus PNG bytes for every embedded raster image whose
+    width or height is >= min_image_px. A page with neither text nor a qualifying
+    image is rendered whole so OCR can still read it. Returns empty on open failure.
     """
-    try:
-        import fitz  # PyMuPDF
+    import fitz
 
+    try:
         doc = fitz.open(stream=data, filetype="pdf")
-        num_pages = min(doc.page_count, max_pages)
-
-        pngs: list[bytes] = []
-        for page_num in range(num_pages):
-            page = doc[page_num]
-
-            # Start with scale=1, then cap max dimension to 1300px
-            base_rect = page.get_displaylist().rect
-            max_dim = 1300
-            max_base_dim = max(base_rect.width, base_rect.height)
-            scale = min(2.0, max_dim / max_base_dim) if max_base_dim > 0 else 1.0
-
-            # Render at computed scale
-            mat = fitz.Matrix(scale, scale)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-
-            # PNG bytes
-            png_bytes = pix.tobytes(output="png")
-            pngs.append(png_bytes)
-
-        doc.close()
-        return pngs
     except Exception:
-        return []
+        return PdfContent(pages=[])
+
+    pages: list[PageContent] = []
+    try:
+        for page in doc:
+            text = (page.get_text() or "").strip()
+            images: list[bytes] = []
+            for img in page.get_images(full=True):
+                xref, w, h = img[0], img[2], img[3]
+                if w < min_image_px and h < min_image_px:
+                    continue
+                try:
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.n - pix.alpha >= 4:  # CMYK -> RGB
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    images.append(pix.tobytes("png"))
+                except Exception:
+                    continue
+            if not text and not images:
+                png = _render_page_to_png(page)
+                if png:
+                    images.append(png)
+            pages.append(PageContent(text=text, images=images))
+    finally:
+        doc.close()
+
+    return PdfContent(pages=pages)
 
 
 # --- Private helpers ----------------------------------------------------------

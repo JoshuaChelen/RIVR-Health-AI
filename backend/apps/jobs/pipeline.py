@@ -122,14 +122,22 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
         raw_text = ai_client.transcribe_audio(buf, doc.mime_type) or "[No transcript text found in this audio.]"
     else:
         _set_stage(job, "extracting_text", {"total": total, "done": idx, "currentDocId": str(doc.id)})
-        raw_text = extraction.extract_pdf_text(buf)
-        if len(raw_text) < extraction.OCR_MIN_CHARS:
-            _check_cancelled(job)
-            _set_stage(job, "ocr_pdf", {"total": total, "done": idx, "currentDocId": str(doc.id)})
-            pages = extraction.render_pdf_pages_to_png(buf, extraction.OCR_MAX_PAGES)
-            if pages:
-                ocr_text = ai_client.ocr_png_pages_to_text(pages)
-                raw_text = f"{raw_text}\n\n[OCR TEXT]\n{ocr_text}"
+        content = extraction.extract_pdf(buf)
+        parts: list[str] = []
+        for n, page in enumerate(content.pages, start=1):
+            if page.text:
+                parts.append(page.text)
+            if page.images:
+                _check_cancelled(job)
+                _set_stage(job, "ocr_pdf", {"total": total, "done": idx, "currentDocId": str(doc.id)})
+                ocr = ""
+                try:
+                    ocr = ai_client.ocr_images(page.images)
+                except Exception as exc:  # non-fatal: keep the text layer
+                    _log(job, "warn", f"OCR failed on page {n}: {exc}")
+                if ocr:
+                    parts.append(f"[IMAGE OCR — page {n}]\n{ocr}")
+        raw_text = "\n\n".join(parts)
         if not raw_text.strip():
             raw_text = "[No extractable text found in this document.]"
 

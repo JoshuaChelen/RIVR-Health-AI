@@ -188,6 +188,10 @@ AI_MODEL_OCR = env("AI_MODEL_OCR", default="gpt-4o-mini")
 AI_MODEL_TRANSCRIBE = env("AI_MODEL_TRANSCRIBE", default="whisper-1")
 AI_MODEL_QUESTION_ANSWER = env("AI_MODEL_QUESTION_ANSWER", default="")
 
+# --- OCR ingestion -----------------------------------------------------------
+OCR_MIN_IMAGE_PX = env.int("OCR_MIN_IMAGE_PX", default=100)
+OCR_BATCH_SIZE = env.int("OCR_BATCH_SIZE", default=10)
+
 # --- Frontend / share ---------------------------------------------------------
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 SHARE_PUBLIC_URL = env("SHARE_PUBLIC_URL", default="http://localhost:3000/share")

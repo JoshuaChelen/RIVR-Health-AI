@@ -411,14 +411,17 @@ _OCR_SYSTEM = (
     "Preserve line breaks. Do not add commentary. Output plain text only."
 )
 
+OCR_BATCH_SIZE = getattr(settings, "OCR_BATCH_SIZE", 10)
 
-def ocr_png_pages_to_text(pages: list[bytes]) -> str:
+
+def _ocr_batch(images: list[bytes]) -> str:
+    """Send one vision API call for this batch and return the raw OCR text."""
     import base64
 
     client = _client()
     user_content = []
-    for i, png in enumerate(pages, start=1):
-        user_content.append({"type": "input_text", "text": f"PAGE {i}"})
+    for i, png in enumerate(images, start=1):
+        user_content.append({"type": "input_text", "text": f"IMAGE {i}"})
         b64 = base64.b64encode(png).decode("ascii")
         user_content.append({"type": "input_image", "image_url": f"data:image/png;base64,{b64}"})
     resp = client.responses.create(
@@ -429,6 +432,17 @@ def ocr_png_pages_to_text(pages: list[bytes]) -> str:
         ],
     )
     return getattr(resp, "output_text", "") or ""
+
+
+def ocr_images(images: list[bytes], *, batch_size: int | None = None) -> str:
+    """OCR a list of images, chunked into vision calls of `batch_size`. Returns combined text."""
+    if not images:
+        return ""
+    size = max(1, batch_size or OCR_BATCH_SIZE)
+    parts: list[str] = []
+    for start in range(0, len(images), size):
+        parts.append(_ocr_batch(images[start:start + size]))
+    return "\n".join(p for p in parts if p).strip()
 
 
 def _mime_to_ext(mime: str | None) -> str:
