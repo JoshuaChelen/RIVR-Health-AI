@@ -45,3 +45,7 @@ yarn-error.*
 /targets/*/Assets.xcassets/
 
 .vercel
+
+# editor / local agent config
+.vscode/
+.claude/
