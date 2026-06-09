@@ -3,6 +3,7 @@ import io
 
 from apps.health.models import HealthProfile
 from apps.profiles.models import UserProfile
+from apps.timeline.models import TimelineEvent
 
 TITLES = {
     "full_summary": "RIVR Health Summary",
@@ -10,6 +11,10 @@ TITLES = {
     "pre_visit_note": "RIVR Pre-Visit Note",
     "full_timeline": "RIVR Health Timeline",
 }
+
+
+def _timeline_lines(events) -> list[str]:
+    return [f"- {ev.occurred_at or 'Undated'}: {ev.title}" for ev in events]
 
 
 def _lines_for(share_type: str, user_id) -> list[str]:
@@ -35,16 +40,12 @@ def _lines_for(share_type: str, user_id) -> list[str]:
         for para in (summary.get("full_summary_markdown") or "No summary available.").split("\n"):
             lines.append(para)
     elif share_type == "pre_visit_note":
-        from apps.timeline.models import TimelineEvent
-
         lines.append("Events selected for this visit:")
-        for ev in TimelineEvent.objects.filter(user_id=user_id, included_in_previsit=True).order_by("-occurred_at")[:50]:
-            lines.append(f"- {ev.occurred_at or 'Undated'}: {ev.title}")
+        events = TimelineEvent.objects.filter(user_id=user_id, included_in_previsit=True).order_by("-occurred_at")[:50]
+        lines += _timeline_lines(events)
     elif share_type == "full_timeline":
-        from apps.timeline.models import TimelineEvent
-
-        for ev in TimelineEvent.objects.filter(user_id=user_id).exclude(source="apple_health").order_by("-occurred_at")[:200]:
-            lines.append(f"- {ev.occurred_at or 'Undated'}: {ev.title}")
+        events = TimelineEvent.objects.filter(user_id=user_id).exclude(source="apple_health").order_by("-occurred_at")[:200]
+        lines += _timeline_lines(events)
     name = f"{profile.first_name} {profile.last_name}".strip() if profile else ""
     header = [TITLES.get(share_type, "RIVR"), name, ""] if name else [TITLES.get(share_type, "RIVR"), ""]
     return header + lines

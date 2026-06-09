@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import SharePackage, SharePackageItem
+from .models import SharePackage
 
 
 @admin.register(SharePackage)
@@ -9,9 +9,3 @@ class SharePackageAdmin(admin.ModelAdmin):
     list_filter = ["file_type", "revoked"]
     search_fields = ["owner__email"]
     raw_id_fields = ["owner"]
-
-
-@admin.register(SharePackageItem)
-class SharePackageItemAdmin(admin.ModelAdmin):
-    list_display = ["id", "package", "document"]
-    raw_id_fields = ["package", "document"]

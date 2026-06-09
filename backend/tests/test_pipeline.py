@@ -26,7 +26,6 @@ def fake_evaluation(**over):
             "allergies": [], "implants_devices": [], "anticoagulants": [], "anesthesia_notes": [],
             "emergency_contact": {"name": None, "phone": None}, "one_line_summary": "Healthy",
         },
-        "apple_health_snapshot": {"steps_avg_7d": None, "sleep_avg_min_7d": None, "resting_hr_recent": None},
         "full_summary_markdown": "Summary.", "disclaimer": "Informational only.",
     }
     base.update(over)
@@ -118,7 +117,7 @@ def test_merge_card_manual_allergies_win(user):
 def test_stale_recovery(user):
     doc = Document.objects.create(user=user, source_type="pdf", status="processing")
     job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS,
-                               status="processing", document_ids=[doc.id])
+                               status="running", document_ids=[doc.id])
     AiJob.objects.filter(pk=job.pk).update(updated_at=timezone.now() - timedelta(minutes=45))
     assert pipeline.recover_stale_jobs() == 1
     job.refresh_from_db(); doc.refresh_from_db()

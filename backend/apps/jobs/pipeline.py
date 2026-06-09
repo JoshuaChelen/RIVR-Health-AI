@@ -77,7 +77,7 @@ def _read_json(key: str) -> dict | None:
 
 # ── per-document extraction ───────────────────────────────────────────────────
 
-def _normalize_event_date(occurred_at, precision):
+def _normalize_event_date(occurred_at):
     if not occurred_at:
         return None, ""
     parts = str(occurred_at).split("-")
@@ -147,7 +147,7 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
     TimelineEvent.objects.filter(user_id=user_id, document_id=doc.id, source="document_ai").delete()
     new_events = []
     for ev in facts.get("timeline_events", []):
-        occurred, precision = _normalize_event_date(ev.get("occurred_at"), ev.get("date_precision"))
+        occurred, precision = _normalize_event_date(ev.get("occurred_at"))
         data = {kv["key"]: kv["value"] for kv in ev.get("data_kv", []) if isinstance(kv, dict) and "key" in kv}
         new_events.append(TimelineEvent(
             user_id=user_id, document_id=doc.id, occurred_at=occurred, date_precision=precision,
@@ -414,7 +414,7 @@ def recover_stale_jobs() -> int:
     from datetime import timedelta
 
     cutoff = djtz.now() - timedelta(minutes=30)
-    stale = list(AiJob.objects.filter(status=AiJob.Status.PROCESSING, updated_at__lt=cutoff))
+    stale = list(AiJob.objects.filter(status=AiJob.Status.RUNNING, updated_at__lt=cutoff))
     for job in stale:
         job.status = AiJob.Status.FAILED
         job.error = "Job timed out - worker may have crashed. You can retry."

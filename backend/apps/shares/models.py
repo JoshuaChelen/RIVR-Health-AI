@@ -12,9 +12,6 @@ class SharePackage(BaseModel):
 
     class FileType(models.TextChoices):
         HEALTH_PROFILE = "health_profile"
-        SUMMARY = "summary"
-        FHIR = "fhir"
-        PDF = "pdf"
 
     owner = models.ForeignKey(
         "accounts.User", on_delete=models.CASCADE, related_name="share_packages"
@@ -36,25 +33,3 @@ class SharePackage(BaseModel):
 
     def __str__(self) -> str:
         return f"SharePackage<{self.id}> {self.file_type}"
-
-
-class SharePackageItem(BaseModel):
-    """Join row linking a (legacy document) share to its documents."""
-
-    package = models.ForeignKey(
-        SharePackage, on_delete=models.CASCADE, related_name="items"
-    )
-    document = models.ForeignKey(
-        "documents.Document", on_delete=models.CASCADE, related_name="share_items"
-    )
-
-    class Meta:
-        db_table = "share_package_items"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["package", "document"], name="uniq_share_package_document"
-            )
-        ]
-
-    def __str__(self) -> str:
-        return f"SharePackageItem<{self.package_id}:{self.document_id}>"

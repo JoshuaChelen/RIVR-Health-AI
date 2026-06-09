@@ -14,14 +14,14 @@ class AvatarView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile = UserProfile.for_user(request.user)
         return Response({"avatar_path": profile.avatar_path, "url": storage.signed_url(profile.avatar_path)})
 
     def post(self, request):
         upload = request.FILES.get("image") or request.FILES.get("file")
         if upload is None:
             return Response({"detail": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile = UserProfile.for_user(request.user)
         key = storage.avatar_key(request.user.id)
         storage.delete(profile.avatar_path)
         saved = storage.save(key, storage.process_avatar(upload))
@@ -32,7 +32,7 @@ class AvatarView(APIView):
         )
 
     def delete(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile = UserProfile.for_user(request.user)
         storage.delete(profile.avatar_path)
         profile.avatar_path = ""
         profile.save(update_fields=["avatar_path", "updated_at"])

@@ -12,7 +12,6 @@ class AiJob(BaseModel):
     class Status(models.TextChoices):
         QUEUED = "queued"
         RUNNING = "running"
-        PROCESSING = "processing"
         SUCCEEDED = "succeeded"
         FAILED = "failed"
         CANCELLED = "cancelled"

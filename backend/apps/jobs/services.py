@@ -5,7 +5,7 @@ from apps.documents.models import Document
 
 from .models import AiJob
 
-_ACTIVE = [AiJob.Status.QUEUED, AiJob.Status.RUNNING, AiJob.Status.PROCESSING]
+_ACTIVE = [AiJob.Status.QUEUED, AiJob.Status.RUNNING]
 
 
 def _active(user, job_type):

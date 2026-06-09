@@ -16,8 +16,7 @@ class MyProfileView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self) -> UserProfile:
-        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
-        return profile
+        return UserProfile.for_user(self.request.user)
 
 
 class _HealthLinkBase(APIView):
@@ -25,14 +24,14 @@ class _HealthLinkBase(APIView):
     linked = True
 
     def post(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile = UserProfile.for_user(request.user)
         profile.health_linked_at = timezone.now() if self.linked else None
         profile.save(update_fields=["health_linked_at", "updated_at"])
         return Response({"health_linked_at": profile.health_linked_at}, status=status.HTTP_200_OK)
 
 
 class LinkHealthView(_HealthLinkBase):
-    linked = True
+    pass
 
 
 class UnlinkHealthView(_HealthLinkBase):

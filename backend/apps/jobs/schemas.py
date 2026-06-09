@@ -5,7 +5,7 @@ Every field name, type, optionality, enum value, and constraint maps directly to
 TypeScript Zod definitions in worker/src/schemas.ts to ensure parity.
 """
 
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Literal
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -147,13 +147,6 @@ class ThreeByFiveCard(BaseModel):
     one_line_summary: str
 
 
-class AppleHealthSnapshot(BaseModel):
-    """Apple Health data snapshot."""
-    steps_avg_7d: Optional[float] = None
-    sleep_avg_min_7d: Optional[float] = None
-    resting_hr_recent: Optional[float] = None
-
-
 class HealthEvaluation(BaseModel):
     """Complete health evaluation result from AI."""
     score_0_to_100: int = Field(..., ge=0, le=100)
@@ -165,21 +158,8 @@ class HealthEvaluation(BaseModel):
     suggested_next_steps: List[str]
     recommendations: List[Recommendation]
     three_by_five_card: ThreeByFiveCard
-    apple_health_snapshot: AppleHealthSnapshot
     full_summary_markdown: str
     disclaimer: str
-
-
-def get_openai_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
-    """Generate OpenAI-compatible JSON schema for a Pydantic model.
-    
-    Args:
-        model_class: A Pydantic BaseModel class
-        
-    Returns:
-        JSON schema dict suitable for OpenAI structured output format
-    """
-    return model_class.model_json_schema()
 
 
 class QASource(BaseModel):

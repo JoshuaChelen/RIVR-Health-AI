@@ -54,3 +54,9 @@ class UserProfile(BaseModel):
 
     def __str__(self) -> str:
         return f"Profile<{self.user_id}>"
+
+    @classmethod
+    def for_user(cls, user) -> "UserProfile":
+        """Return the user's profile, creating it on first access."""
+        profile, _ = cls.objects.get_or_create(user=user)
+        return profile

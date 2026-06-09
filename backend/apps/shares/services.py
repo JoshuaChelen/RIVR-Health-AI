@@ -76,16 +76,3 @@ def resolve_share(token: str, pin: str | None = None) -> dict:
         for t, key in (package.payload_json or {}).get("pdfs", {}).items()
     ]
     return {"items": items, "expiresAt": package.expires_at.isoformat(), "pinRequired": False}
-
-
-def cleanup_expired_artifacts() -> int:
-    expired = SharePackage.objects.filter(
-        file_type=SharePackage.FileType.HEALTH_PROFILE,
-        artifacts_deleted_at__isnull=True,
-        expires_at__lte=timezone.now(),
-    )
-    count = 0
-    for package in expired:
-        _delete_artifacts(package)
-        count += 1
-    return count

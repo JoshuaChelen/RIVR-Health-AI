@@ -108,25 +108,6 @@ def extract_pdf_text(data: bytes) -> str:
         return ""
 
 
-def needs_ocr(text: str, page_count: int) -> bool:
-    """Determine if PDF requires OCR processing.
-
-    Returns True if:
-    - Extracted text is below OCR_MIN_CHARS threshold, AND
-    - PDF has <= OCR_MAX_PAGES pages
-
-    This indicates a scanned/image-based PDF with insufficient text extraction.
-
-    Args:
-        text: Extracted text from PDF
-        page_count: Total number of pages in PDF
-
-    Returns:
-        True if OCR is needed, False otherwise
-    """
-    return len(text) < OCR_MIN_CHARS and page_count <= OCR_MAX_PAGES
-
-
 def render_pdf_pages_to_png(
     data: bytes, max_pages: int = 3
 ) -> list[bytes]:

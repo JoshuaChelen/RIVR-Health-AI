@@ -8,7 +8,7 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 
 from apps.shares.models import SharePackage
-from apps.shares.services import cleanup_expired_artifacts, create_share, resolve_share
+from apps.shares.services import create_share, resolve_share
 
 User = get_user_model()
 
@@ -89,11 +89,3 @@ def test_create_requires_auth(api_client):
     assert api_client.post("/api/shares", {}, format="json").status_code == 401
 
 
-def test_cleanup_expired_artifacts(user):
-    token, pkg = create_share(user, ["card_3x5"])
-    keys = list(pkg.payload_json["pdfs"].values())
-    SharePackage.objects.filter(pk=pkg.pk).update(expires_at=timezone.now() - timedelta(minutes=5))
-    assert cleanup_expired_artifacts() == 1
-    pkg.refresh_from_db()
-    assert pkg.artifacts_deleted_at is not None
-    assert not default_storage.exists(keys[0])

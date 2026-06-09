@@ -29,7 +29,7 @@ class AiJobViewSet(ReadOnlyOwnedViewSet):
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         job = self.get_object()
-        if job.status in (AiJob.Status.QUEUED, AiJob.Status.RUNNING, AiJob.Status.PROCESSING):
+        if job.status in (AiJob.Status.QUEUED, AiJob.Status.RUNNING):
             job.cancel_requested = True
             job.save(update_fields=["cancel_requested", "updated_at"])
         return Response(AiJobSerializer(job).data)

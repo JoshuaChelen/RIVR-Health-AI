@@ -8,7 +8,7 @@ from django.db import IntegrityError, transaction
 from apps.documents.models import Document
 from apps.health.models import HealthProfile
 from apps.jobs.models import AiJob, AiJobEvent
-from apps.shares.models import SharePackage, SharePackageItem
+from apps.shares.models import SharePackage
 from apps.timeline.models import TimelineEvent
 
 User = get_user_model()
@@ -69,21 +69,8 @@ def test_share_token_hash_unique(user, other_user):
     with pytest.raises(IntegrityError):
         with transaction.atomic():
             SharePackage.objects.create(
-                owner=other_user, token_hash="abc", file_type=SharePackage.FileType.PDF, expires_at=expires
+                owner=other_user, token_hash="abc", file_type=SharePackage.FileType.HEALTH_PROFILE, expires_at=expires
             )
-
-
-def test_share_package_item_unique_together(user):
-    from django.utils import timezone
-
-    pkg = SharePackage.objects.create(
-        owner=user, token_hash="t1", file_type=SharePackage.FileType.PDF, expires_at=timezone.now()
-    )
-    doc = Document.objects.create(user=user, source_type=Document.SourceType.PDF)
-    SharePackageItem.objects.create(package=pkg, document=doc)
-    with pytest.raises(IntegrityError):
-        with transaction.atomic():
-            SharePackageItem.objects.create(package=pkg, document=doc)
 
 
 def test_timeline_document_set_null_on_delete(user):

@@ -101,7 +101,6 @@ def test_schemas_validate_sample_payloads():
             "blood_type": "O+", "emergency_contact": {"name": None, "phone": None},
             "one_line_summary": "Healthy",
         },
-        "apple_health_snapshot": {"steps_avg_7d": 5000, "sleep_avg_min_7d": None, "resting_hr_recent": None},
         "full_summary_markdown": "...", "disclaimer": "Informational only.",
     })
     assert ev.score_0_to_100 == 82 and ev.three_by_five_card.blood_type == "O+"

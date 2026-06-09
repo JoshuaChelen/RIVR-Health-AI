@@ -30,7 +30,6 @@ class Document(BaseModel):
         max_length=20, choices=SourceType.choices, default=SourceType.FILE
     )
     pdf_path = models.CharField(max_length=1024, blank=True, default="")
-    fhir_path = models.CharField(max_length=1024, blank=True, default="")
     summary_path = models.CharField(max_length=1024, blank=True, default="")
     mime_type = models.CharField(max_length=255, blank=True, default="")
     size_bytes = models.BigIntegerField(null=True, blank=True)
