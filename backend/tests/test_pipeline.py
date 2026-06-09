@@ -54,7 +54,13 @@ def user(db):
 @pytest.fixture
 def mock_ai(monkeypatch):
     monkeypatch.setattr(ai_client, "evaluate_user_health", lambda *a, **k: fake_evaluation())
-    monkeypatch.setattr(extraction, "extract_pdf_text", lambda data: "diabetic patient notes " * 20)
+    monkeypatch.setattr(
+        extraction, "extract_pdf",
+        lambda data, **k: extraction.PdfContent(
+            pages=[extraction.PageContent(text="diabetic patient notes " * 20, images=[])]
+        ),
+    )
+    monkeypatch.setattr(ai_client, "ocr_images", lambda *a, **k: "")  # no images in fixture; guard against hitting the real API
 
 
 def test_profile_evaluation_creates_health_profile(user, mock_ai):
@@ -122,3 +128,92 @@ def test_stale_recovery(user):
     assert pipeline.recover_stale_jobs() == 1
     job.refresh_from_db(); doc.refresh_from_db()
     assert job.status == AiJob.Status.FAILED and doc.status == "uploaded"
+
+
+def test_pdf_image_ocr_is_interleaved(user, mock_ai, monkeypatch):
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing",
+                                  mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/x.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    monkeypatch.setattr(
+        extraction, "extract_pdf",
+        lambda data, **k: extraction.PdfContent(
+            pages=[extraction.PageContent(text="page one text", images=[b"img"])]
+        ),
+    )
+    monkeypatch.setattr(ai_client, "ocr_images", lambda *a, **k: "OCR FINDINGS")
+    captured = {}
+
+    def fake_extract(doc_id, title, text):
+        captured["text"] = text
+        return fake_facts(doc.id)
+
+    monkeypatch.setattr(ai_client, "extract_document_facts", fake_extract)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED
+    assert "page one text" in captured["text"]
+    assert "[IMAGE OCR — page 1]" in captured["text"]
+    assert "OCR FINDINGS" in captured["text"]
+
+
+def test_pdf_ocr_failure_is_non_fatal(user, mock_ai, monkeypatch):
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing",
+                                  mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/y.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    monkeypatch.setattr(
+        extraction, "extract_pdf",
+        lambda data, **k: extraction.PdfContent(
+            pages=[extraction.PageContent(text="surviving text", images=[b"img"])]
+        ),
+    )
+
+    def boom(*a, **k):
+        raise RuntimeError("vision down")
+
+    monkeypatch.setattr(ai_client, "ocr_images", boom)
+    captured = {}
+
+    def fake_extract(doc_id, title, text):
+        captured["text"] = text
+        return fake_facts(doc.id)
+
+    monkeypatch.setattr(ai_client, "extract_document_facts", fake_extract)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED
+    assert "surviving text" in captured["text"]
+    assert job.events.filter(level="warn").exists()
+
+
+def test_pdf_multi_page_interleaving(user, mock_ai, monkeypatch):
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing",
+                                  mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/m.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    monkeypatch.setattr(
+        extraction, "extract_pdf",
+        lambda data, **k: extraction.PdfContent(pages=[
+            extraction.PageContent(text="page one text", images=[b"i1"]),
+            extraction.PageContent(text="", images=[b"i2"]),  # image-only page (no text layer)
+        ]),
+    )
+    monkeypatch.setattr(ai_client, "ocr_images", lambda imgs, **k: "OCR-" + str(len(imgs)))
+    captured = {}
+
+    def fake_extract(doc_id, title, text):
+        captured["text"] = text
+        return fake_facts(doc.id)
+
+    monkeypatch.setattr(ai_client, "extract_document_facts", fake_extract)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED
+    t = captured["text"]
+    assert t.index("page one text") < t.index("[IMAGE OCR — page 1]") < t.index("[IMAGE OCR — page 2]")
+    # page 2 had no text layer -> only its OCR block appears, no page-2 text part
+    assert "[IMAGE OCR — page 2]" in t
