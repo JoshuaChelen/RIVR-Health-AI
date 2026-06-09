@@ -2,19 +2,13 @@
 
 Provides pure helper functions for:
 - Apple Health timeline aggregation
-- PDF text extraction
-- OCR requirement detection
-- PDF page rendering to PNG
+- PDF text + image extraction (PyMuPDF)
 """
 
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from django.conf import settings
-
-# OCR configuration defaults
-OCR_MIN_CHARS = getattr(settings, "OCR_MIN_CHARS", 200)
-OCR_MAX_PAGES = getattr(settings, "OCR_MAX_PAGES", 10)
 
 # Minimum pixel dimension for an embedded image to be worth OCR-ing.
 # Images smaller than this on BOTH axes (logos, icons, signature glyphs) are skipped.
@@ -149,85 +143,6 @@ def extract_pdf(data: bytes, *, min_image_px: int = MIN_IMAGE_PX) -> PdfContent:
         doc.close()
 
     return PdfContent(pages=pages)
-
-
-def extract_pdf_text(data: bytes) -> str:
-    """Extract text from PDF bytes using pypdf.
-
-    Mirrors pdf-parse library behavior (JavaScript version).
-
-    Args:
-        data: Raw PDF file bytes
-
-    Returns:
-        Extracted text, trimmed. Empty string on error.
-    """
-    try:
-        import io
-
-        from pypdf import PdfReader
-
-        reader = PdfReader(io.BytesIO(data))
-        text_parts = []
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text_parts.append(page_text)
-        text = "".join(text_parts).strip()
-        return text
-    except Exception:
-        return ""
-
-
-def render_pdf_pages_to_png(
-    data: bytes, max_pages: int = 3
-) -> list[bytes]:
-    """Render PDF pages to PNG images using PyMuPDF (fitz).
-
-    Mirrors pdfjs page rendering behavior with scaling constraints.
-    Each page is rendered at scale up to 2x, capped to keep max dimension <= 1300px.
-
-    Args:
-        data: Raw PDF file bytes
-        max_pages: Maximum number of pages to render (default 3)
-
-    Returns:
-        List of PNG image bytes, one per rendered page.
-        Empty list on error.
-
-    Notes:
-        - Uses fitz.Document for PDF processing
-        - Canvas size is ceil'd to integer pixels
-        - Output format is PNG with 96 DPI base
-    """
-    try:
-        import fitz  # PyMuPDF
-
-        doc = fitz.open(stream=data, filetype="pdf")
-        num_pages = min(doc.page_count, max_pages)
-
-        pngs: list[bytes] = []
-        for page_num in range(num_pages):
-            page = doc[page_num]
-
-            # Start with scale=1, then cap max dimension to 1300px
-            base_rect = page.get_displaylist().rect
-            max_dim = 1300
-            max_base_dim = max(base_rect.width, base_rect.height)
-            scale = min(2.0, max_dim / max_base_dim) if max_base_dim > 0 else 1.0
-
-            # Render at computed scale
-            mat = fitz.Matrix(scale, scale)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-
-            # PNG bytes
-            png_bytes = pix.tobytes(output="png")
-            pngs.append(png_bytes)
-
-        doc.close()
-        return pngs
-    except Exception:
-        return []
 
 
 # --- Private helpers ----------------------------------------------------------

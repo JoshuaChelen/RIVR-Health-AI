@@ -445,25 +445,6 @@ def ocr_images(images: list[bytes], *, batch_size: int | None = None) -> str:
     return "\n".join(p for p in parts if p).strip()
 
 
-def ocr_png_pages_to_text(pages: list[bytes]) -> str:
-    import base64
-
-    client = _client()
-    user_content = []
-    for i, png in enumerate(pages, start=1):
-        user_content.append({"type": "input_text", "text": f"PAGE {i}"})
-        b64 = base64.b64encode(png).decode("ascii")
-        user_content.append({"type": "input_image", "image_url": f"data:image/png;base64,{b64}"})
-    resp = client.responses.create(
-        model=settings.AI_MODEL_OCR,
-        input=[
-            {"role": "system", "content": [{"type": "input_text", "text": _OCR_SYSTEM}]},
-            {"role": "user", "content": user_content},
-        ],
-    )
-    return getattr(resp, "output_text", "") or ""
-
-
 def _mime_to_ext(mime: str | None) -> str:
     m = (mime or "").lower()
     if "mp3" in m or "mpeg" in m:
