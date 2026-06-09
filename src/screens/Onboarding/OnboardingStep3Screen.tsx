@@ -25,14 +25,15 @@ import { Card } from "../../components/ui/Primitives/Card";
 import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 
-import { radius, spacing, typescale } from "../../theme/tokens";
+import { spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
+import { useOnboardingStyles } from "./onboardingStyles";
 import { COUNTRIES, Country, parseStoredPhone, PhoneField } from "../../components/ui/Primitives/PhoneField";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep3">;
 
 export function OnboardingStep3Screen({ navigation }: Props) {
-  const styles = useStyles();
+  const styles = { ...useOnboardingStyles(), ...useStyles() };
   const { onComplete } = useOnboarding();
 
   const [contactName, setContactName]   = useState("");
@@ -194,64 +195,11 @@ export function OnboardingStep3Screen({ navigation }: Props) {
 }
 
 const useStyles = createStyles((c) => StyleSheet.create({
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xxl,
-  },
-  inner: {
-    width: "100%",
-    maxWidth: 440,
-    alignSelf: "center",
-    gap: spacing.xl,
-  },
-  header: { gap: 6 },
-  title: {
-    fontSize: typescale.size.xxl,
-    fontWeight: typescale.weight.bold as any,
-    color: c.text,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: typescale.size.base,
-    color: c.muted,
-    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-  },
-  card: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-    borderRadius: radius.xl,
-  },
-  optionalBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: c.tealSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  optionalText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold as any,
-    color: c.teal,
-  },
-  fields: { gap: spacing.md },
   skipNote: {
     fontSize: typescale.size.xs,
     color: c.subtle,
     textAlign: "center",
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
     marginTop: -spacing.xs,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: typescale.size.xs,
-    color: c.subtle,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-    paddingHorizontal: spacing.lg,
   },
 }));

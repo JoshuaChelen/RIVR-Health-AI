@@ -108,7 +108,7 @@ const MAX_RECS = 6;
  * Used to suppress weak items from both structured and legacy paths.
  */
 const GENERIC_LIFESTYLE_RE =
-  /\b(maintain\s+(a\s+)?(healthy|good|active|balanced)|exercise\s+more|sleep\s+(better|more|longer)|eat\s+(well|healthi?er?|better|right|balanced)|reduce\s+stress|stay\s+(active|hydrated)|healthy\s+habits?|monitor\s+your\s+(health\s+generally|overall\s+health)|balanced\s+diet|keep\s+up\s+(the\s+)?(good|healthy)|general(ly)?\s+(health|wellness)|overall\s+(health|wellness))\\b/i;
+  /\b(maintain\s+(a\s+)?(healthy|good|active|balanced)|exercise\s+more|sleep\s+(better|more|longer)|eat\s+(well|healthi?er?|better|right|balanced)|reduce\s+stress|stay\s+(active|hydrated)|healthy\s+habits?|monitor\s+your\s+(health\s+generally|overall\s+health)|balanced\s+diet|keep\s+up\s+(the\s+)?(good|healthy)|general(ly)?\s+(health|wellness)|overall\s+(health|wellness))\b/i;
 
 /**
  * Matches risk_flag text that contains a clear action verb — these are worth

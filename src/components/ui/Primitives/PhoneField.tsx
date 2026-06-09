@@ -459,7 +459,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     gap: 5,
     height: "100%" as any,
   },
-  prefixFlag: { fontSize: 18, lineHeight: 24 },
   prefixDial: {
     fontSize: typescale.size.sm,
     fontWeight: typescale.weight.semibold as any,
@@ -527,7 +526,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
   countryRowSelected: {
     backgroundColor: c.tealSoft,
   },
-  countryFlag: { fontSize: 22, lineHeight: 28, flexShrink: 0 },
   countryName: {
     flex: 1,
     fontSize: typescale.size.base,

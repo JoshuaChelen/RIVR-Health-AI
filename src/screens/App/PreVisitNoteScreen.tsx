@@ -11,7 +11,9 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
+import { useSession } from "../../context/SessionContext";
+import { listTimeline } from "../../lib/api/data";
+import { parseYMD } from "../../lib/timeline";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -37,11 +39,6 @@ type TimelineEventRow = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseYMD(ymd: string) {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-}
 
 function formatEventDate(ymd: string | null, precision: DatePrecision | null) {
   if (!ymd || !precision) return "Date unknown";
@@ -146,23 +143,16 @@ export function PreVisitNoteScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr]               = useState<string | null>(null);
 
+  const { user } = useSession();
+
   const load = useCallback(async () => {
     setErr(null);
     try {
       setLoading(true);
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      if (!userData.user) throw new Error("Not authenticated");
+      if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
-        .from("timeline_events")
-        .select("id, occurred_at, date_precision, title, category, source, summary, included_in_previsit")
-        .eq("user_id", userData.user.id)
-        .eq("included_in_previsit", true)
-        .order("occurred_at", { ascending: false, nullsFirst: false });
-
-      if (error) throw error;
-      setRows((data ?? []) as TimelineEventRow[]);
+      const result = await listTimeline("?included_in_previsit=true&ordering=-occurred_at");
+      setRows((result.results ?? []) as TimelineEventRow[]);
     } catch (e: any) {
       captureException(e);
       setErr(e?.message ?? "Failed to load pre-visit note.");
@@ -170,7 +160,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

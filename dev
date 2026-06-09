@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+#
+# dev — one command to spin up the whole RIVR stack for local development.
+#
+#   ./dev            Start everything: backend (Docker) + web (Next.js) + mobile (Expo)
+#   ./dev backend    Start only the backend Docker stack (detached)
+#   ./dev web        Start only the Next.js web app (foreground)
+#   ./dev mobile     Start only the Expo mobile app (foreground)
+#   ./dev logs       Tail the backend Docker logs
+#   ./dev down       Stop everything (Docker stack + background web)
+#
+# Missing env files (backend/.env, web/.env.local, EXPO_PUBLIC_API_URL in .env)
+# are created/synced automatically on every run.
+#
+# If backend/docker-compose.local.yml exists (gitignored), it is layered on top
+# automatically — handy for coexisting with other projects on conflicting ports.
+# The script reads back whichever host port the API actually bound and points
+# web + mobile at it, so everything works whether the API is on :8000 or not.
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+DEVDIR="$ROOT/.dev"
+mkdir -p "$DEVDIR"
+
+bold()  { printf '\033[1m%s\033[0m\n' "$*"; }
+info()  { printf '\033[36m▸ %s\033[0m\n' "$*"; }
+ok()    { printf '\033[32m✓ %s\033[0m\n' "$*"; }
+warn()  { printf '\033[33m! %s\033[0m\n' "$*"; }
+
+lan_ip() { ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true; }
+
+# Layer the local override on top of the base compose file when it exists.
+COMPOSE_ARGS=(-f docker-compose.yml)
+[ -f "$ROOT/backend/docker-compose.local.yml" ] && COMPOSE_ARGS+=(-f docker-compose.local.yml)
+compose() { ( cd "$ROOT/backend" && docker compose "${COMPOSE_ARGS[@]}" "$@" ); }
+
+# Host port the API (web service) is published on; 8000 if the stack isn't up yet.
+api_port() { compose port web 8000 2>/dev/null | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -1; }
+
+# Upsert KEY=VALUE in a dotenv file (in-place, BSD sed).
+set_env_var() {
+  local file=$1 key=$2 val=$3
+  [ -f "$file" ] || : > "$file"
+  if grep -q "^${key}=" "$file"; then
+    sed -i '' "s|^${key}=.*|${key}=${val}|" "$file"
+  else
+    printf '%s=%s\n' "$key" "$val" >> "$file"
+  fi
+}
+
+# --- env bootstrap ----------------------------------------------------------
+ensure_backend_env() {
+  [ -f backend/.env ] && return
+  cp backend/.env.example backend/.env
+  ok "created backend/.env"
+  grep -q '^OPENAI_API_KEY=.\+' backend/.env || warn "backend/.env has no OPENAI_API_KEY — add one for AI extraction"
+}
+
+# Point the web + mobile clients at the API's actual host port.
+sync_client_env() {
+  local url="http://localhost:${1}"
+  set_env_var web/.env.local NEXT_PUBLIC_API_URL "$url"
+  [ -f .env ] && set_env_var .env EXPO_PUBLIC_API_URL "$url"
+  ok "clients -> ${url}  (web/.env.local, .env)"
+}
+
+# --- backend (Docker) -------------------------------------------------------
+wait_for_api() {
+  local port=$1
+  info "waiting for the API on http://localhost:${port} ..."
+  for _ in $(seq 1 60); do
+    curl -fsS "http://localhost:${port}/api/schema/" >/dev/null 2>&1 && { ok "API is up"; return 0; }
+    sleep 2
+  done
+  warn "API didn't respond in time — check: ./dev logs"
+  return 1
+}
+
+start_backend() {
+  ensure_backend_env
+  [ ${#COMPOSE_ARGS[@]} -gt 2 ] && info "using docker-compose.local.yml override"
+  info "building & starting the backend stack (db, redis, minio, mailpit, django, celery, beat) ..."
+  compose up -d --build
+  PORT="$(api_port)"; PORT="${PORT:-8000}"
+  wait_for_api "$PORT" || true
+  sync_client_env "$PORT"
+  ok "backend:  http://localhost:${PORT}      (API)"
+  echo "  MinIO console:  http://localhost:9001  (rivr-minio / rivr-minio-secret)"
+  echo "  Mailpit inbox:  http://localhost:8025"
+}
+
+# --- web (Next.js) ----------------------------------------------------------
+ensure_web_deps() { [ -d web/node_modules ] || ( info "installing web deps ..."; cd web && npm install ); }
+
+start_web_fg() {
+  ensure_web_deps
+  ok "web:  http://localhost:3000"
+  ( cd web && npm run dev )
+}
+
+start_web_bg() {
+  ensure_web_deps
+  ( cd web && npm run dev ) >"$DEVDIR/web.log" 2>&1 &
+  echo $! >"$DEVDIR/web.pid"
+  ok "web:  http://localhost:3000          (logs: .dev/web.log)"
+}
+
+# --- mobile (Expo) ----------------------------------------------------------
+start_mobile_fg() {
+  [ -d node_modules ] || ( info "installing mobile deps ..."; npm install )
+  local port ip; port="$(api_port)"; port="${port:-8000}"; ip="$(lan_ip)"
+  [ -n "$ip" ] && echo "  (physical device? set EXPO_PUBLIC_API_URL=http://${ip}:${port} in .env)"
+  ok "mobile: starting Expo — press i (iOS), a (Android), or scan the QR in Expo Go"
+  # No exec: run as a child so an EXIT trap (set by the `up` path) can clean up.
+  npm start
+}
+
+# --- teardown ---------------------------------------------------------------
+stop_web_bg() {
+  if [ -f "$DEVDIR/web.pid" ]; then
+    kill "$(cat "$DEVDIR/web.pid")" 2>/dev/null || true
+    rm -f "$DEVDIR/web.pid"
+  fi
+}
+
+down() {
+  info "stopping background web ..."; stop_web_bg
+  info "stopping backend stack ..."; compose down
+  ok "everything stopped"
+}
+
+# --- dispatch ---------------------------------------------------------------
+case "${1:-up}" in
+  backend) start_backend ;;
+  web)     ensure_web_deps; start_web_fg ;;
+  mobile)  start_mobile_fg ;;
+  logs)    compose logs -f ;;
+  down)    down ;;
+  up|"")
+    start_backend
+    start_web_bg
+    bold ""
+    bold "Stack is up. Web at http://localhost:3000, API at http://localhost:${PORT}."
+    echo "Starting Expo now (Ctrl-C stops web+mobile; backend keeps running — './dev down' stops it)."
+    bold ""
+    # Tear down the background web when the foreground Expo exits.
+    trap 'echo; stop_web_bg; echo "web stopped. backend still running — run ./dev down to stop it."' EXIT
+    start_mobile_fg
+    ;;
+  *) echo "usage: ./dev [backend|web|mobile|logs|down]"; exit 1 ;;
+esac

@@ -1,69 +1,33 @@
 import { describe, expect, test, vi } from "vitest";
 
+vi.mock("./api/data", () => ({ askHealthQuestion: vi.fn() }));
+
+import { askHealthQuestion as apiAsk } from "./api/data";
 import { askHealthQuestion } from "./aiQuestionSearch";
 
 describe("AI question search client", () => {
-  test("does not call the AI endpoint for blank questions", async () => {
-    const fetchImpl = vi.fn();
-
-    const result = await askHealthQuestion("   ", {
-      endpoint: "https://example.com/answer",
-      accessToken: "token",
-      fetchImpl,
-    });
-
+  test("returns idle for blank questions without calling the API", async () => {
+    const result = await askHealthQuestion("   ");
     expect(result).toEqual({ status: "idle" });
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(apiAsk).not.toHaveBeenCalled();
   });
 
-  test("posts natural-language questions to the AI answer endpoint", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        answer: "Your records mention ibuprofen after knee surgery.",
-        sources: [{ title: "Knee surgery record", type: "document" }],
-      }),
-    });
-
-    const result = await askHealthQuestion("What medications was I taking after knee surgery?", {
-      endpoint: "https://example.com/answer",
-      accessToken: "token",
-      fetchImpl,
-    });
-
-    expect(fetchImpl).toHaveBeenCalledWith("https://example.com/answer", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer token",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        question: "What medications was I taking after knee surgery?",
-      }),
-    });
-    expect(result).toEqual({
-      status: "answered",
+  test("returns the answer and normalized sources on success", async () => {
+    (apiAsk as ReturnType<typeof vi.fn>).mockResolvedValue({
       answer: "Your records mention ibuprofen after knee surgery.",
-      sources: [{ title: "Knee surgery record", type: "document" }],
+      sources: [{ title: "Knee surgery record", type: "document" }, { name: "Lab panel" }, { nope: 1 }],
     });
+    const result = await askHealthQuestion("What meds after knee surgery?");
+    expect(result.status).toBe("answered");
+    if (result.status === "answered") {
+      expect(result.answer).toContain("ibuprofen");
+      expect(result.sources.map((s) => s.title)).toEqual(["Knee surgery record", "Lab panel"]);
+    }
   });
 
-  test("returns an unavailable result instead of local keyword answers when AI fails", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({ error: "Not found" }),
-    });
-
-    const result = await askHealthQuestion("Find my left thumb injury", {
-      endpoint: "https://example.com/answer",
-      accessToken: "token",
-      fetchImpl,
-    });
-
-    expect(result).toEqual({
-      status: "unavailable",
-      message: "AI search is unavailable right now. Try again after the AI worker is connected.",
-    });
+  test("returns unavailable when the API throws", async () => {
+    (apiAsk as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("network"));
+    const result = await askHealthQuestion("anything");
+    expect(result.status).toBe("unavailable");
   });
 });

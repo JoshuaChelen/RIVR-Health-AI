@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useSession } from "../../../context/SessionContext";
 import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { Audio } from "expo-av";
 
@@ -6,12 +7,12 @@ import { AppText } from "../Primitives/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { PrimaryButton } from "../Primitives/PrimaryButton";
 import { GhostButton } from "../Primitives/GhostButton";
-import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
+import { spacing, radius, typescale } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
+import { useDocCardStyles } from "./docCardStyles";
 
-import { uploadUriToStorage } from "../../../lib/storageUpload";
-import { insertDocumentRow, safeFilename } from "../../../lib/documents";
-import { supabase } from "../../../lib/supabase";
+import { safeFilename } from "../../../lib/documents";
+import { uploadDocument } from "../../../lib/api/data";
 import {
   nativePermissionDeniedMessage,
   nativePermissionErrorMessage,
@@ -30,7 +31,8 @@ function mmss(ms: number) {
 }
 
 export function RecordVoiceNote({ onUploaded }: Props) {
-  const styles = useStyles();
+  const { user } = useSession();
+  const styles = { ...useDocCardStyles(), ...useStyles() };
   const [recording, setRecording]   = useState<Audio.Recording | null>(null);
   const [uri, setUri]               = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState(0);
@@ -131,30 +133,9 @@ export function RecordVoiceNote({ onUploaded }: Props) {
     setStatus(null);
 
     try {
-      const { data: auth, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      if (!auth.user) throw new Error("Not signed in");
-
-      const userId = auth.user.id;
       const filename = safeFilename(`voice_note_${Date.now()}.m4a`);
-      const storagePath = `${userId}/voice-notes/${filename}`;
-
-      const { sizeBytes } = await uploadUriToStorage({
-        bucket: "documents",
-        storagePath,
-        uri,
-        contentType: "audio/mp4",
-        upsert: false,
-      });
-
-      await insertDocumentRow({
-        userId,
-        title: filename,
-        storagePath,
-        mimeType: "audio/mp4",
-        sizeBytes,
-        sourceType: "voice_note",
-      });
+      const formData = new FormData();
+      await uploadDocument({ uri, name: filename, type: "audio/mp4" } as any, "voice_note", filename);
 
       setStatus("Voice note saved and ready to process.");
       setUri(null);
@@ -283,46 +264,6 @@ export function RecordVoiceNote({ onUploaded }: Props) {
 }
 
 const useStyles = createStyles((c) => StyleSheet.create({
-  // ── Card shell ────────────────────────────────────────────────────────────
-  card: {
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderColor: c.tealBorder,
-    borderRadius: radius.lg,
-    backgroundColor: c.tealSoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    ...shadows.xs,
-  },
-
-  // ── Divider ───────────────────────────────────────────────────────────────
-  divider: {
-    height: 1,
-    backgroundColor: c.tealBorder,
-    opacity: 0.5,
-    marginHorizontal: spacing.xs,
-  },
-
-  // ── Info row ──────────────────────────────────────────────────────────────
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  rowPressed:  { opacity: 0.7 },
-  rowDisabled: { opacity: 0.5 },
-
-  // ── Icon circle ───────────────────────────────────────────────────────────
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: c.teal,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
   iconRecording: {
     backgroundColor: c.warning,
   },
@@ -330,31 +271,14 @@ const useStyles = createStyles((c) => StyleSheet.create({
     // Keep teal during upload — ActivityIndicator shows inside
     backgroundColor: c.teal,
   },
-  // ── Text block ────────────────────────────────────────────────────────────
-  textBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  rowTitle: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold,
-    color: c.teal,
-  },
   rowTitleRecording: {
     color: c.warning,
-  },
-  rowHint: {
-    fontSize: typescale.size.xs,
-    color: c.teal,
-    opacity: 0.75,
   },
   rowHintRecording: {
     color: c.warning,
     opacity: 1,
     fontWeight: typescale.weight.semibold,
   },
-
-  // ── Stop pill ─────────────────────────────────────────────────────────────
   stopPill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -367,15 +291,11 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontWeight: typescale.weight.bold,
     color: "#fff",
   },
-
-  // ── Action area: PrimaryButton + GhostButton ──────────────────────────────
   actionArea: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     gap: spacing.xxs,
   },
-
-  // ── Status text ───────────────────────────────────────────────────────────
   statusRow: {
     paddingBottom: spacing.xs,
     paddingLeft: 38 + spacing.md,

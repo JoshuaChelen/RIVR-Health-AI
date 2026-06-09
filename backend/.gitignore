@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+staticfiles/
+media/
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite3
+docker-compose.local.yml
+celerybeat-schedule

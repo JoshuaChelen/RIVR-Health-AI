@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useSession } from "../../context/SessionContext";
+import { listTimeline, updateTimelineEvent, getProfile } from "../../lib/api/data";
 import {
   View,
   StyleSheet,
@@ -13,10 +15,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
-import { supabase } from "../../lib/supabase";
+
 import { captureException } from "../../lib/sentry";
 import {
-  aiQuestionEndpoint,
   askHealthQuestion,
   type AiQuestionResult,
 } from "../../lib/aiQuestionSearch";
@@ -24,6 +25,7 @@ import {
   clinicalTagsForEvent,
   formatTimelineDateMain,
   normalizeTimelineEvent,
+  parseYMD,
   type DatePrecision,
   type NormalizedTimelineEvent,
 } from "../../lib/timeline";
@@ -75,39 +77,26 @@ export function TimelineScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
 
+  const { user } = useSession();
+
   const load = useCallback(async (offset = 0, append = false) => {
     if (!append) setErr(null);
     try {
-      const { data, error } = await supabase
-        .from("timeline_events")
-        .select(
-          "id, occurred_at, date_precision, title, event_type, category, source, summary, included_in_previsit, document_id, created_at, tags, data, documents(title)"
-        )
-        .neq("source", "apple_health")
-        .order("occurred_at", { ascending: false, nullsFirst: false })
-        .range(offset, offset + PAGE_SIZE - 1);
-
-      if (error) throw error;
+      const result = await listTimeline(
+        `?limit=${PAGE_SIZE}&offset=${offset}&exclude_source=apple_health&ordering=-occurred_at`,
+      );
 
       type RawRow = Omit<TimelineEventRow, "documentTitle"> & {
         documents: { title: string | null } | { title: string | null }[] | null;
       };
 
       if (!append && patientDob == null) {
-        const { data: userRes } = await supabase.auth.getUser();
-        const userId = userRes?.user?.id;
-        if (userId) {
-          const profileResult = await supabase
-            .from("user_profiles")
-            .select("date_of_birth")
-            .eq("user_id", userId)
-            .maybeSingle();
-          const profileRow = profileResult.data;
-          setPatientDob((profileRow as { date_of_birth?: string | null } | null)?.date_of_birth ?? null);
-        }
+        const profile = await getProfile();
+        const dob = (profile as { date_of_birth?: string | null } | null)?.date_of_birth ?? null;
+        setPatientDob(dob);
       }
 
-      const rows = ((data ?? []) as unknown as RawRow[])
+      const rows = ((result.results ?? []) as unknown as RawRow[])
         .filter((e) => e.source !== "apple_health")
         .map<TimelineEventRow>((e) => {
           // Postgrest may return the join as a single object or as a 1-element
@@ -117,7 +106,7 @@ export function TimelineScreen({ navigation }: Props) {
           return normalizeTimelineEvent({ ...e, documentTitle });
         });
 
-      setHasMore(rows.length === PAGE_SIZE);
+      setHasMore(result.count > offset + PAGE_SIZE);
 
       if (append) {
         setEvents((prev) => [...prev, ...rows]);
@@ -132,7 +121,7 @@ export function TimelineScreen({ navigation }: Props) {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [patientDob]);
+  }, [patientDob, user]);
 
   useFocusEffect(useCallback(() => { setHasMore(true); load(); }, [load]));
 
@@ -161,12 +150,7 @@ export function TimelineScreen({ navigation }: Props) {
 
     const timer = setTimeout(async () => {
       try {
-        const endpoint = aiQuestionEndpoint();
-        const { data } = await supabase.auth.getSession();
-        const result = await askHealthQuestion(question, {
-          endpoint: endpoint ?? "",
-          accessToken: data.session?.access_token ?? null,
-        });
+        const result = await askHealthQuestion(question);
 
         if (!cancelled) {
           setAiResult(result);
@@ -268,11 +252,9 @@ export function TimelineScreen({ navigation }: Props) {
     setEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: next } : e))
     );
-    const { error } = await supabase
-      .from("timeline_events")
-      .update({ included_in_previsit: next })
-      .eq("id", eventId);
-    if (error) {
+    try {
+      await updateTimelineEvent(eventId, { included_in_previsit: next });
+    } catch {
       setEvents((prev) =>
         prev.map((e) => (e.id === eventId ? { ...e, included_in_previsit: !next } : e))
       );
@@ -602,11 +584,6 @@ export function TimelineScreen({ navigation }: Props) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseYMD(ymd: string) {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-}
 
 function monthBucketKey(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);

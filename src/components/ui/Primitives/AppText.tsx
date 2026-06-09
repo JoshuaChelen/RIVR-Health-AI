@@ -10,8 +10,7 @@ type Variant =
   | "body"
   | "muted"
   | "label"
-  | "caption"
-  | "mono";
+  | "caption";
 
 type Props = TextProps & {
   variant?: Variant;
@@ -77,12 +76,5 @@ const useStyles = createStyles((c) => StyleSheet.create({
     color: c.subtle,
     lineHeight: typescale.size.sm * typescale.lineHeight.normal,
     fontFamily: fonts.semibold,
-  },
-  mono: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.regular,
-    color: c.text,
-    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-    fontFamily: fonts.regular,
   },
 }));

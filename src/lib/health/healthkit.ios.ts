@@ -102,11 +102,6 @@ export async function getHealthAvailability(): Promise<HealthAvailabilityResult>
   });
 }
 
-export async function isHealthAvailable(): Promise<boolean> {
-  const result = await getHealthAvailability();
-  return result.ok;
-}
-
 export async function linkAppleHealth(): Promise<{ ok: boolean; error?: string }> {
   const availability = await getHealthAvailability();
   if (!availability.ok) {
@@ -132,7 +127,7 @@ export async function linkAppleHealth(): Promise<{ ok: boolean; error?: string }
   });
 }
 
-export async function getLatestHeartRateBpm(): Promise<number | null> {
+async function getLatestHeartRateBpm(): Promise<number | null> {
   if (!hasHealthKitModule()) return null;
 
   const endDate = new Date().toISOString();
@@ -149,7 +144,7 @@ export async function getLatestHeartRateBpm(): Promise<number | null> {
   });
 }
 
-export async function getSleepAvgLast7DaysMinutes(): Promise<number | null> {
+async function getSleepAvgLast7DaysMinutes(): Promise<number | null> {
   if (!hasHealthKitModule()) return null;
 
   const end = new Date();
@@ -180,7 +175,7 @@ export async function getSleepAvgLast7DaysMinutes(): Promise<number | null> {
   });
 }
 
-export async function getStepsAvg7Days(): Promise<number | null> {
+async function getStepsAvg7Days(): Promise<number | null> {
   if (!hasHealthKitModule()) return null;
 
   const startDate = daysAgo(6).toISOString();
@@ -205,7 +200,7 @@ export async function getStepsAvg7Days(): Promise<number | null> {
   });
 }
 
-export async function getWalkingRunningDistanceAvg7dMiles(): Promise<number | null> {
+async function getWalkingRunningDistanceAvg7dMiles(): Promise<number | null> {
   if (!hasHealthKitModule()) return null;
 
   const startDate = daysAgo(6).toISOString();
@@ -241,7 +236,7 @@ export async function getWalkingRunningDistanceAvg7dMiles(): Promise<number | nu
 
 
 
-export async function getActiveEnergyAvg7dKcal(): Promise<number | null> {
+async function getActiveEnergyAvg7dKcal(): Promise<number | null> {
   if (!hasHealthKitModule()) return null;
 
   const startDate = daysAgo(6).toISOString();
@@ -276,7 +271,7 @@ export async function getActiveEnergyAvg7dKcal(): Promise<number | null> {
 }
 
 
-export async function getStepsTrend7Days(): Promise<DailyDataPoint[]> {
+async function getStepsTrend7Days(): Promise<DailyDataPoint[]> {
   if (!hasHealthKitModule()) return [];
 
   const startDate = daysAgo(6).toISOString();
@@ -301,7 +296,7 @@ export async function getStepsTrend7Days(): Promise<DailyDataPoint[]> {
   });
 }
 
-export async function getSleepTrend7Days(): Promise<DailyDataPoint[]> {
+async function getSleepTrend7Days(): Promise<DailyDataPoint[]> {
   if (!hasHealthKitModule()) return [];
 
   const end = new Date();
@@ -338,7 +333,7 @@ export async function getSleepTrend7Days(): Promise<DailyDataPoint[]> {
   });
 }
 
-export async function getHeartRateTrend(): Promise<DailyDataPoint[]> {
+async function getHeartRateTrend(): Promise<DailyDataPoint[]> {
   if (!hasHealthKitModule()) return [];
 
   const endDate = new Date().toISOString();

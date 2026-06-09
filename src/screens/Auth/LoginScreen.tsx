@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Animated,
-  Easing,
   View,
   StyleSheet,
   KeyboardAvoidingView,
@@ -13,8 +12,8 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
-import { supabase } from "../../lib/supabase";
 import { captureException } from "../../lib/sentry";
+import { useSession } from "../../context/SessionContext";
 
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
@@ -26,39 +25,20 @@ import { PasswordInput } from "../../components/ui/Account/PasswordInput";
 import { spacing, radius, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
 import { useTheme } from "../../context/ThemeContext";
+import { useAuthEntrance, useAuthStyles } from "./authShared";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
 export function LoginScreen({ navigation }: Props) {
-  const styles = useStyles();
+  const styles = { ...useAuthStyles(), ...useStyles() };
   const { colors } = useTheme();
+  const { signIn } = useSession();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy]         = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  // Entrance animation
-  const headerOpacity  = useRef(new Animated.Value(0)).current;
-  const headerSlide    = useRef(new Animated.Value(16)).current;
-  const formOpacity    = useRef(new Animated.Value(0)).current;
-  const formSlide      = useRef(new Animated.Value(24)).current;
-  const footerOpacity  = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(headerOpacity, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(headerSlide,   { toValue: 0, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(formOpacity, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(formSlide,   { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]),
-      Animated.timing(footerOpacity, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]).start();
-    // Run the entrance animation only once when the screen mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { headerOpacity, headerSlide, formOpacity, formSlide, footerOpacity } = useAuthEntrance();
 
   const onLogin = async () => {
     setErrorText(null);
@@ -68,11 +48,7 @@ export function LoginScreen({ navigation }: Props) {
     }
     try {
       setBusy(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (error) throw error;
+      await signIn(email.trim(), password);
     } catch (e: any) {
       captureException(e);
       setErrorText(e?.message ?? "Login failed.");
@@ -178,41 +154,6 @@ export function LoginScreen({ navigation }: Props) {
 }
 
 const useStyles = createStyles((c) => StyleSheet.create({
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
-    justifyContent: "center",
-  },
-  inner: {
-    width: "100%",
-    maxWidth: 420,
-    alignSelf: "center",
-    gap: spacing.xl,
-  },
-
-  brand: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  appName: {
-    fontSize: typescale.size.xxl,
-    fontWeight: typescale.weight.bold,
-    color: c.text,
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: typescale.size.base,
-    color: c.muted,
-    textAlign: "center",
-  },
-
-  formCard: {
-    padding: spacing.xl,
-    gap: spacing.md,
-    borderRadius: 20,
-  },
   formHeader: {
     gap: 4,
     marginBottom: spacing.xs,
@@ -228,36 +169,10 @@ const useStyles = createStyles((c) => StyleSheet.create({
     color: c.muted,
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
-
-  fields: {
-    gap: spacing.md,
-  },
-
-  errorBanner: {
-    backgroundColor: c.dangerSoft,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: c.dangerBorder,
-  },
-  errorText: {
-    fontSize: typescale.size.sm,
-    color: c.danger,
-    fontWeight: typescale.weight.medium,
-  },
-
   busyRow: {
     alignItems: "center",
     paddingTop: 2,
   },
-
-  divider: {
-    height: 1,
-    backgroundColor: c.borderLight,
-    marginVertical: spacing.xxs,
-  },
-
   links: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -282,13 +197,5 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.sm,
     color: c.teal,
     fontWeight: typescale.weight.semibold,
-  },
-
-  footer: {
-    textAlign: "center",
-    fontSize: typescale.size.xs,
-    color: c.subtle,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-    paddingHorizontal: spacing.lg,
   },
 }));

@@ -792,13 +792,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     backgroundColor: c.borderLight,
     marginVertical: spacing.xxs,
   },
-  ac_disconnectNote: {
-    fontSize: typescale.size.xs,
-    color: c.subtle,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-    textAlign: "center",
-    paddingHorizontal: spacing.xs,
-  },
 
   // ── Main styles ─────────────────────────────────────────────────────────
   scroll: {

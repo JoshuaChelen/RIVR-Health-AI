@@ -42,7 +42,7 @@ const panels = [
     icon: "share-outline" as const,
     title: "Share securely",
     subtitle:
-      "Create expiring, links to share with doctors or family.",
+      "Create expiring links to share with doctors or family.",
   },
 ];
 

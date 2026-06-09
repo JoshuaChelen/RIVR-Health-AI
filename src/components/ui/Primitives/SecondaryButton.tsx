@@ -1,6 +1,6 @@
 import React from "react";
-import { Pressable, StyleSheet, ViewStyle, StyleProp } from "react-native";
-import { AppText } from "./AppText";
+import { StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { ButtonBase } from "./ButtonBase";
 import { radius, typescale } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
 
@@ -14,24 +14,16 @@ type Props = {
 export function SecondaryButton({ label, onPress, disabled, style }: Props) {
   const styles = useStyles();
   return (
-    <Pressable
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
+    <ButtonBase
+      label={label}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.btn,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-        style,
-      ]}
-    >
-      <AppText variant="body" style={styles.text}>
-        {label}
-      </AppText>
-    </Pressable>
+      disabled={disabled}
+      style={style}
+      btnStyle={styles.btn}
+      textStyle={styles.text}
+      disabledStyle={styles.disabled}
+      pressedStyle={styles.pressed}
+    />
   );
 }
 

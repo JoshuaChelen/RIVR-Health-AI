@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 
-import { Sentry, captureException, setUser } from "./src/lib/sentry";
-import { supabase } from "./src/lib/supabase";
-import { getProfile } from "./src/lib/profile";
+import { Sentry, captureException } from "./src/lib/sentry";
+import { getProfile } from "./src/lib/api/data";
+import { SessionProvider, useSession } from "./src/context/SessionContext";
 import { OnboardingContext } from "./src/context/OnboardingContext";
 import { NetworkProvider } from "./src/context/NetworkContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
@@ -19,6 +19,8 @@ import { appLinking } from "./src/navigation/linking";
 
 function AppInner() {
   const { colors, colorScheme } = useTheme();
+  const { user, loading: sessionLoading } = useSession();
+
   const navTheme = useMemo(() => ({
     ...(colorScheme === "dark" ? DarkTheme : DefaultTheme),
     colors: {
@@ -32,19 +34,13 @@ function AppInner() {
   }), [colorScheme, colors]);
 
   const [showSplash, setShowSplash] = useState(true);
-  const [session, setSession] = useState<any>(null);
-  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
-  // Prevents the auth state change listener from re-running checkOnboarding
-  // for the SIGNED_IN event that fires on initial session hydration, which would
-  // duplicate the call already made by getSession().
-  const didInitCheck = useRef(false);
-
-  const checkOnboarding = useCallback(async (userId: string) => {
+  const checkOnboarding = useCallback(async () => {
+    setProfileLoading(true);
     try {
-      const profile = await getProfile(userId);
+      const profile = await getProfile();
       setOnboardingComplete(!!profile?.onboarding_completed_at);
     } catch (e) {
       captureException(e);
@@ -55,54 +51,20 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) {
-        checkOnboarding(data.session.user.id);
-      } else {
-        setProfileLoading(false);
-      }
-      didInitCheck.current = true;
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-
-        if (session?.user) {
-          setUser({ id: session.user.id, email: session.user.email });
-        }
-
-        if (event === "SIGNED_OUT") {
-          setUser(null);
-        }
-
-        if (event === "PASSWORD_RECOVERY") {
-          setIsRecoveryFlow(true);
-          setProfileLoading(false);
-          if (navRef.isReady()) navRef.navigate("UpdatePassword");
-        } else if (event === "SIGNED_OUT") {
-          setIsRecoveryFlow(false);
-          setOnboardingComplete(false);
-          setProfileLoading(false);
-        } else if (event === "SIGNED_IN" && session && didInitCheck.current) {
-          // Only re-run for genuine new sign-ins, not the initial session hydration
-          setIsRecoveryFlow(false);
-          setProfileLoading(true);
-          checkOnboarding(session.user.id);
-        }
-      }
-    );
-
-    return () => listener.subscription.unsubscribe();
-  }, [checkOnboarding]);
+    if (sessionLoading) return;
+    if (user) {
+      checkOnboarding();
+    } else {
+      setOnboardingComplete(false);
+      setProfileLoading(false);
+    }
+  }, [sessionLoading, user, checkOnboarding]);
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  // Show a minimal spinner if session hydration is still in progress after splash
-  if (profileLoading) {
+  if (sessionLoading || (user && profileLoading)) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
         <ActivityIndicator color={colors.teal} size="large" />
@@ -110,7 +72,7 @@ function AppInner() {
     );
   }
 
-  const showApp = session && !isRecoveryFlow;
+  const showApp = !!user;
 
   return (
     <NetworkProvider>
@@ -134,7 +96,9 @@ function AppInner() {
 function App() {
   return (
     <ThemeProvider>
-      <AppInner />
+      <SessionProvider>
+        <AppInner />
+      </SessionProvider>
     </ThemeProvider>
   );
 }

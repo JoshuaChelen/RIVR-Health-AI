@@ -90,10 +90,6 @@ export const darkColors: Colors = {
   redSoft:    "#2D1B1B",
 };
 
-export function getColors(scheme: "light" | "dark"): Colors {
-  return scheme === "dark" ? darkColors : lightColors;
-}
-
 // ─── Typography scale ─────────────────────────────────────────────────────────
 export const typescale = {
   size: {

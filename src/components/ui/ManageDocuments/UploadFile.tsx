@@ -20,12 +20,8 @@ import * as Print from "expo-print";
 import * as FileSystem from "expo-file-system/legacy";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
-import { supabase } from "../../../lib/supabase";
-import {
-  uploadAndInsertDocument,
-  uploadBytesAndInsertDocument,
-  checkDuplicateDocument,
-} from "../../../lib/documents";
+import { uploadDocument, listDocuments } from "../../../lib/api/data";
+import { getCurrentUserId } from "../../../lib/auth";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
 import {
   nativeMediaLaunchFailedMessage,
@@ -34,6 +30,8 @@ import {
   permissionWasGranted,
 } from "../../../lib/nativePermissions";
 import { AppText } from "../Primitives/AppText";
+import { BottomSheet } from "../Primitives/BottomSheet";
+import { useDocCardStyles } from "./docCardStyles";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
@@ -441,7 +439,7 @@ function ScanModal({
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function UploadFile({ onUploaded }: Props) {
-  const { cardStyles } = useStyles();
+  const cardStyles = { ...useDocCardStyles(), ...useStyles().cardStyles };
   // PDF upload state
   const [pdfBusy,   setPdfBusy]   = useState(false);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
@@ -483,9 +481,8 @@ export function UploadFile({ onUploaded }: Props) {
     setPdfStatus("Checking auth…");
 
     try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      if (!user) throw new Error("Not signed in");
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error("Not signed in");
 
       let uploaded = 0;
 
@@ -500,7 +497,8 @@ export function UploadFile({ onUploaded }: Props) {
         // DuplicateConfirmModal so the prompt is styled consistently and works
         // on web (Alert.alert renders nothing on web, leaving the upload hung).
         if (fileSize > 0) {
-          const dup = await checkDuplicateDocument(user.id, fileName, fileSize);
+          const { results } = await listDocuments(`?title=${encodeURIComponent(fileName)}`);
+          const dup = results.find((d: any) => d.size_bytes === fileSize);
           if (dup) {
             const dupDate = new Date(dup.created_at).toLocaleDateString(undefined, {
               month: "short", day: "numeric", year: "numeric",
@@ -513,13 +511,8 @@ export function UploadFile({ onUploaded }: Props) {
         }
 
         setPdfStatus(`Uploading ${i + 1} of ${assets.length}…`);
-        await uploadAndInsertDocument({
-          userId:     user.id,
-          uri:        asset.uri,
-          fileName,
-          mimeType:   asset.mimeType ?? "application/pdf",
-          sourceType: "pdf",
-        });
+        const file = { uri: asset.uri, name: fileName, type: asset.mimeType ?? "application/pdf" } as any;
+        await uploadDocument(file, "pdf");
         uploaded += 1;
       }
 
@@ -716,9 +709,8 @@ export function UploadFile({ onUploaded }: Props) {
     let pdfUri: string | null = null;
 
     try {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      if (!user) throw new Error("Not signed in");
+      const userId = await getCurrentUserId();
+      if (!userId) throw new Error("Not signed in");
 
       const pageCount = scanPages.length;
       const fileName  = `scan_${Date.now()}.pdf`;
@@ -728,19 +720,14 @@ export function UploadFile({ onUploaded }: Props) {
         // ── Web path ──────────────────────────────────────────────────────────
         // pdf-lib (via scanPdf.web.ts) compiles the images into PDF bytes
         // entirely in-memory. No temp file is written; bytes are uploaded
-        // directly to Supabase Storage.
+        // directly via uploadDocument().
         setScanStatus("Compiling PDF…");
         const pdfBytes = await compileScanPagesForWeb(scanPages);
 
         setScanStatus("Uploading…");
-        await uploadBytesAndInsertDocument({
-          userId:     user.id,
-          bytes:      pdfBytes,
-          fileName,
-          mimeType:   "application/pdf",
-          sourceType: "scanned_pdf",
-          title,
-        });
+        const blob = new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
+        const file = new File([blob], fileName, { type: "application/pdf" });
+        await uploadDocument(file, "scanned_pdf", title);
       } else {
         // ── Native path (iOS + Android) ───────────────────────────────────────
         // Each page is resized (if > MAX_SCAN_WIDTH) and JPEG-encoded via the
@@ -786,14 +773,8 @@ export function UploadFile({ onUploaded }: Props) {
         pdfUri = result.uri;
 
         setScanStatus("Uploading…");
-        await uploadAndInsertDocument({
-          userId:     user.id,
-          uri:        pdfUri,
-          fileName,
-          mimeType:   "application/pdf",
-          sourceType: "scanned_pdf",
-          title,
-        });
+        const file = { uri: pdfUri, name: fileName, type: "application/pdf" } as any;
+        await uploadDocument(file, "scanned_pdf", title);
       }
 
       // ── Success ──────────────────────────────────────────────────────────────
@@ -916,39 +897,34 @@ function DuplicateConfirmModal({
 }) {
   const { duplicateModalStyles } = useStyles();
   return (
-    <Modal transparent visible animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={duplicateModalStyles.backdrop} onPress={onCancel}>
-        <Pressable style={duplicateModalStyles.sheet} onPress={() => {}}>
-          <View style={duplicateModalStyles.accentBar} />
-          <View style={duplicateModalStyles.body}>
-            <AppText style={duplicateModalStyles.title}>Possible duplicate</AppText>
-            <AppText style={duplicateModalStyles.message}>
-              A document named {`"${fileName}"`} with the same file size was uploaded on {dupDate}.
-            </AppText>
-            <View style={duplicateModalStyles.btnRow}>
-              <Pressable
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Cancel"
-                onPress={onCancel}
-                style={({ pressed }) => [duplicateModalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
-              >
-                <AppText style={duplicateModalStyles.btnSecondaryText}>Cancel</AppText>
-              </Pressable>
-              <Pressable
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Upload anyway"
-                onPress={onConfirm}
-                style={({ pressed }) => [duplicateModalStyles.btnPrimary, pressed && { opacity: 0.85 }]}
-              >
-                <AppText style={duplicateModalStyles.btnPrimaryText}>Upload anyway</AppText>
-              </Pressable>
-            </View>
-          </View>
+    <BottomSheet
+      visible
+      onClose={onCancel}
+      accent="teal"
+      title="Possible duplicate"
+      message={`A document named "${fileName}" with the same file size was uploaded on ${dupDate}.`}
+    >
+      <View style={duplicateModalStyles.btnRow}>
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          onPress={onCancel}
+          style={({ pressed }) => [duplicateModalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
+        >
+          <AppText style={duplicateModalStyles.btnSecondaryText}>Cancel</AppText>
         </Pressable>
-      </Pressable>
-    </Modal>
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Upload anyway"
+          onPress={onConfirm}
+          style={({ pressed }) => [duplicateModalStyles.btnPrimary, pressed && { opacity: 0.85 }]}
+        >
+          <AppText style={duplicateModalStyles.btnPrimaryText}>Upload anyway</AppText>
+        </Pressable>
+      </View>
+    </BottomSheet>
   );
 }
 
@@ -968,7 +944,7 @@ function ActionRow({
   onPress: () => void;
   disabled: boolean;
 }) {
-  const { cardStyles } = useStyles();
+  const cardStyles = { ...useDocCardStyles(), ...useStyles().cardStyles };
   return (
     <Pressable
       onPress={onPress}
@@ -1212,50 +1188,6 @@ const useStyles = createStyles((c) => ({
   }),
 
   cardStyles: StyleSheet.create({
-    card: {
-      borderWidth: 1.5,
-      borderStyle: "dashed",
-      borderColor: c.tealBorder,
-      borderRadius: radius.lg,
-      backgroundColor: c.tealSoft,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      ...shadows.xs,
-    },
-    divider: {
-      height: 1,
-      backgroundColor: c.tealBorder,
-      opacity: 0.5,
-      marginHorizontal: spacing.xs,
-    },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    rowPressed:  { opacity: 0.7 },
-    rowDisabled: { opacity: 0.5 },
-    iconCircle: {
-      width: 38,
-      height: 38,
-      borderRadius: radius.pill,
-      backgroundColor: c.teal,
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-    },
-    textBlock: { flex: 1, gap: 2 },
-    rowTitle: {
-      fontSize: typescale.size.sm,
-      fontWeight: typescale.weight.semibold,
-      color: c.teal,
-    },
-    rowHint: {
-      fontSize: typescale.size.xs,
-      color: c.teal,
-      opacity: 0.75,
-    },
     pdfStatus: {
       paddingBottom: spacing.xs,
       paddingLeft: 38 + spacing.md,
@@ -1272,39 +1204,6 @@ const useStyles = createStyles((c) => ({
   // ListDocuments (translucent backdrop, bottom-anchored sheet with a teal
   // accent bar and two buttons) so the visual language stays consistent.
   duplicateModalStyles: StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: "rgba(13,27,42,0.45)",
-      alignItems: "center",
-      justifyContent: "flex-end",
-      paddingBottom: spacing.xxl,
-      paddingHorizontal: spacing.lg,
-    },
-    sheet: {
-      width: "100%",
-      backgroundColor: c.surface,
-      borderRadius: radius.xl,
-      overflow: "hidden",
-      ...shadows.lg,
-    },
-    accentBar: {
-      height: 4,
-      backgroundColor: c.teal,
-    },
-    body: {
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-    title: {
-      fontSize: typescale.size.lg,
-      fontWeight: typescale.weight.bold,
-      color: c.text,
-    },
-    message: {
-      fontSize: typescale.size.sm,
-      color: c.textSub,
-      lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-    },
     btnRow: {
       flexDirection: "row",
       gap: spacing.sm,

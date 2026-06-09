@@ -2,19 +2,13 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
-import { supabase } from "./supabase";
-import { upsertProfile } from "./profile";
-
-const BUCKET = "profile-pictures";
+import { updateProfile, uploadAvatar as uploadAvatarApi, getAvatar } from "./api/data";
 
 /** Edge of the square output. Matches the in-app avatar circle's max display size at 2x. */
 const AVATAR_DIM = 512;
 
 /** JPEG quality. 0.8 balances size and visual fidelity for face photos at 512px. */
 const JPEG_QUALITY = 0.8;
-
-/** TTL for signed URLs. Long enough for a typical screen session, short enough to limit blast radius. */
-const SIGNED_URL_TTL_S = 600;
 
 /** AsyncStorage key for the persistent data-URI cache, scoped by storage path. */
 const cacheKeyFor = (avatarPath: string) => `avatar:${avatarPath}`;
@@ -60,12 +54,9 @@ export async function uploadAvatar(userId: string, sourceUri: string): Promise<s
   if (!res.ok) throw new Error(`Failed to read manipulated image (${res.status})`);
   const blob = await res.blob();
 
-  const { error: uploadErr } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, blob, { contentType: "image/jpeg", upsert: true });
-  if (uploadErr) throw uploadErr;
+  await uploadAvatarApi(blob as any);
 
-  await upsertProfile(userId, { avatar_path: path });
+  await updateProfile({ avatar_path: path });
 
   // Warm the persistent cache with the bytes we just uploaded. AsyncStorage
   // uses IndexedDB/localStorage on web and SQLite/SharedPreferences on
@@ -89,9 +80,6 @@ export async function removeAvatar(userId: string, currentPath: string | null): 
   if (!userId) throw new Error("removeAvatar: userId required");
 
   if (currentPath) {
-    const { error: rmErr } = await supabase.storage.from(BUCKET).remove([currentPath]);
-    if (rmErr) throw rmErr;
-
     try {
       await AsyncStorage.removeItem(cacheKeyFor(currentPath));
     } catch {
@@ -99,7 +87,7 @@ export async function removeAvatar(userId: string, currentPath: string | null): 
     }
   }
 
-  await upsertProfile(userId, { avatar_path: null });
+  await updateProfile({ avatar_path: null });
 }
 
 /**
@@ -152,22 +140,20 @@ export function useAvatarUrl(avatarPath: string | null | undefined): string | nu
       //    changes are eventually reflected. The cached URI stays on screen
       //    while this runs; we only swap the URI if the bytes actually changed.
       try {
-        const { data, error } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrl(avatarPath, SIGNED_URL_TTL_S);
+        const { url } = await getAvatar();
         if (cancelled) return;
-        if (error || !data?.signedUrl) {
+        if (!url) {
           if (!cached) setUri(null);
           return;
         }
 
-        const res = await fetch(data.signedUrl);
+        const res = await fetch(url);
         if (cancelled) return;
         if (!res.ok) {
           // Fetch failed (auth, network, deleted, etc.). If we had no cache,
           // fall back to the signed URL directly so the user still sees the
           // photo via RN's <Image> network loader.
-          if (!cached) setUri(data.signedUrl);
+          if (!cached) setUri(url);
           return;
         }
 

@@ -10,12 +10,12 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
-import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
 import { captureException } from "../../lib/sentry";
 import { syncEmergencyCardToWidget } from "../../lib/emergencyCardWidget";
+import { useSession } from "../../context/SessionContext";
+import { listDocuments, getHealthProfile, getLatestEvaluation } from "../../lib/api/data";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -57,6 +57,7 @@ function todayLabel(): string {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function HomeScreen({ navigation }: Props) {
+  const { user } = useSession();
   const [scoreLoading, setScoreLoading] = useState(true);
   const [score, setScore] = useState<number | null>(null);
   const [label, setLabel] = useState<string | null>(null);
@@ -74,23 +75,16 @@ export function HomeScreen({ navigation }: Props) {
     setScoreLoading(true);
     setError(false);
     try {
-      const { data: userRes } = await supabase.auth.getUser();
-      if (!userRes?.user) return;
+      if (!user) return;
 
-      const userId = userRes.user.id;
+      const userId = user.id;
       const [healthProfile, evalRow, userProfile, latestDocRes] = await Promise.all([
-        getHealthProfile(userId),
-        getLatestEvaluation(userId),
+        getHealthProfile(),
+        getLatestEvaluation(),
         getProfile(userId),
-        supabase
-          .from("documents")
-          .select("processed_at")
-          .eq("user_id", userId)
-          .eq("status", "processed")
-          .not("processed_at", "is", null)
-          .order("processed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        listDocuments("?status=processed").then(res => ({
+          data: res.results[0] ?? null
+        })),
       ]);
 
       const evalResult = evalRow?.result ?? null;
@@ -134,7 +128,7 @@ export function HomeScreen({ navigation }: Props) {
     } finally {
       setScoreLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -955,14 +949,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
-  // Apple Health mini — connected
-  ahMiniLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: c.success,
-  },
-
   // Connected pills
   ahMiniPills: {
     gap: spacing.xs,
@@ -1041,18 +1027,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     flexShrink: 0,
   },
 
-  // Sign out
-  signOut: {
-    alignSelf: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xs,
-  },
-  signOutText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium,
-    color: c.subtle,
-  },
   actionsRow: {
     flexDirection: "row",
     paddingHorizontal: spacing.xl,

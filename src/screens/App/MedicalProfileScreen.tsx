@@ -12,10 +12,10 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { supabase } from "../../lib/supabase";
-import { getProfile, upsertProfile, type UserProfile } from "../../lib/profile";
+import { getProfile, upsertProfile, manualProfileSignature, type UserProfile } from "../../lib/profile";
 import { upsertManualInputDocument } from "../../lib/documents";
 import { getCurrentUserId } from "../../lib/auth";
+import { listDocuments, enqueueDocumentProcessing } from "../../lib/api/data";
 import {
   makeId, safeList, joinParts,
   type AllergyItem, type MedicationItem, type MedHistoryItem,
@@ -28,6 +28,7 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { TextField } from "../../components/ui/Primitives/TextField";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
+import { DataRow } from "../../components/ui/Profile/DataRow";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { captureException } from "../../lib/sentry";
@@ -50,40 +51,9 @@ const SEVERITY_OPTS = ["Mild", "Moderate", "Severe"];
 const RELATION_OPTS = ["Parent", "Sibling", "Grandparent", "Child", "Other"];
 
 
-function manualProfileSignature(p: UserProfile | null | undefined) {
-  const list = (v: unknown) => (Array.isArray(v) ? v : []);
-  const text = (v: unknown) => {
-    const s = String(v ?? "").trim();
-    return s ? s : null;
-  };
-
-  return JSON.stringify({
-    date_of_birth: p?.date_of_birth ?? null,
-    sex_or_gender: p?.sex_or_gender ?? null,
-    current_symptoms: text(p?.current_symptoms),
-    smoking_status: p?.smoking_status ?? null,
-    alcohol_use: p?.alcohol_use ?? null,
-    exercise_level: p?.exercise_level ?? null,
-    allergies: list(p?.allergies),
-    medications: list(p?.medications),
-    medical_history: list(p?.medical_history),
-    surgical_history: list(p?.surgical_history),
-    family_history: list(p?.family_history),
-    hospitalizations: list(p?.hospitalizations),
-    social_history: list(p?.social_history),
-  });
-}
-
-
-
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
 const useSubStyles = createStyles((c) => StyleSheet.create({
-  // ── DataRow ──
-  drRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 8, gap: spacing.sm },
-  drLabel: { flex: 1, paddingTop: 1, color: c.muted },
-  drValue: { flex: 1.5, textAlign: "right", fontSize: typescale.size.base, fontWeight: typescale.weight.medium as any, color: c.text },
-  drEmpty: { color: c.subtle, fontWeight: typescale.weight.regular as any },
   // ── ItemRow ──
   irRow: { flexDirection: "row", alignItems: "center", paddingVertical: 9, gap: spacing.sm },
   irText: { flex: 1, gap: 2 },
@@ -99,18 +69,6 @@ const useSubStyles = createStyles((c) => StyleSheet.create({
   abBtn: { paddingVertical: spacing.xs, paddingHorizontal: 2, alignSelf: "flex-start" },
   abText: { fontSize: typescale.size.sm, fontWeight: typescale.weight.semibold as any, color: c.teal },
 }));
-
-function DataRow({ label, value }: { label: string; value?: string | null }) {
-  const s = useSubStyles();
-  return (
-    <View style={s.drRow}>
-      <AppText variant="label" style={s.drLabel}>{label}</AppText>
-      <AppText style={[s.drValue, !value && s.drEmpty]} numberOfLines={2}>
-        {value?.trim() || "—"}
-      </AppText>
-    </View>
-  );
-}
 
 function ItemRow({ primary, secondary, onDelete }: {
   primary: string; secondary?: string; onDelete?: () => void;
@@ -276,36 +234,19 @@ export function MedicalProfileScreen({ navigation }: Props) {
 const didHandleExitRef = useRef(false);
 
 const enqueueManualProfileIfPending = useCallback(async () => {
-  const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw userErr;
-  if (!user) return;
+  const userId = await getCurrentUserId();
+  if (!userId) return;
 
-  const { data: manualDoc, error: docErr } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("source_type", "manual_input")
-    .eq("status", "uploaded")
-    .maybeSingle();
-
-  if (docErr) throw docErr;
-  if (!manualDoc?.id) return;
-
-  const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
-  if (sessErr) throw sessErr;
-
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Not signed in");
-
-  const { error: jobErr } = await supabase.functions.invoke(
-    "enqueue-document-processing",
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      body: { documentIds: [manualDoc.id] },
-    }
+  // Query documents to find the manual input document with status 'uploaded'
+  const { results } = await listDocuments();
+  const manualDoc = results.find(
+    (doc) => doc.source_type === "manual_input" && doc.status === "uploaded"
   );
 
-  if (jobErr) throw jobErr;
+  if (!manualDoc?.id) return;
+
+  // Enqueue the manual document for processing
+  await enqueueDocumentProcessing([manualDoc.id]);
 }, []);
 
 useFocusEffect(

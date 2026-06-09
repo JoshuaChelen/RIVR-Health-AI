@@ -4,7 +4,6 @@
       "Bash(xargs sed:*)",
       "Bash(xargs perl:*)",
       "Bash(grep:*)",
-      "mcp__magic__21st_magic_component_builder",
       "mcp__nanobanana__generate_image",
       "Bash(node:*)",
       "Bash(npx tsc:*)",
