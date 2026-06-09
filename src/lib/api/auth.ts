@@ -37,15 +37,3 @@ export async function logout(): Promise<void> {
 export function me(): Promise<ApiUser> {
   return api.get<ApiUser>("/api/auth/me");
 }
-export function forgotPassword(email: string): Promise<unknown> {
-  return api.post("/api/auth/password/forgot", { email });
-}
-export function resetPassword(uid: string, token: string, password: string): Promise<unknown> {
-  return api.post("/api/auth/password/reset", { uid, token, password });
-}
-export function changePassword(currentPassword: string, newPassword: string): Promise<unknown> {
-  return api.post("/api/auth/password/change", { current_password: currentPassword, new_password: newPassword });
-}
-export function deleteAccount(): Promise<unknown> {
-  return api.del("/api/account");
-}

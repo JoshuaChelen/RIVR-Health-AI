@@ -10,13 +10,12 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
 import { getProfile } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
 import { captureException } from "../../lib/sentry";
 import { syncEmergencyCardToWidget } from "../../lib/emergencyCardWidget";
 import { useSession } from "../../context/SessionContext";
-import { listDocuments } from "../../lib/api/data";
+import { listDocuments, getHealthProfile, getLatestEvaluation } from "../../lib/api/data";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -80,8 +79,8 @@ export function HomeScreen({ navigation }: Props) {
 
       const userId = user.id;
       const [healthProfile, evalRow, userProfile, latestDocRes] = await Promise.all([
-        getHealthProfile(userId),
-        getLatestEvaluation(userId),
+        getHealthProfile(),
+        getLatestEvaluation(),
         getProfile(userId),
         listDocuments("?status=processed").then(res => ({
           data: res.results[0] ?? null
@@ -950,14 +949,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
-  // Apple Health mini — connected
-  ahMiniLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: c.success,
-  },
-
   // Connected pills
   ahMiniPills: {
     gap: spacing.xs,
@@ -1036,18 +1027,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     flexShrink: 0,
   },
 
-  // Sign out
-  signOut: {
-    alignSelf: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xs,
-  },
-  signOutText: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.medium,
-    color: c.subtle,
-  },
   actionsRow: {
     flexDirection: "row",
     paddingHorizontal: spacing.xl,

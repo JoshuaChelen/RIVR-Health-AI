@@ -50,9 +50,6 @@ export function uploadDocument(file: unknown, sourceType: string, title?: string
 export function deleteDocument(id: string): Promise<unknown> {
   return api.del(`/api/documents/${id}/`);
 }
-export function getDocumentFileUrl(id: string): Promise<{ url: string | null }> {
-  return api.get(`/api/documents/${id}/file/`);
-}
 
 // --- jobs --------------------------------------------------------------------
 export async function enqueueDocumentProcessing(documentIds: string[]): Promise<string> {

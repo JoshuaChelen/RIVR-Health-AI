@@ -16,12 +16,6 @@ export type AiQuestionResult =
 const UNAVAILABLE_MESSAGE =
   "AI search is unavailable right now. Try again after the AI worker is connected.";
 
-export function aiQuestionEndpoint(): string | null {
-  const configured = process.env.EXPO_PUBLIC_AI_QUESTION_ANSWER_URL?.trim();
-  if (configured) return configured;
-  return null;
-}
-
 export async function askHealthQuestion(question: string): Promise<AiQuestionResult> {
   const trimmed = question.trim();
   if (!trimmed) return { status: "idle" };

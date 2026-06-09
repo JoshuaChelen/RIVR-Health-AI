@@ -100,6 +100,34 @@ export type UserProfile = {
   updated_at: string;
 };
 
+/**
+ * Stable JSON signature of the user's manually-entered medical/lifestyle fields.
+ * Used to detect whether the profile changed enough to warrant re-evaluation.
+ */
+export function manualProfileSignature(p: UserProfile | null | undefined): string {
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  const text = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    return s ? s : null;
+  };
+
+  return JSON.stringify({
+    date_of_birth: p?.date_of_birth ?? null,
+    sex_or_gender: p?.sex_or_gender ?? null,
+    current_symptoms: text(p?.current_symptoms),
+    smoking_status: p?.smoking_status ?? null,
+    alcohol_use: p?.alcohol_use ?? null,
+    exercise_level: p?.exercise_level ?? null,
+    allergies: list(p?.allergies),
+    medications: list(p?.medications),
+    medical_history: list(p?.medical_history),
+    surgical_history: list(p?.surgical_history),
+    family_history: list(p?.family_history),
+    hospitalizations: list(p?.hospitalizations),
+    social_history: list(p?.social_history),
+  });
+}
+
 export async function getProfile(userId: string): Promise<UserProfile | null> {
   const data = await import("./api/data").then((m) => m.getProfile());
   return data;

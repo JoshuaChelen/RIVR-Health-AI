@@ -1,6 +1,6 @@
 import { requestCancelJob } from "./aiJobs";
 import { api } from "./api/client";
-import { deleteDocument as deleteDocumentApi, getProfile as getProfileData, uploadDocument } from "./api/data";
+import { deleteDocument as deleteDocumentApi, getProfile as getProfileData } from "./api/data";
 
 type ManualProfileRow = {
   date_of_birth: string | null;
@@ -116,63 +116,3 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
   }
 }
 
-/**
- * Check if a document with the same title and file size already exists for this user.
- * Returns the matching row if found, or null.
- */
-export async function checkDuplicateDocument(
-  userId: string,
-  title: string,
-  sizeBytes: number,
-): Promise<{ id: string; title: string; created_at: string } | null> {
-  const { results } = await api.get<{ results: any[] }>(
-    "/api/documents/?title=" + encodeURIComponent(title) + 
-    "&size_bytes=" + sizeBytes + "&limit=1"
-  );
-
-  return (results && results.length > 0) ? results[0] : null;
-}
-
-/**
- * Shared upload pipeline: upload a file URI in one multipart request that both
- * stores the file and creates the documents row. Used by UploadFile for PDF,
- * gallery photo, and camera scan flows.
- */
-export async function uploadAndInsertDocument(params: {
-  userId: string;
-  uri: string;
-  fileName: string;
-  mimeType: string;
-  sourceType: string;
-  title?: string;
-}): Promise<{ id: string }> {
-  const cleanName = safeFilename(params.fileName);
-  const doc = await uploadDocument(
-    { uri: params.uri, name: cleanName, type: params.mimeType } as unknown as Blob,
-    params.sourceType,
-    params.title ?? cleanName,
-  );
-  return doc as { id: string };
-}
-
-/**
- * Upload pre-compiled bytes (e.g. a Uint8Array from pdf-lib on web) in one
- * multipart request. No URI or temp file required.
- */
-export async function uploadBytesAndInsertDocument(params: {
-  userId: string;
-  bytes: Uint8Array;
-  fileName: string;
-  mimeType: string;
-  sourceType: string;
-  title?: string;
-}): Promise<{ id: string }> {
-  const cleanName = safeFilename(params.fileName);
-  const file = new File(
-    [new Blob([params.bytes as unknown as BlobPart], { type: params.mimeType })],
-    cleanName,
-    { type: params.mimeType },
-  );
-  const doc = await uploadDocument(file as unknown as Blob, params.sourceType, params.title ?? cleanName);
-  return doc as { id: string };
-}

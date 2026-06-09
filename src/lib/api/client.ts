@@ -19,6 +19,13 @@ export async function getRefreshToken(): Promise<string | null> {
   return AsyncStorage.getItem(REFRESH);
 }
 
+// Called when a request is unauthorized and the session can't be refreshed.
+// SessionContext registers this to drop the user, sending the app to Login.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 export class ApiError extends Error {
   status: number;
   data: unknown;
@@ -79,6 +86,12 @@ export async function request<T = unknown>(path: string, opts: RequestOpts = {})
   if (res.status === 401 && retry && (await tryRefresh())) {
     return request<T>(path, { ...opts, retry: false });
   }
+  if (res.status === 401) {
+    // Session is invalid and couldn't be refreshed: clear it and tell the app to
+    // show Login, instead of surfacing a 401 error on whatever the user tapped.
+    await clearTokens();
+    onUnauthorized?.();
+  }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
   if (!res.ok) throw new ApiError(res.status, data);
@@ -93,5 +106,3 @@ export const api = {
   del: <T = unknown>(p: string) => request<T>(p, { method: "DELETE" }),
   upload: <T = unknown>(p: string, form: FormData) => request<T>(p, { method: "POST", body: form, isForm: true }),
 };
-
-export const apiBaseUrl = BASE;

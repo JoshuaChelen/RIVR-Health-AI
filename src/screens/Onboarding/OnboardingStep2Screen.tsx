@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -25,16 +24,14 @@ import { Card } from "../../components/ui/Primitives/Card";
 import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
-
-import { radius, spacing, typescale } from "../../theme/tokens";
-import { createStyles } from "../../theme/createStyles";
+import { useOnboardingStyles } from "./onboardingStyles";
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, "OnboardingStep2">;
 
 const MARITAL_OPTIONS = ["Single", "Married", "Partnered", "Divorced", "Widowed"];
 
 export function OnboardingStep2Screen({ navigation }: Props) {
-  const styles = useStyles();
+  const styles = useOnboardingStyles();
   const [email, setEmail]         = useState("");
   const [phoneCountry, setPhoneCountry] = useState<Country>(COUNTRIES[0]);
   const [phoneNumber, setPhoneNumber]   = useState("");
@@ -221,60 +218,3 @@ export function OnboardingStep2Screen({ navigation }: Props) {
     </Screen>
   );
 }
-
-const useStyles = createStyles((c) => StyleSheet.create({
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xxl,
-  },
-  inner: {
-    width: "100%",
-    maxWidth: 440,
-    alignSelf: "center",
-    gap: spacing.xl,
-  },
-  header: { gap: 6 },
-  title: {
-    fontSize: typescale.size.xxl,
-    fontWeight: typescale.weight.bold as any,
-    color: c.text,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: typescale.size.base,
-    color: c.muted,
-    lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-  },
-  card: {
-    padding: spacing.xl,
-    gap: spacing.lg,
-    borderRadius: radius.xl,
-  },
-  optionalBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: c.tealSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  optionalText: {
-    fontSize: typescale.size.xs,
-    fontWeight: typescale.weight.semibold as any,
-    color: c.teal,
-  },
-  fields:    { gap: spacing.md },
-  pillGroup: { gap: spacing.xs },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: typescale.size.xs,
-    color: c.subtle,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-    paddingHorizontal: spacing.lg,
-  },
-}));

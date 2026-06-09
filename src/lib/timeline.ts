@@ -160,6 +160,12 @@ export function formatDate(ymd: string, precision: DatePrecision, style: "short"
   });
 }
 
+/** Lenient YYYY-MM-DD parser: always returns a Date, defaulting missing month/day to 1. */
+export function parseYMD(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 export type ClinicalTag = { label: string; value: string };
 
 export type TimelineEventSaveDraft = {

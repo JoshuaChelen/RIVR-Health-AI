@@ -11,7 +11,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
-import { ApiError, api, setTokens } from "./client";
+import { ApiError, api, setTokens, setUnauthorizedHandler } from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -20,6 +20,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe("mobile api client", () => {
   beforeEach(() => {
     for (const k of Object.keys(store)) delete store[k];
+    setUnauthorizedHandler(null);
   });
 
   it("attaches the Bearer access token", async () => {
@@ -43,6 +44,16 @@ describe("mobile api client", () => {
     expect(res.email).toBe("a@b.com");
     expect(store["rivr.access"]).toBe("new");
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("clears the session and fires the unauthorized handler when a 401 can't be refreshed", async () => {
+    await setTokens("acc"); // access only, no refresh token -> refresh can't succeed
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 401 })));
+    await expect(api.get("/api/health-profile")).rejects.toBeInstanceOf(ApiError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(store["rivr.access"]).toBeUndefined();
   });
 
   it("throws ApiError with status + detail on failure", async () => {

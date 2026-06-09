@@ -784,28 +784,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
   },
 
-  // Error card
-  errorCard: {
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: c.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: c.dangerBorder,
-    padding: spacing.xxl,
-    width: "100%",
-  },
-  errorTitle: {
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.bold,
-    color: c.text,
-  },
-  errorBody: {
-    fontSize: typescale.size.sm,
-    color: c.danger,
-    textAlign: "center",
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-  },
   dismissBtn: {
     marginTop: spacing.xs,
     paddingHorizontal: spacing.lg,

@@ -4,18 +4,15 @@ import { Platform } from "react-native";
 
 type NetworkState = {
   isConnected: boolean;
-  isInternetReachable: boolean | null;
 };
 
 const NetworkContext = createContext<NetworkState>({
   isConnected: true,
-  isInternetReachable: null,
 });
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<NetworkState>({
     isConnected: true,
-    isInternetReachable: null,
   });
 
   useEffect(() => {
@@ -23,7 +20,6 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       const updateWebNetworkState = () => {
         setState({
           isConnected: navigator.onLine,
-          isInternetReachable: navigator.onLine,
         });
       };
 
@@ -40,7 +36,6 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = NetInfo.addEventListener((netState) => {
       setState({
         isConnected: netState.isConnected ?? true,
-        isInternetReachable: netState.isInternetReachable ?? null,
       });
     });
     return unsubscribe;

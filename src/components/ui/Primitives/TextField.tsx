@@ -79,9 +79,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
   label: {
     marginBottom: 1,
   },
-  labelFocused: {
-    color: c.teal,
-  },
   wrap: {
     flexDirection: "row",
     alignItems: "center",

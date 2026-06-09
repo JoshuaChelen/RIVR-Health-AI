@@ -12,7 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
+import { getHealthProfile, getLatestEvaluation } from "../../lib/api/data";
 import { triggerProfileEvalAfterSave } from "../../lib/triggerProfileEval";
 import { getProfile, upsertProfile, type UserProfile, type StoryAnswers } from "../../lib/profile";
 import { getCurrentUserId } from "../../lib/auth";
@@ -255,8 +255,8 @@ async function saveAnswer() {
           await new Promise((resolve) => setTimeout(resolve, intervalMs));
 
           const [nextProfile, nextEval] = await Promise.all([
-            getHealthProfile(userId),
-            getLatestEvaluation(userId),
+            getHealthProfile(),
+            getLatestEvaluation(),
           ]);
 
           const nextProfileUpdated = nextProfile?.updated_at ?? null;

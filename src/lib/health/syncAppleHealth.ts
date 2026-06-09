@@ -1,5 +1,4 @@
-import { createTimelineEvents } from "../api/data";
-import { api } from "../api/client";
+import { createTimelineEvents, listTimeline, deleteTimelineEvent } from "../api/data";
 import type { AppleHealthSnapshot } from "./healthkit.ios";
 
 export type AppleHealthSyncResult = {
@@ -121,7 +120,15 @@ export async function syncAppleHealthToTimeline(
   }
 
   try {
-    await api.del(`/api/timeline/?source=apple_health&occurred_at=${today}`);
+    // Clear any apple_health events already recorded for today so re-syncing
+    // doesn't create duplicates. The list endpoint filters by source; we match
+    // today's date client-side (the API exposes no occurred_at filter), then
+    // delete each by id.
+    const existing = await listTimeline("?source=apple_health");
+    const todays = (existing.results ?? []).filter(
+      (e: { occurred_at?: string }) => String(e.occurred_at ?? "").slice(0, 10) === today,
+    );
+    await Promise.all(todays.map((e: { id: string }) => deleteTimelineEvent(e.id)));
   } catch (error) {
     return { ok: false, wrote: 0, error: error instanceof Error ? error.message : String(error) };
   }

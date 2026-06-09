@@ -7,8 +7,6 @@ import {
   Platform,
   Keyboard,
   Pressable,
-  Modal,
-  SafeAreaView,
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { OnboardingStackParamList } from "../../navigation/onboardingTypes";
@@ -26,8 +24,10 @@ import { Card } from "../../components/ui/Primitives/Card";
 import { ErrorBanner } from "../../components/ui/Primitives/ErrorBanner";
 import { OnboardingProgressBar } from "../../components/ui/Onboarding/OnboardingProgressBar";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
+import { DatePickerModal } from "../../components/ui/Primitives/DatePickerModal";
+import { useOnboardingStyles } from "./onboardingStyles";
 
-import { radius, spacing, typescale } from "../../theme/tokens";
+import { spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
 import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -39,7 +39,7 @@ const SEX_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function OnboardingStep1Screen({ navigation }: Props) {
-  const { styles } = useStyles();
+  const styles = { ...useOnboardingStyles(), ...useStyles() };
   const { colors } = useTheme();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName]   = useState("");
@@ -276,298 +276,17 @@ export function OnboardingStep1Screen({ navigation }: Props) {
   );
 }
 
-// ─── DatePickerModal ──────────────────────────────────────────────────────────
-//
-// Uses @react-native-community/datetimepicker when available.
-// Falls back to a simple numeric scroll-wheel built from native Picker (inline).
-// Install the package: npx expo install @react-native-community/datetimepicker
-//
-
-let DateTimePicker: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  DateTimePicker = require("@react-native-community/datetimepicker").default;
-} catch {
-  // package not installed — fallback renders below
-}
-
-const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-];
-
-function DatePickerModal({
-  visible,
-  date,
-  onConfirm,
-  onCancel,
-}: {
-  visible: boolean;
-  date: Date;
-  onConfirm: (d: Date) => void;
-  onCancel: () => void;
-}) {
-  const { dp } = useStyles();
-  const { colors } = useTheme();
-  const [local, setLocal] = useState(date);
-  // Keep local in sync when parent resets the date
-  useEffect(() => { setLocal(date); }, [date]);
-
-  if (!visible) return null;
-
-  // ── If package is available: native DateTimePicker ─────────────────────────
-  if (DateTimePicker) {
-    if (Platform.OS === "android") {
-      // Android shows a native dialog — no Modal wrapper needed
-      return (
-        <DateTimePicker
-          value={local}
-          mode="date"
-          display="default"
-          maximumDate={new Date()}
-          minimumDate={new Date(1900, 0, 1)}
-          onChange={(_: any, d?: Date) => {
-            if (d) onConfirm(d);
-            else onCancel();
-          }}
-        />
-      );
-    }
-
-    // iOS — wrap in a bottom sheet Modal
-    return (
-      <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-        <Pressable style={dp.overlay} onPress={onCancel} />
-        <SafeAreaView style={dp.sheet}>
-          <View style={dp.sheetHandle} />
-          <View style={dp.sheetHeader}>
-            <Pressable onPress={onCancel} style={dp.sheetBtn}>
-              <AppText style={dp.sheetBtnCancel}>Cancel</AppText>
-            </Pressable>
-            <AppText style={dp.sheetTitle}>Date of birth</AppText>
-            <Pressable onPress={() => onConfirm(local)} style={dp.sheetBtn}>
-              <AppText style={dp.sheetBtnDone}>Done</AppText>
-            </Pressable>
-          </View>
-          <DateTimePicker
-            value={local}
-            mode="date"
-            display="spinner"
-            maximumDate={new Date()}
-            minimumDate={new Date(1900, 0, 1)}
-            onChange={(_: any, d?: Date) => d && setLocal(d)}
-            style={{ height: 216 }}
-          />
-        </SafeAreaView>
-      </Modal>
-    );
-  }
-
-  // ── Fallback: simple text-based month/year selector ────────────────────────
-  const year  = local.getFullYear();
-  const month = local.getMonth();
-  const day   = local.getDate();
-
-  function adjust(field: "y" | "m" | "d", delta: number) {
-    const n = new Date(local);
-    if (field === "y") n.setFullYear(year + delta);
-    if (field === "m") n.setMonth(month + delta);
-    if (field === "d") n.setDate(day + delta);
-    if (n > new Date()) return;
-    if (n < new Date(1900, 0, 1)) return;
-    setLocal(n);
-  }
-
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <Pressable style={dp.overlay} onPress={onCancel} />
-      <SafeAreaView style={dp.sheet}>
-        <View style={dp.sheetHandle} />
-        <View style={dp.sheetHeader}>
-          <Pressable onPress={onCancel} style={dp.sheetBtn}>
-            <AppText style={dp.sheetBtnCancel}>Cancel</AppText>
-          </Pressable>
-          <AppText style={dp.sheetTitle}>Date of birth</AppText>
-          <Pressable onPress={() => onConfirm(local)} style={dp.sheetBtn}>
-            <AppText style={dp.sheetBtnDone}>Done</AppText>
-          </Pressable>
-        </View>
-
-        <View style={dp.fallbackRow}>
-          {/* Month */}
-          <View style={dp.fallbackCol}>
-            <Pressable onPress={() => adjust("m", 1)} style={dp.arrowBtn}>
-              <Ionicons name="chevron-up" size={18} color={colors.teal} />
-            </Pressable>
-            <AppText style={dp.fallbackValue}>{MONTHS[month].slice(0, 3)}</AppText>
-            <Pressable onPress={() => adjust("m", -1)} style={dp.arrowBtn}>
-              <Ionicons name="chevron-down" size={18} color={colors.teal} />
-            </Pressable>
-          </View>
-
-          {/* Day */}
-          <View style={dp.fallbackCol}>
-            <Pressable onPress={() => adjust("d", 1)} style={dp.arrowBtn}>
-              <Ionicons name="chevron-up" size={18} color={colors.teal} />
-            </Pressable>
-            <AppText style={dp.fallbackValue}>{String(day).padStart(2, "0")}</AppText>
-            <Pressable onPress={() => adjust("d", -1)} style={dp.arrowBtn}>
-              <Ionicons name="chevron-down" size={18} color={colors.teal} />
-            </Pressable>
-          </View>
-
-          {/* Year */}
-          <View style={dp.fallbackCol}>
-            <Pressable onPress={() => adjust("y", 1)} style={dp.arrowBtn}>
-              <Ionicons name="chevron-up" size={18} color={colors.teal} />
-            </Pressable>
-            <AppText style={dp.fallbackValue}>{year}</AppText>
-            <Pressable onPress={() => adjust("y", -1)} style={dp.arrowBtn}>
-              <Ionicons name="chevron-down" size={18} color={colors.teal} />
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-const useStyles = createStyles((c) => ({
-  dp: StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.4)",
-    },
-    sheet: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: c.surface,
-      borderTopLeftRadius: radius.xl,
-      borderTopRightRadius: radius.xl,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.xl,
-    },
-    sheetHandle: {
-      width: 40,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: c.border,
-      alignSelf: "center",
-      marginBottom: spacing.sm,
-    },
-    sheetHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: c.borderLight,
-      marginBottom: spacing.xs,
-    },
-    sheetTitle: {
-      fontSize: typescale.size.base,
-      fontWeight: typescale.weight.semibold as any,
-      color: c.text,
-    },
-    sheetBtn: {
-      paddingVertical: 4,
-      paddingHorizontal: spacing.xs,
-    },
-    sheetBtnCancel: {
-      fontSize: typescale.size.base,
-      color: c.muted,
-    },
-    sheetBtnDone: {
-      fontSize: typescale.size.base,
-      fontWeight: typescale.weight.semibold as any,
-      color: c.teal,
-    },
-
-    // Fallback picker
-    fallbackRow: {
-      flexDirection: "row",
-      justifyContent: "center",
-      gap: spacing.xl,
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.xl,
-    },
-    fallbackCol: {
-      alignItems: "center",
-      gap: spacing.sm,
-      flex: 1,
-    },
-    arrowBtn: {
-      padding: spacing.sm,
-    },
-    arrow: {
-      fontSize: typescale.size.sm,
-      color: c.teal,
-    },
-    fallbackValue: {
-      fontSize: typescale.size.lg,
-      fontWeight: typescale.weight.bold as any,
-      color: c.text,
-      minWidth: 60,
-      textAlign: "center",
-    },
-  }),
-
-  // ─── Styles ───────────────────────────────────────────────────────────────────
-
-  styles: StyleSheet.create({
-    scroll: {
-      flexGrow: 1,
-      paddingHorizontal: spacing.xl,
-      paddingTop: spacing.xxl,
-      paddingBottom: spacing.xxl,
-    },
-    inner: {
-      width: "100%",
-      maxWidth: 440,
-      alignSelf: "center",
-      gap: spacing.xl,
-    },
-    header: { gap: 6 },
-    title: {
-      fontSize: typescale.size.xxl,
-      fontWeight: typescale.weight.bold as any,
-      color: c.text,
-      letterSpacing: -0.5,
-    },
-    subtitle: {
-      fontSize: typescale.size.base,
-      color: c.muted,
-      lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
-    },
-    card: {
-      padding: spacing.xl,
-      gap: spacing.lg,
-      borderRadius: radius.xl,
-    },
-    fields:    { gap: spacing.md },
-    row:       { flexDirection: "row", gap: spacing.sm },
-    pillGroup: { gap: spacing.xs },
-    calIcon:   { paddingLeft: 4 },
-    calIconText: { display: "none" },
-    hint: {
-      marginTop: 5,
-      color: c.subtle,
-    },
-    fieldError: {
-      marginTop: 5,
-      fontSize: typescale.size.sm,
-      color: c.danger,
-      fontWeight: typescale.weight.medium as any,
-    },
-    footer: {
-      textAlign: "center",
-      fontSize: typescale.size.xs,
-      color: c.subtle,
-      lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-      paddingHorizontal: spacing.lg,
-    },
-  }),
+const useStyles = createStyles((c) => StyleSheet.create({
+  row:       { flexDirection: "row", gap: spacing.sm },
+  calIcon:   { paddingLeft: 4 },
+  hint: {
+    marginTop: 5,
+    color: c.subtle,
+  },
+  fieldError: {
+    marginTop: 5,
+    fontSize: typescale.size.sm,
+    color: c.danger,
+    fontWeight: typescale.weight.medium as any,
+  },
 }));

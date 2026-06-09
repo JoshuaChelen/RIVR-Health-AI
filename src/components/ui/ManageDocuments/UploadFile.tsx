@@ -30,6 +30,8 @@ import {
   permissionWasGranted,
 } from "../../../lib/nativePermissions";
 import { AppText } from "../Primitives/AppText";
+import { BottomSheet } from "../Primitives/BottomSheet";
+import { useDocCardStyles } from "./docCardStyles";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, radius, typescale, shadows } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
@@ -437,7 +439,7 @@ function ScanModal({
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function UploadFile({ onUploaded }: Props) {
-  const { cardStyles } = useStyles();
+  const cardStyles = { ...useDocCardStyles(), ...useStyles().cardStyles };
   // PDF upload state
   const [pdfBusy,   setPdfBusy]   = useState(false);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
@@ -895,39 +897,34 @@ function DuplicateConfirmModal({
 }) {
   const { duplicateModalStyles } = useStyles();
   return (
-    <Modal transparent visible animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={duplicateModalStyles.backdrop} onPress={onCancel}>
-        <Pressable style={duplicateModalStyles.sheet} onPress={() => {}}>
-          <View style={duplicateModalStyles.accentBar} />
-          <View style={duplicateModalStyles.body}>
-            <AppText style={duplicateModalStyles.title}>Possible duplicate</AppText>
-            <AppText style={duplicateModalStyles.message}>
-              A document named {`"${fileName}"`} with the same file size was uploaded on {dupDate}.
-            </AppText>
-            <View style={duplicateModalStyles.btnRow}>
-              <Pressable
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Cancel"
-                onPress={onCancel}
-                style={({ pressed }) => [duplicateModalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
-              >
-                <AppText style={duplicateModalStyles.btnSecondaryText}>Cancel</AppText>
-              </Pressable>
-              <Pressable
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Upload anyway"
-                onPress={onConfirm}
-                style={({ pressed }) => [duplicateModalStyles.btnPrimary, pressed && { opacity: 0.85 }]}
-              >
-                <AppText style={duplicateModalStyles.btnPrimaryText}>Upload anyway</AppText>
-              </Pressable>
-            </View>
-          </View>
+    <BottomSheet
+      visible
+      onClose={onCancel}
+      accent="teal"
+      title="Possible duplicate"
+      message={`A document named "${fileName}" with the same file size was uploaded on ${dupDate}.`}
+    >
+      <View style={duplicateModalStyles.btnRow}>
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          onPress={onCancel}
+          style={({ pressed }) => [duplicateModalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
+        >
+          <AppText style={duplicateModalStyles.btnSecondaryText}>Cancel</AppText>
         </Pressable>
-      </Pressable>
-    </Modal>
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Upload anyway"
+          onPress={onConfirm}
+          style={({ pressed }) => [duplicateModalStyles.btnPrimary, pressed && { opacity: 0.85 }]}
+        >
+          <AppText style={duplicateModalStyles.btnPrimaryText}>Upload anyway</AppText>
+        </Pressable>
+      </View>
+    </BottomSheet>
   );
 }
 
@@ -947,7 +944,7 @@ function ActionRow({
   onPress: () => void;
   disabled: boolean;
 }) {
-  const { cardStyles } = useStyles();
+  const cardStyles = { ...useDocCardStyles(), ...useStyles().cardStyles };
   return (
     <Pressable
       onPress={onPress}
@@ -1191,50 +1188,6 @@ const useStyles = createStyles((c) => ({
   }),
 
   cardStyles: StyleSheet.create({
-    card: {
-      borderWidth: 1.5,
-      borderStyle: "dashed",
-      borderColor: c.tealBorder,
-      borderRadius: radius.lg,
-      backgroundColor: c.tealSoft,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      ...shadows.xs,
-    },
-    divider: {
-      height: 1,
-      backgroundColor: c.tealBorder,
-      opacity: 0.5,
-      marginHorizontal: spacing.xs,
-    },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    rowPressed:  { opacity: 0.7 },
-    rowDisabled: { opacity: 0.5 },
-    iconCircle: {
-      width: 38,
-      height: 38,
-      borderRadius: radius.pill,
-      backgroundColor: c.teal,
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-    },
-    textBlock: { flex: 1, gap: 2 },
-    rowTitle: {
-      fontSize: typescale.size.sm,
-      fontWeight: typescale.weight.semibold,
-      color: c.teal,
-    },
-    rowHint: {
-      fontSize: typescale.size.xs,
-      color: c.teal,
-      opacity: 0.75,
-    },
     pdfStatus: {
       paddingBottom: spacing.xs,
       paddingLeft: 38 + spacing.md,
@@ -1251,39 +1204,6 @@ const useStyles = createStyles((c) => ({
   // ListDocuments (translucent backdrop, bottom-anchored sheet with a teal
   // accent bar and two buttons) so the visual language stays consistent.
   duplicateModalStyles: StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: "rgba(13,27,42,0.45)",
-      alignItems: "center",
-      justifyContent: "flex-end",
-      paddingBottom: spacing.xxl,
-      paddingHorizontal: spacing.lg,
-    },
-    sheet: {
-      width: "100%",
-      backgroundColor: c.surface,
-      borderRadius: radius.xl,
-      overflow: "hidden",
-      ...shadows.lg,
-    },
-    accentBar: {
-      height: 4,
-      backgroundColor: c.teal,
-    },
-    body: {
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-    title: {
-      fontSize: typescale.size.lg,
-      fontWeight: typescale.weight.bold,
-      color: c.text,
-    },
-    message: {
-      fontSize: typescale.size.sm,
-      color: c.textSub,
-      lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-    },
     btnRow: {
       flexDirection: "row",
       gap: spacing.sm,

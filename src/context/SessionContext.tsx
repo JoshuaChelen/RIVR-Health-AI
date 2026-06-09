@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { clearTokens, getAccessToken } from "../lib/api/client";
+import { clearTokens, getAccessToken, setUnauthorizedHandler } from "../lib/api/client";
 import * as apiAuth from "../lib/api/auth";
 import type { ApiUser } from "../lib/api/auth";
 import { setCurrentUserId } from "../lib/auth";
@@ -12,7 +12,6 @@ interface SessionValue {
   signIn: (email: string, password: string) => Promise<ApiUser>;
   signUp: (email: string, password: string) => Promise<ApiUser>;
   signOut: () => Promise<void>;
-  reload: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionValue | undefined>(undefined);
@@ -45,6 +44,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     load();
   }, [load]);
 
+  // When any request is unauthorized and can't be refreshed, drop the user so
+  // the app shows Login instead of leaving the user on a screen showing an error.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      applyUser(null);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   const signIn = useCallback(async (email: string, password: string) => {
     const u = await apiAuth.login(email, password);
     setUser(u);
@@ -66,7 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SessionContext.Provider value={{ user, loading, signIn, signUp, signOut, reload: load }}>
+    <SessionContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </SessionContext.Provider>
   );

@@ -10,8 +10,8 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
-import { getProfile } from "../../lib/profile";
+import { getHealthProfile, getLatestEvaluation } from "../../lib/api/data";
+import { getProfile, manualProfileSignature } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
 import { getCurrentUserId } from "../../lib/auth";
 import { api } from "../../lib/api/client";
@@ -28,31 +28,6 @@ import { useTheme } from "../../context/ThemeContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
-
-function manualProfileSignature(p: any) {
-  const list = (v: unknown) => (Array.isArray(v) ? v : []);
-  const text = (v: unknown) => {
-    const s = String(v ?? "").trim();
-    return s ? s : null;
-  };
-
-  return JSON.stringify({
-    date_of_birth: p?.date_of_birth ?? null,
-    sex_or_gender: p?.sex_or_gender ?? null,
-    current_symptoms: text(p?.current_symptoms),
-    smoking_status: p?.smoking_status ?? null,
-    alcohol_use: p?.alcohol_use ?? null,
-    exercise_level: p?.exercise_level ?? null,
-    allergies: list(p?.allergies),
-    medications: list(p?.medications),
-    medical_history: list(p?.medical_history),
-    surgical_history: list(p?.surgical_history),
-    family_history: list(p?.family_history),
-    hospitalizations: list(p?.hospitalizations),
-    social_history: list(p?.social_history),
-  });
-}
-
 
 function safeJoin(arr: any[]) {
   return Array.isArray(arr) && arr.length ? arr.join(", ") : "";
@@ -83,8 +58,8 @@ export default function HealthSummaryScreen({ navigation }: Props) {
       const userId = await getCurrentUserId();
       userIdRef.current = userId;
       const [p, ev, up, latestDoc] = await Promise.all([
-        getHealthProfile(userId),
-        getLatestEvaluation(userId),
+        getHealthProfile(),
+        getLatestEvaluation(),
         getProfile(userId),
         api.get<{ results: any[] }>(
           "/api/documents/?limit=1&offset=0&status=processed&ordering=-processed_at",
@@ -409,42 +384,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
     paddingBottom: spacing.xxl + spacing.lg,
-  },
-
-  // ── Banners ─────────────────────────────────────────────
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    backgroundColor: c.dangerSoft,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: c.dangerBorder,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: typescale.size.sm,
-    color: c.danger,
-    fontWeight: typescale.weight.medium,
-    lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-  },
-  staleBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    backgroundColor: c.tealSoft,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: c.tealBorder,
-  },
-  staleText: {
-    flex: 1,
-    fontSize: typescale.size.xs,
-    color: c.teal,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
   // ── Loading ──────────────────────────────────────────────

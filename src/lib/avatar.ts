@@ -3,18 +3,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 import { updateProfile, uploadAvatar as uploadAvatarApi, getAvatar } from "./api/data";
-import { upsertProfile } from "./profile";
-
-const BUCKET = "profile-pictures";
 
 /** Edge of the square output. Matches the in-app avatar circle's max display size at 2x. */
 const AVATAR_DIM = 512;
 
 /** JPEG quality. 0.8 balances size and visual fidelity for face photos at 512px. */
 const JPEG_QUALITY = 0.8;
-
-/** TTL for signed URLs. Long enough for a typical screen session, short enough to limit blast radius. */
-const SIGNED_URL_TTL_S = 600;
 
 /** AsyncStorage key for the persistent data-URI cache, scoped by storage path. */
 const cacheKeyFor = (avatarPath: string) => `avatar:${avatarPath}`;

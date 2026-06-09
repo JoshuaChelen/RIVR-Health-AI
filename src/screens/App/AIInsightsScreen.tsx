@@ -9,8 +9,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
-import { getHealthProfile, getLatestEvaluation } from "../../lib/aiJobs";
-import { getCurrentUserId } from "../../lib/auth";
+import { getHealthProfile, getLatestEvaluation } from "../../lib/api/data";
 import { captureException } from "../../lib/sentry";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -48,10 +47,9 @@ export function AIInsightsScreen({ navigation }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const userId = await getCurrentUserId();
       const [profile, evalRow] = await Promise.all([
-        getHealthProfile(userId),
-        getLatestEvaluation(userId),
+        getHealthProfile(),
+        getLatestEvaluation(),
       ]);
       setSummaryJson(profile?.summary_json ?? null);
       setEval(evalRow?.result ?? null);

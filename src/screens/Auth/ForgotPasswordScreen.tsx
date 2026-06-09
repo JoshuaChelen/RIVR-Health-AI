@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Animated,
-  Easing,
   View,
   StyleSheet,
   KeyboardAvoidingView,
@@ -22,40 +21,20 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { PrimaryButton } from "../../components/ui/Primitives/PrimaryButton";
 import { SecondaryButton } from "../../components/ui/Primitives/SecondaryButton";
 import { EmailInput } from "../../components/ui/Account/EmailInput";
-import { spacing, radius, typescale } from "../../theme/tokens";
+import { spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
+import { useAuthEntrance, useAuthStyles } from "./authShared";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "ForgotPassword">;
 
 export function ForgotPasswordScreen({ navigation }: Props) {
-  const styles = useStyles();
+  const styles = { ...useAuthStyles(), ...useStyles() };
   const [email, setEmail] = useState("");
   const [busy, setBusy]   = useState(false);
   const [msg, setMsg]     = useState<string | null>(null);
   const [err, setErr]     = useState<string | null>(null);
 
-  // Entrance animation
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-  const headerSlide   = useRef(new Animated.Value(16)).current;
-  const formOpacity   = useRef(new Animated.Value(0)).current;
-  const formSlide     = useRef(new Animated.Value(24)).current;
-  const footerOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(headerOpacity, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(headerSlide,   { toValue: 0, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(formOpacity, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(formSlide,   { toValue: 0, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]),
-      Animated.timing(footerOpacity, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]).start();
-    // Run the entrance animation only once when the screen mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { headerOpacity, headerSlide, formOpacity, formSlide, footerOpacity } = useAuthEntrance();
 
   const sendReset = async () => {
     setErr(null);
@@ -150,77 +129,13 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 }
 
 const useStyles = createStyles((c) => StyleSheet.create({
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
-    justifyContent: "center",
-  },
-  inner: {
-    width: "100%",
-    maxWidth: 420,
-    alignSelf: "center",
-    gap: spacing.xl,
-  },
-
-  brand: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  appName: {
-    fontSize: typescale.size.xxl,
-    fontWeight: typescale.weight.bold,
-    color: c.text,
-    letterSpacing: -0.5,
-  },
+  // Overrides the shared tagline with extra line-height + padding for the
+  // longer reset-password instructional copy.
   tagline: {
     fontSize: typescale.size.base,
     color: c.muted,
     textAlign: "center",
     lineHeight: typescale.size.base * typescale.lineHeight.relaxed,
     paddingHorizontal: spacing.sm,
-  },
-
-  formCard: {
-    padding: spacing.xl,
-    gap: spacing.md,
-    borderRadius: 20,
-  },
-
-  errorBanner: {
-    backgroundColor: c.dangerSoft,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: c.dangerBorder,
-  },
-  errorText: {
-    fontSize: typescale.size.sm,
-    color: c.danger,
-    fontWeight: typescale.weight.medium,
-  },
-
-  successBanner: {
-    backgroundColor: c.successSoft,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: c.successBorder,
-  },
-  successText: {
-    fontSize: typescale.size.sm,
-    color: c.success,
-    fontWeight: typescale.weight.medium,
-  },
-
-  footer: {
-    textAlign: "center",
-    fontSize: typescale.size.xs,
-    color: c.subtle,
-    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
-    paddingHorizontal: spacing.lg,
   },
 }));

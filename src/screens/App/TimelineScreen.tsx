@@ -18,7 +18,6 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { captureException } from "../../lib/sentry";
 import {
-  aiQuestionEndpoint,
   askHealthQuestion,
   type AiQuestionResult,
 } from "../../lib/aiQuestionSearch";
@@ -26,6 +25,7 @@ import {
   clinicalTagsForEvent,
   formatTimelineDateMain,
   normalizeTimelineEvent,
+  parseYMD,
   type DatePrecision,
   type NormalizedTimelineEvent,
 } from "../../lib/timeline";
@@ -584,11 +584,6 @@ export function TimelineScreen({ navigation }: Props) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseYMD(ymd: string) {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-}
 
 function monthBucketKey(ymd: string, precision: DatePrecision) {
   const dt = parseYMD(ymd);

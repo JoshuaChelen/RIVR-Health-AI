@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Linking,
   View,
@@ -9,12 +9,10 @@ import {
   Platform,
   ActivityIndicator,
   Keyboard,
-  Modal,
   Alert,
   Image,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
@@ -23,7 +21,6 @@ import { useSession } from "../../context/SessionContext";
 import { getProfile, updateProfile, uploadAvatar } from "../../lib/api/data";
 import type { UserProfile } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
-import { getCurrentUserId } from "../../lib/auth";
 import { parseDob, dobIsoToInput, dobIsoToDisplay, computeAge, formatDobAsTyped } from "../../lib/profileUtils";
 import { PhoneField, parseStoredPhone, COUNTRIES, type Country } from "../../components/ui/Primitives/PhoneField";
 
@@ -32,6 +29,8 @@ import { AppText } from "../../components/ui/Primitives/AppText";
 import { TextField } from "../../components/ui/Primitives/TextField";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
+import { DataRow } from "../../components/ui/Profile/DataRow";
+import { DatePickerModal } from "../../components/ui/Primitives/DatePickerModal";
 import { AvatarPickerSheet } from "../../components/ui/Profile/AvatarPickerSheet";
 import { Card } from "../../components/ui/Primitives/Card";
 import { safeList } from "../../lib/profileMedical";
@@ -43,12 +42,6 @@ import {
 
 import { captureException } from "../../lib/sentry";
 import { clearEmergencyCardWidget } from "../../lib/emergencyCardWidget";
-import {
-  supportsAlternateIcons,
-  setAlternateAppIcon,
-  getAppIconName,
-  resetAppIcon,
-} from "expo-alternate-app-icons";
 import { radius, shadows, spacing, typescale } from "../../theme/tokens";
 import { createStyles } from "../../theme/createStyles";
 import { useTheme } from "../../context/ThemeContext";
@@ -93,92 +86,8 @@ function getCompletion(profile: UserProfile) {
 const SEX_OPTIONS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 const MARITAL_OPTIONS = ["Single", "Married", "Partnered", "Divorced", "Widowed"];
 
-function DataRow({ label, value }: { label: string; value?: string | number | null }) {
-  const { colors } = useTheme();
-  const text =
-    value !== null && value !== undefined && String(value).trim()
-      ? String(value)
-      : null;
-  return (
-    <View style={dr.row}>
-      <AppText variant="label" style={[dr.label, { color: colors.muted }]}>{label}</AppText>
-      <AppText style={[dr.value, { color: colors.text }, !text && { color: colors.subtle, fontWeight: typescale.weight.regular as any }]} numberOfLines={2}>
-        {text ?? "—"}
-      </AppText>
-    </View>
-  );
-}
-
-const dr = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingVertical: 8,
-    gap: spacing.sm,
-  },
-  label: {
-    flex: 1,
-    paddingTop: 1,
-  },
-  value: {
-    flex: 1.5,
-    textAlign: "right",
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.medium as any,
-  },
-});
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
-
-const APP_ICON_OPTIONS = [
-  {
-    id: "default" as const,
-    label: "RIVR",
-    sub: "Default",
-    preview: require("../../../assets/branding/app-icon.png"),
-  },
-  {
-    id: "EmergencyCard" as const,
-    label: "Emergency",
-    sub: "Medical ID",
-    preview: require("../../../assets/branding/app-icon-emergency-card.png"),
-  },
-];
-
-const iconTileStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  tile: {
-    flex: 1,
-    alignItems: "center",
-    borderRadius: radius.lg,
-    borderWidth: 2,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
-  },
-  preview: {
-    width: 56,
-    height: 56,
-    borderRadius: 13,
-  },
-  label: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.semibold,
-  },
-  sub: {
-    fontSize: typescale.size.xs,
-  },
-  check: {
-    position: "absolute",
-    top: spacing.xs,
-    right: spacing.xs,
-  },
-});
 
 export function ProfileScreen({ navigation }: Props) {
   const styles = useStyles();
@@ -193,32 +102,6 @@ export function ProfileScreen({ navigation }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [currentIcon, setCurrentIcon] = useState<string | null>(() =>
-    Platform.OS === "ios" ? getAppIconName() : null,
-  );
-  const [iconBusy, setIconBusy] = useState(false);
-
-  const handleIconSelect = useCallback(
-    async (id: "default" | "EmergencyCard") => {
-      const target = id === "default" ? null : id;
-      if (iconBusy || !supportsAlternateIcons || target === currentIcon) return;
-      setIconBusy(true);
-      try {
-        if (target === null) {
-          await resetAppIcon();
-        } else {
-          await setAlternateAppIcon(target);
-        }
-        setCurrentIcon(target);
-      } catch (e) {
-        captureException(e);
-        Alert.alert("Icon change failed", "Please try again.");
-      } finally {
-        setIconBusy(false);
-      }
-    },
-    [iconBusy, currentIcon],
-  );
   const avatarUrl = useAvatarUrl(profile?.avatar_path ?? null);
 
   // ── Edit drafts (one per section) ──────────────────────────
@@ -866,7 +749,7 @@ async function saveEmergency() {
             <View style={styles.settingsCardBody}>
               <AppText style={styles.settingsHint}>Choose how RIVR Health looks on your device.</AppText>
               <View style={styles.segmentRow}>
-                {(["system", "light", "dark"] as const).map((opt, i, arr) => (
+                {(["system", "light", "dark"] as const).map((opt) => (
                   <Pressable
                     key={opt}
                     accessible
@@ -877,8 +760,6 @@ async function saveEmergency() {
                     style={[
                       styles.segment,
                       preference === opt && styles.segmentActive,
-                      i === 0 && styles.segmentFirst,
-                      i === arr.length - 1 && styles.segmentLast,
                     ]}
                   >
                     <Ionicons
@@ -895,60 +776,6 @@ async function saveEmergency() {
               </View>
             </View>
           </Card>
-
-          {/* ── App Icon card (iOS alternate icons) ──────── */}
-          {Platform.OS === "ios" && supportsAlternateIcons ? (
-            <Card style={styles.settingsCard}>
-              <View style={styles.settingsCardHeader}>
-                <View style={styles.settingsIconWrap}>
-                  <Ionicons name="apps-outline" size={18} color={colors.teal} />
-                </View>
-                <AppText style={styles.settingsCardTitle}>App Icon</AppText>
-              </View>
-              <View style={styles.settingsDivider} />
-              <View style={styles.settingsCardBody}>
-                <AppText style={styles.settingsHint}>Pick the icon shown on your Home Screen.</AppText>
-                <View style={iconTileStyles.row}>
-                  {APP_ICON_OPTIONS.map((opt) => {
-                    const isActive = (opt.id === "default" ? null : opt.id) === currentIcon;
-                    return (
-                      <Pressable
-                        key={opt.id}
-                        accessible
-                        accessibilityRole="button"
-                        accessibilityLabel={`${opt.label} app icon${isActive ? ", selected" : ""}`}
-                        accessibilityState={{ selected: isActive, disabled: iconBusy }}
-                        disabled={iconBusy}
-                        onPress={() => handleIconSelect(opt.id)}
-                        style={[
-                          iconTileStyles.tile,
-                          {
-                            borderColor: isActive ? colors.teal : colors.border,
-                            backgroundColor: isActive ? colors.tealSoft : colors.surface,
-                            opacity: iconBusy ? 0.6 : 1,
-                          },
-                        ]}
-                      >
-                        <Image source={opt.preview} style={iconTileStyles.preview} resizeMode="cover" />
-                        <AppText style={[iconTileStyles.label, { color: isActive ? colors.teal : colors.text }]}>
-                          {opt.label}
-                        </AppText>
-                        <AppText style={[iconTileStyles.sub, { color: colors.muted }]}>{opt.sub}</AppText>
-                        {isActive ? (
-                          <View style={iconTileStyles.check}>
-                            <Ionicons name="checkmark-circle" size={16} color={colors.teal} />
-                          </View>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <AppText style={styles.settingsHint}>
-                  iOS shows a quick confirmation when the icon changes.
-                </AppText>
-              </View>
-            </Card>
-          ) : null}
 
           {/* ── Account card ─────────────────────────────── */}
           <Card style={styles.settingsCard}>
@@ -986,7 +813,7 @@ async function saveEmergency() {
               accessibilityLabel="Sign out"
               accessibilityHint="Signs you out of your account"
               onPress={async () => { clearEmergencyCardWidget(); await signOut(); }}
-              style={({ pressed }) => [styles.settingsRow, styles.settingsRowLast, pressed && styles.settingsRowPressed]}
+              style={({ pressed }) => [styles.settingsRow, pressed && styles.settingsRowPressed]}
             >
               <Ionicons name="log-out-outline" size={18} color={colors.muted} />
               <View style={styles.settingsRowText}>
@@ -1067,7 +894,7 @@ async function saveEmergency() {
       </KeyboardAvoidingView>
 
       {/* ── DOB date picker modal ─────────────────────────── */}
-      <ProfileDobPickerModal
+      <DatePickerModal
         visible={showDobPicker}
         date={dobPickerDate}
         onConfirm={(d) => {
@@ -1419,8 +1246,6 @@ const useStyles = createStyles((colors) => StyleSheet.create({
     borderRadius: radius.md - 2,
     gap: 1,
   },
-  segmentFirst: {},
-  segmentLast: {},
   segmentActive: {
     backgroundColor: colors.teal,
     ...shadows.xs,
@@ -1443,9 +1268,6 @@ const useStyles = createStyles((colors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     minHeight: 56,
-  },
-  settingsRowLast: {
-    // no extra style needed; placeholder for readability
   },
   settingsRowPressed: {
     backgroundColor: colors.bgSecondary,
@@ -1518,139 +1340,3 @@ const useStyles = createStyles((colors) => StyleSheet.create({
 
 }));
 
-// ─── ProfileDobPickerModal ────────────────────────────────────────────────────
-// Mirrors OnboardingStep1Screen's DatePickerModal — uses the native package when
-// available and falls back to an arrow-based spinner otherwise.
-
-let NativeDatePicker: any = null;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-try { NativeDatePicker = require("@react-native-community/datetimepicker").default; } catch { /* not installed */ }
-
-const DP_MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-];
-
-function ProfileDobPickerModal({
-  visible, date, onConfirm, onCancel,
-}: {
-  visible: boolean;
-  date: Date;
-  onConfirm: (d: Date) => void;
-  onCancel: () => void;
-}) {
-  const dp2 = useDp2Styles();
-  const { colors } = useTheme();
-  const [local, setLocal] = useState(date);
-  useEffect(() => { setLocal(date); }, [date]);
-
-  if (!visible) return null;
-
-  if (NativeDatePicker) {
-    if (Platform.OS === "android") {
-      return (
-        <NativeDatePicker
-          value={local}
-          mode="date"
-          display="default"
-          maximumDate={new Date()}
-          minimumDate={new Date(1900, 0, 1)}
-          onChange={(_: any, d?: Date) => { if (d) onConfirm(d); else onCancel(); }}
-        />
-      );
-    }
-    return (
-      <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-        <Pressable style={dp2.overlay} onPress={onCancel} />
-        <SafeAreaView style={dp2.sheet}>
-          <View style={dp2.handle} />
-          <View style={dp2.header}>
-            <Pressable onPress={onCancel} style={dp2.btn}>
-              <AppText style={dp2.cancel}>Cancel</AppText>
-            </Pressable>
-            <AppText style={dp2.title}>Date of birth</AppText>
-            <Pressable onPress={() => onConfirm(local)} style={dp2.btn}>
-              <AppText style={dp2.done}>Done</AppText>
-            </Pressable>
-          </View>
-          <NativeDatePicker
-            value={local}
-            mode="date"
-            display="spinner"
-            maximumDate={new Date()}
-            minimumDate={new Date(1900, 0, 1)}
-            onChange={(_: any, d?: Date) => d && setLocal(d)}
-            style={{ height: 216 }}
-          />
-        </SafeAreaView>
-      </Modal>
-    );
-  }
-
-  // Fallback arrow spinner
-  const y = local.getFullYear(), m = local.getMonth(), d = local.getDate();
-  function adj(field: "y"|"m"|"d", delta: number) {
-    const n = new Date(local);
-    if (field === "y") n.setFullYear(y + delta);
-    if (field === "m") n.setMonth(m + delta);
-    if (field === "d") n.setDate(d + delta);
-    if (n > new Date() || n < new Date(1900, 0, 1)) return;
-    setLocal(n);
-  }
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <Pressable style={dp2.overlay} onPress={onCancel} />
-      <SafeAreaView style={dp2.sheet}>
-        <View style={dp2.handle} />
-        <View style={dp2.header}>
-          <Pressable onPress={onCancel} style={dp2.btn}><AppText style={dp2.cancel}>Cancel</AppText></Pressable>
-          <AppText style={dp2.title}>Date of birth</AppText>
-          <Pressable onPress={() => onConfirm(local)} style={dp2.btn}><AppText style={dp2.done}>Done</AppText></Pressable>
-        </View>
-        <View style={dp2.row}>
-          {(["m","d","y"] as const).map((field) => {
-            const val = field === "m" ? DP_MONTHS[m].slice(0, 3) : field === "d" ? String(d).padStart(2,"0") : String(y);
-            return (
-              <View key={field} style={dp2.col}>
-                <Pressable onPress={() => adj(field, -1)} style={dp2.arrowBtn}>
-                  <Ionicons name="chevron-up" size={16} color={colors.teal} />
-                </Pressable>
-                <AppText style={dp2.val}>{val}</AppText>
-                <Pressable onPress={() => adj(field, 1)} style={dp2.arrowBtn}>
-                  <Ionicons name="chevron-down" size={16} color={colors.teal} />
-                </Pressable>
-              </View>
-            );
-          })}
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-const useDp2Styles = createStyles((colors) => StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  sheet: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    paddingTop: spacing.sm, paddingBottom: spacing.xl,
-  },
-  handle: {
-    width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border,
-    alignSelf: "center", marginBottom: spacing.sm,
-  },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight, marginBottom: spacing.xs,
-  },
-  title: { fontSize: typescale.size.base, fontWeight: typescale.weight.semibold as any, color: colors.text },
-  btn: { paddingVertical: 4, paddingHorizontal: spacing.xs },
-  cancel: { fontSize: typescale.size.base, color: colors.muted },
-  done: { fontSize: typescale.size.base, fontWeight: typescale.weight.semibold as any, color: colors.teal },
-  row: { flexDirection: "row", justifyContent: "center", gap: spacing.xl, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl },
-  col: { alignItems: "center", gap: spacing.sm, flex: 1 },
-  arrowBtn: { padding: spacing.sm },
-  val: { fontSize: typescale.size.lg, fontWeight: typescale.weight.bold as any, color: colors.text, minWidth: 60, textAlign: "center" },
-}));

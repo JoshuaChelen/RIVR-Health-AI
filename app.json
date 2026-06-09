@@ -32,16 +32,7 @@
         }
       ],
       "./plugins/with-ios-fmt-xcode-fix",
-      "@bacons/apple-targets",
-      [
-        "expo-alternate-app-icons",
-        [
-          {
-            "name": "EmergencyCard",
-            "ios": "./assets/branding/app-icon-emergency-card.png"
-          }
-        ]
-      ]
+      "@bacons/apple-targets"
     ],
     "ios": {
       "supportsTablet": true,

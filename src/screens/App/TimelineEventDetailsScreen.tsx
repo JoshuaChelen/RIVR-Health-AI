@@ -150,18 +150,18 @@ export function TimelineEventDetailsScreen({ route, navigation }: Props) {
       setSaving(true);
       const updated = await updateTimelineEvent(item.id, payloadResult.payload);
       const normalizedUpdated = normalizeTimelineEvent(updated as any);
-      setItem(updated);
+      setItem(normalizedUpdated);
       setDraft({
-        title:          (updated.title ?? "").toString(),
-        summary:        (updated.summary ?? "").toString(),
-        occurred_at:    (updated.occurred_at ?? "").toString(),
-        date_precision: (updated.date_precision ?? "day") as "day" | "month" | "year",
-        category:       (updated.category ?? "").toString(),
-        event_type:     (updated.event_type ?? "").toString(),
-        tagsCsv:        Array.isArray(updated.tags) ? updated.tags.join(", ") : "",
+        title:          (normalizedUpdated.title ?? "").toString(),
+        summary:        (normalizedUpdated.summary ?? "").toString(),
+        occurred_at:    (normalizedUpdated.occurred_at ?? "").toString(),
+        date_precision: (normalizedUpdated.date_precision ?? "day") as "day" | "month" | "year",
+        category:       (normalizedUpdated.category ?? "").toString(),
+        event_type:     (normalizedUpdated.event_type ?? "").toString(),
+        tagsCsv:        Array.isArray(normalizedUpdated.tags) ? normalizedUpdated.tags.join(", ") : "",
       });
 
-      const t = (updated?.title ?? "Details").toString();
+      const t = (normalizedUpdated?.title ?? "Details").toString();
       navigation.setOptions({ title: t.length > 26 ? "Details" : t });
       setEditing(false);
     } catch (e: any) {

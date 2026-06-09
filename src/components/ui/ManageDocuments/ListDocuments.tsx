@@ -5,7 +5,6 @@ import {
   FlatList,
   Animated,
   StyleSheet,
-  Modal,
   Pressable,
   ActivityIndicator,
   RefreshControl,
@@ -14,6 +13,7 @@ import { useSession } from "../../../context/SessionContext";
 import { listDocuments, listJobs } from "../../../lib/api/data";
 import { deleteDocument, cancelProcessing } from "../../../lib/documents";
 import { AppText } from "../Primitives/AppText";
+import { BottomSheet } from "../Primitives/BottomSheet";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { radius, spacing, typescale, shadows } from "../../../theme/tokens";
 import { createStyles } from "../../../theme/createStyles";
@@ -289,62 +289,49 @@ function ConfirmModal({
   if (!confirm) return null;
   const isDelete = confirm.mode === "delete";
   return (
-    <Modal
-      transparent
+    <BottomSheet
       visible
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      accent={isDelete ? "danger" : "teal"}
+      title={isDelete ? "Remove this record?" : "Stop processing?"}
+      message={
+        isDelete
+          ? confirm.doc.source_type === "manual_input"
+            ? "Your profile data is unchanged — only this record is removed. It will reappear next time you save your profile."
+            : `"${confirm.doc.title ?? "This file"}" will be permanently removed from your documents.`
+          : confirm.doc.source_type === "manual_input"
+          ? "Processing will stop. Your profile record stays so you can process it again later."
+          : "Processing will stop. The file stays so you can delete or reprocess it later."
+      }
     >
-      <Pressable style={modalStyles.backdrop} onPress={onClose}>
-        <Pressable style={modalStyles.sheet} onPress={() => {}}>
-          {/* Header accent */}
-          <View style={[modalStyles.accentBar, isDelete ? modalStyles.accentDanger : modalStyles.accentTeal]} />
-
-          <View style={modalStyles.body}>
-            <AppText style={modalStyles.title}>
-              {isDelete ? "Remove this record?" : "Stop processing?"}
-            </AppText>
-            <AppText style={modalStyles.message}>
-              {isDelete
-                ? confirm.doc.source_type === "manual_input"
-                  ? "Your profile data is unchanged — only this record is removed. It will reappear next time you save your profile."
-                  : `"${confirm.doc.title ?? "This file"}" will be permanently removed from your documents.`
-                : confirm.doc.source_type === "manual_input"
-                ? "Processing will stop. Your profile record stays so you can process it again later."
-                : "Processing will stop. The file stays so you can delete or reprocess it later."}
-            </AppText>
-
-            <View style={modalStyles.btnRow}>
-              <Pressable
-                style={({ pressed }) => [modalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
-                onPress={onClose}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Keep"
-              >
-                <AppText style={modalStyles.btnSecondaryText}>Keep</AppText>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  modalStyles.btnPrimary,
-                  isDelete ? modalStyles.btnDanger : modalStyles.btnOrange,
-                  pressed && { opacity: 0.85 },
-                ]}
-                onPress={onConfirm}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel={isDelete ? "Remove permanently" : "Stop processing"}
-              >
-                <AppText style={modalStyles.btnPrimaryText}>
-                  {isDelete ? "Remove permanently" : "Stop processing"}
-                </AppText>
-              </Pressable>
-            </View>
-          </View>
+      <View style={modalStyles.btnRow}>
+        <Pressable
+          style={({ pressed }) => [modalStyles.btnSecondary, pressed && { opacity: 0.75 }]}
+          onPress={onClose}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Keep"
+        >
+          <AppText style={modalStyles.btnSecondaryText}>Keep</AppText>
         </Pressable>
-      </Pressable>
-    </Modal>
+
+        <Pressable
+          style={({ pressed }) => [
+            modalStyles.btnPrimary,
+            isDelete ? modalStyles.btnDanger : modalStyles.btnOrange,
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={onConfirm}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={isDelete ? "Remove permanently" : "Stop processing"}
+        >
+          <AppText style={modalStyles.btnPrimaryText}>
+            {isDelete ? "Remove permanently" : "Stop processing"}
+          </AppText>
+        </Pressable>
+      </View>
+    </BottomSheet>
   );
 }
 
@@ -1011,40 +998,6 @@ const useStyles = createStyles((c) => ({
   }),
 
   modalStyles: StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: "rgba(13,27,42,0.45)",
-      alignItems: "center",
-      justifyContent: "flex-end",
-      paddingBottom: spacing.xxl,
-      paddingHorizontal: spacing.lg,
-    },
-    sheet: {
-      width: "100%",
-      backgroundColor: c.surface,
-      borderRadius: radius.xl,
-      overflow: "hidden",
-      ...shadows.lg,
-    },
-    accentBar: {
-      height: 4,
-    },
-    accentDanger: { backgroundColor: c.danger },
-    accentTeal:   { backgroundColor: c.teal },
-    body: {
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-    title: {
-      fontSize: typescale.size.lg,
-      fontWeight: typescale.weight.bold,
-      color: c.text,
-    },
-    message: {
-      fontSize: typescale.size.sm,
-      color: c.textSub,
-      lineHeight: typescale.size.sm * typescale.lineHeight.relaxed,
-    },
     btnRow: {
       flexDirection: "row",
       gap: spacing.sm,

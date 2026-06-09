@@ -13,6 +13,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 import { useSession } from "../../context/SessionContext";
 import { listTimeline } from "../../lib/api/data";
+import { parseYMD } from "../../lib/timeline";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -38,11 +39,6 @@ type TimelineEventRow = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseYMD(ymd: string) {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-}
 
 function formatEventDate(ymd: string | null, precision: DatePrecision | null) {
   if (!ymd || !precision) return "Date unknown";
@@ -155,7 +151,7 @@ export function PreVisitNoteScreen({ navigation }: Props) {
       setLoading(true);
       if (!user) throw new Error("Not authenticated");
 
-      const result = await listTimeline("included_in_previsit=true&ordering=-occurred_at");
+      const result = await listTimeline("?included_in_previsit=true&ordering=-occurred_at");
       setRows((result.results ?? []) as TimelineEventRow[]);
     } catch (e: any) {
       captureException(e);
