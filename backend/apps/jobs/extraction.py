@@ -6,7 +6,7 @@ Provides pure helper functions for:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from django.conf import settings
 
@@ -15,68 +15,71 @@ from django.conf import settings
 MIN_IMAGE_PX = getattr(settings, "OCR_MIN_IMAGE_PX", 100)
 
 
-def apple_health_snapshot(
-    events: list[dict[str, Any]],
-) -> dict[str, Optional[float]]:
-    """Aggregate Apple Health timeline events into 7-day averages.
+def _as_int(v):
+    return int(round(v)) if isinstance(v, (int, float)) else None
 
-    Processes events from the last 14 days (filtered upstream) and aggregates:
-    - steps_avg_7d: Average daily steps (matching 'steps' in event_type)
-    - sleep_avg_min_7d: Average sleep in minutes (matching 'sleep' in event_type)
-    - resting_hr_recent: Most recent resting heart rate value (matching 'heart', 'hr', or 'resting')
 
-    Args:
-        events: List of dicts with keys:
-            - event_type (str): Type of health event (case-insensitive)
-            - occurred_at (str or Date): When the event occurred
-            - data (dict): Event data with value fields
+def apple_health_snapshot(events):
+    """Most-recent value per Apple Health metric.
 
-    Returns:
-        Dict with keys:
-            - steps_avg_7d: float or None
-            - sleep_avg_min_7d: float or None
-            - resting_hr_recent: float or None
-
-    Extraction rules:
-    - Steps: data.steps, data.value, or NaN
-    - Sleep: data.minutes, data.sleep_minutes, data.value, or NaN (in minutes)
-    - Heart rate: data.bpm, data.value, or NaN; takes most recent non-NaN value
+    `events` are apple_health timeline events ordered newest-first. The mobile app
+    pushes one pre-aggregated event per metric per day (clearing + reinserting), so
+    the first event seen per metric is the current value (averaging them is wrong).
     """
-    step_values: list[float] = []
-    sleep_values: list[float] = []
-    hr_values: list[float] = []
-
-    for event in events:
-        event_type = str(event.get("event_type", "")).lower()
-        data = event.get("data", {}) or {}
-
-        # Extract steps
-        if "steps" in event_type:
-            value = _get_number(data.get("steps"), data.get("value"))
-            if value is not None:
-                step_values.append(value)
-
-        # Extract sleep (in minutes)
-        if "sleep" in event_type:
-            value = _get_number(
-                data.get("minutes"),
-                data.get("sleep_minutes"),
-                data.get("value"),
-            )
-            if value is not None:
-                sleep_values.append(value)
-
-        # Extract heart rate / resting heart rate
-        if any(x in event_type for x in ["heart", "hr", "resting"]):
-            value = _get_number(data.get("bpm"), data.get("value"))
-            if value is not None:
-                hr_values.append(value)
-
-    return {
-        "steps_avg_7d": _average(step_values),
-        "sleep_avg_min_7d": _average(sleep_values),
-        "resting_hr_recent": hr_values[-1] if hr_values else None,
+    out = {
+        "steps_per_day_7d_avg": None,
+        "sleep_min_per_night_7d_avg": None,
+        "distance_mi_per_day_7d_avg": None,
+        "active_energy_kcal_per_day_7d_avg": None,
+        "heart_rate_bpm_latest": None,
+        "hrv_ms_latest": None,
+        "weight_lb_latest": None,
+        "blood_pressure_latest": None,
     }
+
+    def num(data, *keys):
+        for k in keys:
+            v = data.get(k)
+            if v is not None:
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    for ev in events:
+        et = str(ev.get("event_type", "")).lower()
+        data = ev.get("data") or {}
+        if "steps" in et:
+            if out["steps_per_day_7d_avg"] is None:
+                out["steps_per_day_7d_avg"] = _as_int(num(data, "steps", "value"))
+        elif "sleep" in et:
+            if out["sleep_min_per_night_7d_avg"] is None:
+                out["sleep_min_per_night_7d_avg"] = _as_int(num(data, "minutes", "sleep_minutes", "value"))
+        elif "distance" in et:
+            if out["distance_mi_per_day_7d_avg"] is None:
+                v = num(data, "miles", "value")
+                out["distance_mi_per_day_7d_avg"] = round(v, 2) if v is not None else None
+        elif "energy" in et:
+            if out["active_energy_kcal_per_day_7d_avg"] is None:
+                out["active_energy_kcal_per_day_7d_avg"] = _as_int(num(data, "kcal", "value"))
+        elif "hrv" in et or "variability" in et:
+            if out["hrv_ms_latest"] is None:
+                v = num(data, "hrv_ms", "ms", "value")
+                out["hrv_ms_latest"] = round(v, 1) if v is not None else None
+        elif "weight" in et:
+            if out["weight_lb_latest"] is None:
+                v = num(data, "weight_lb", "pounds", "lb", "value")
+                out["weight_lb_latest"] = round(v, 1) if v is not None else None
+        elif "pressure" in et:
+            if out["blood_pressure_latest"] is None:
+                s_v, d_v = num(data, "systolic"), num(data, "diastolic")
+                if s_v is not None and d_v is not None:
+                    out["blood_pressure_latest"] = {"systolic": _as_int(s_v), "diastolic": _as_int(d_v)}
+        elif "heart" in et or "resting" in et:
+            if out["heart_rate_bpm_latest"] is None:
+                out["heart_rate_bpm_latest"] = _as_int(num(data, "bpm", "value"))
+    return out
 
 
 @dataclass
@@ -145,38 +148,3 @@ def extract_pdf(data: bytes, *, min_image_px: int = MIN_IMAGE_PX) -> PdfContent:
     return PdfContent(pages=pages)
 
 
-# --- Private helpers ----------------------------------------------------------
-
-
-def _get_number(*values: Any) -> Optional[float]:
-    """Extract first non-None, finite numeric value.
-
-    Args:
-        *values: Variable args to check in order
-
-    Returns:
-        First finite float value, or None if all are non-finite or missing
-    """
-    for v in values:
-        if v is not None:
-            try:
-                num = float(v)
-                if num == num and num != float("inf") and num != float("-inf"):
-                    return num
-            except (ValueError, TypeError):
-                pass
-    return None
-
-
-def _average(values: list[float]) -> Optional[float]:
-    """Compute arithmetic mean of list.
-
-    Args:
-        values: List of numeric values
-
-    Returns:
-        Mean value, or None if list is empty
-    """
-    if not values:
-        return None
-    return sum(values) / len(values)
