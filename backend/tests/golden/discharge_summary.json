@@ -1,0 +1,27 @@
+{
+  "title": "Discharge Summary - Riverside General Hospital",
+  "text": "RIVERSIDE GENERAL HOSPITAL\nDISCHARGE SUMMARY\n\nPatient: Jane D.\nDOB: 04/22/1968\nAdmit Date: 05/10/2024\nDischarge Date: 05/14/2024\nAttending: Dr. M. Reyes, MD\n\nBLOOD TYPE: A positive\n\nPRINCIPAL DIAGNOSIS:\n1. Acute exacerbation of chronic obstructive pulmonary disease (COPD)\n\nSECONDARY DIAGNOSES:\n2. Type 2 Diabetes Mellitus, uncontrolled\n3. Essential Hypertension\n\nPROCEDURES PERFORMED:\n- Bronchoscopy with bronchoalveolar lavage (05/11/2024)\n\nHOSPITAL COURSE:\nPatient presented with 3-day history of worsening dyspnea and productive cough. Chest X-ray confirmed hyperinflation consistent with COPD exacerbation. Bronchoscopy performed on 05/11/2024 was unremarkable for malignancy. Blood glucose on admission was 312 mg/dL; insulin sliding scale initiated and diabetes medications adjusted.\n\nDISCHARGE MEDICATIONS:\n1. Tiotropium bromide 18 mcg inhaled once daily\n2. Metformin 1000mg PO BID (increased from 500mg)\n3. Lisinopril 10mg PO daily\n\nALLERGIES:\n- Penicillin: hives, severity moderate\n- Sulfa drugs: rash, severity low\n\nFOLLOW-UP:\nPrimary care in 1 week. Pulmonology in 4 weeks.",
+  "expected_key_facts": {
+    "blood_type": "A positive",
+    "allergies": [
+      {"substance": "Penicillin", "reaction": "hives", "severity": "medium"},
+      {"substance": "Sulfa drugs", "reaction": "rash", "severity": "low"}
+    ],
+    "medications": [
+      {"name": "Tiotropium bromide 18 mcg"},
+      {"name": "Metformin 1000mg"},
+      {"name": "Lisinopril 10mg"}
+    ],
+    "conditions": [
+      {"name": "Acute exacerbation of chronic obstructive pulmonary disease"},
+      {"name": "Type 2 Diabetes Mellitus"},
+      {"name": "Essential Hypertension"}
+    ],
+    "surgeries_procedures": [
+      {"name": "Bronchoscopy with bronchoalveolar lavage", "when": "05/11/2024"}
+    ],
+    "implants_devices": [],
+    "key_labs_vitals": [],
+    "extra_notes": []
+  }
+}
