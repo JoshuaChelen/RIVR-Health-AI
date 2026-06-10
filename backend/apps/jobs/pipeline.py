@@ -139,12 +139,23 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
         if not raw_text.strip():
             raw_text = "[No extractable text found in this document.]"
 
+    _q = extraction.assess_text_quality(raw_text)
+    if _q["is_low"]:
+        _log(job, "warn", f"Low-quality extracted text (score {_q['score']}) for {doc.id}; facts may be unreliable.")
+
     text = f"VOICE NOTE TRANSCRIPT:\n{raw_text}" if is_audio else raw_text
 
     _check_cancelled(job)
     _set_stage(job, "openai_extract", {"total": total, "done": idx, "currentDocId": str(doc.id)})
     facts_model = ai_client.extract_document_facts_chunked(str(doc.id), doc.title, text)
     facts = facts_model.model_dump()
+
+    for _m in (facts.get("key_facts", {}).get("medications") or []):
+        if _m.get("dose"):
+            _m["dose"] = extraction.normalize_units(_m["dose"])
+    for _lv in (facts.get("key_facts", {}).get("key_labs_vitals") or []):
+        if _lv.get("value"):
+            _lv["value"] = extraction.normalize_units(_lv["value"])
 
     _write_json(_summary_key(user_id, doc.id), facts)
 

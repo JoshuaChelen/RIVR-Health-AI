@@ -5,6 +5,7 @@ Provides pure helper functions for:
 - PDF text + image extraction (PyMuPDF)
 """
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -17,6 +18,41 @@ MIN_IMAGE_PX = getattr(settings, "OCR_MIN_IMAGE_PX", 100)
 
 def _as_int(v):
     return int(round(v)) if isinstance(v, (int, float)) else None
+
+
+_UNIT_CANON = [
+    (re.compile(r"\bmilligram(s)?\b", re.I), "mg"),
+    (re.compile(r"\bmicrogram(s)?\b|\bμg\b|\bug\b", re.I), "mcg"),
+    (re.compile(r"\bkilogram(s)?\b|\bkgs\b", re.I), "kg"),
+    (re.compile(r"\bmillilit(er|re)(s)?\b", re.I), "mL"),
+    (re.compile(r"\bpound(s)?\b|\blbs\b", re.I), "lb"),
+    (re.compile(r"\bgram(s)?\b", re.I), "g"),
+]
+
+
+def normalize_units(value):
+    """Canonicalize unit SPELLINGS (e.g. 'milligrams'->'mg'). Does NOT convert numeric values
+    (mg<->mcg conversion is unsafe for clinical data — only spelling is normalized)."""
+    if not value or not isinstance(value, str):
+        return value
+    out = value
+    for pat, repl in _UNIT_CANON:
+        out = pat.sub(repl, out)
+    return out
+
+
+def assess_text_quality(text):
+    """Heuristic flag for garbage OCR/extraction. Returns {score: 0-1, is_low: bool}.
+    Low score => mostly non-word characters or vowel-less tokens (likely OCR noise)."""
+    t = (text or "").strip()
+    if len(t) < 20:
+        return {"score": 0.0, "is_low": True}
+    printable = len(re.findall(r"[A-Za-z0-9\s.,;:%/()\-+]", t))
+    ratio = printable / len(t)
+    tokens = t.split()
+    wordish = sum(1 for w in tokens if re.search(r"[aeiou]", w, re.I)) / max(len(tokens), 1)
+    score = round(min(ratio, wordish), 2)
+    return {"score": score, "is_low": score < 0.5}
 
 
 def apple_health_snapshot(events):
