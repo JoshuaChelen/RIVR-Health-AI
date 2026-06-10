@@ -77,6 +77,60 @@ def extract_document_facts(document_id: str, title: str | None, text: str) -> Do
     return _parse_with_retry(make_call)
 
 
+EXTRACT_CHAR_CAP = 180_000
+
+
+def _split_for_extraction(text: str, cap: int) -> list[str]:
+    """Split text into <=cap non-overlapping chunks on whitespace boundaries."""
+    text = text or ""
+    if len(text) <= cap:
+        return [text] if text else []
+    chunks, start, n = [], 0, len(text)
+    while start < n:
+        end = min(start + cap, n)
+        if end < n:
+            sp = text.rfind(" ", start, end)
+            if sp > start:
+                end = sp
+        chunks.append(text[start:end])
+        start = end
+    return chunks
+
+
+def _merge_document_facts(document_id: str, title, facts_list: list) -> "DocumentFacts":
+    kf = {"blood_type": None, "allergies": [], "medications": [], "conditions": [],
+          "surgeries_procedures": [], "implants_devices": [], "key_labs_vitals": [], "extra_notes": []}
+    timeline: list = []
+    confidence = 0.0
+    for f in facts_list:
+        k = f.key_facts
+        if k.blood_type and not kf["blood_type"]:
+            kf["blood_type"] = k.blood_type
+        kf["allergies"].extend(a.model_dump() for a in k.allergies)
+        kf["medications"].extend(m.model_dump() for m in k.medications)
+        kf["conditions"].extend(c.model_dump() for c in k.conditions)
+        kf["surgeries_procedures"].extend(s.model_dump() for s in k.surgeries_procedures)
+        kf["implants_devices"].extend(k.implants_devices)
+        kf["key_labs_vitals"].extend(lv.model_dump() for lv in k.key_labs_vitals)
+        kf["extra_notes"].extend(k.extra_notes)
+        timeline.extend(t.model_dump() for t in f.timeline_events)
+        confidence = max(confidence, f.confidence_0_to_1)
+    return DocumentFacts.model_validate({
+        "document_id": document_id, "title": title, "key_facts": kf,
+        "timeline_events": timeline, "confidence_0_to_1": confidence,
+    })
+
+
+def extract_document_facts_chunked(document_id: str, title, text: str) -> "DocumentFacts":
+    """Extract facts; for text exceeding EXTRACT_CHAR_CAP, extract each chunk and merge
+    (so a long document's tail is not dropped). One chunk -> a single call as before."""
+    chunks = _split_for_extraction(text, EXTRACT_CHAR_CAP)
+    if len(chunks) <= 1:
+        return extract_document_facts(document_id, title, chunks[0] if chunks else "")
+    return _merge_document_facts(document_id, title,
+                                 [extract_document_facts(document_id, title, c) for c in chunks])
+
+
 # ── Health evaluation ─────────────────────────────────────────────────────────
 # fieldGuidance + generalRules are copied verbatim from worker/src/ai.ts.
 
