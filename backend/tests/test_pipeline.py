@@ -217,3 +217,33 @@ def test_pdf_multi_page_interleaving(user, mock_ai, monkeypatch):
     assert t.index("page one text") < t.index("[IMAGE OCR — page 1]") < t.index("[IMAGE OCR — page 2]")
     # page 2 had no text layer -> only its OCR block appears, no page-2 text part
     assert "[IMAGE OCR — page 2]" in t
+
+
+def test_pipeline_reindexes_document(user, mock_ai, monkeypatch):
+    from apps.jobs import pipeline, index
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/r.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: fake_facts(doc.id))
+    called = {"docs": []}
+    monkeypatch.setattr(index, "reindex_document", lambda d, **k: called["docs"].append(d.id))
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED
+    assert doc.id in called["docs"]
+
+
+def test_pipeline_reindex_failure_is_non_fatal(user, mock_ai, monkeypatch):
+    from apps.jobs import pipeline, index
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/r2.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: fake_facts(doc.id))
+    def _boom(d, **k): raise RuntimeError("embed down")
+    monkeypatch.setattr(index, "reindex_document", _boom)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED  # reindex failure must not fail the job
+    assert job.events.filter(level="warn").exists()
