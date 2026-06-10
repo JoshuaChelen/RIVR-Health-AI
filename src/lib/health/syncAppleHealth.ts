@@ -115,6 +115,55 @@ export async function syncAppleHealthToTimeline(
     });
   }
 
+  if (snap.hrvMsRecent != null) {
+    rows.push({
+      user_id: userId,
+      occurred_at: today,
+      date_precision: "day",
+      title: "Heart rate variability (recent)",
+      event_type: "apple_health_hrv_recent",
+      category: "vitals",
+      source: "apple_health",
+      summary: `${snap.hrvMsRecent} ms HRV (latest)`,
+      data: { ms: snap.hrvMsRecent, origin: "healthkit" },
+      included_in_previsit: false,
+      tags: ["hrv", "vitals"],
+    });
+  }
+
+  if (snap.weightLbRecent != null) {
+    rows.push({
+      user_id: userId,
+      occurred_at: today,
+      date_precision: "day",
+      title: "Weight (recent)",
+      event_type: "apple_health_weight_recent",
+      category: "vitals",
+      source: "apple_health",
+      summary: `${snap.weightLbRecent} lb (latest)`,
+      data: { weight_lb: snap.weightLbRecent, origin: "healthkit" },
+      included_in_previsit: false,
+      tags: ["weight", "vitals"],
+    });
+  }
+
+  if (snap.bloodPressureRecent != null) {
+    const { systolic, diastolic } = snap.bloodPressureRecent;
+    rows.push({
+      user_id: userId,
+      occurred_at: today,
+      date_precision: "day",
+      title: "Blood pressure (recent)",
+      event_type: "apple_health_blood_pressure_recent",
+      category: "vitals",
+      source: "apple_health",
+      summary: `${systolic}/${diastolic} mmHg (latest)`,
+      data: { systolic, diastolic, origin: "healthkit" },
+      included_in_previsit: false,
+      tags: ["blood_pressure", "vitals"],
+    });
+  }
+
   if (rows.length === 0) {
     return { ok: true, wrote: 0 };
   }
