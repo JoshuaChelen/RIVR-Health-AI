@@ -307,6 +307,13 @@ def norm(s: Optional[str]) -> str:
     return re.sub(r"\s+", " ", s.lower().strip())
 
 
+def _canon_blood_type(bt: str) -> str:
+    """Canonicalize blood-type notation so 'A positive' and 'A+' compare equal."""
+    s = norm(bt).replace(" ", "")
+    s = s.replace("positive", "+").replace("pos", "+").replace("negative", "-").replace("neg", "-")
+    return s
+
+
 def allergy_key(allergen: str) -> str:
     """Canonical key for an allergy: the allergen name, normalized."""
     return norm(allergen)
@@ -861,6 +868,7 @@ def filter_doc_facts_by_suppression(
 _LAB_CAP_PER_NAME = 5
 _NOTES_CAP = 40
 _TIMELINE_CAP = 50
+DIGEST_VERSION = 2
 
 
 def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) -> Dict[str, Any]:
@@ -878,24 +886,36 @@ def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) ->
     implants, labs = {}, {}
     notes, notes_seen = [], set()
     timeline = []
+    blood_types_seen = []  # canonical -> raw display, in order
+    confidences = []
 
-    def merge(store, key, entry, optional_fields):
+    def merge(store, key, entry, fill_fields, override_fields=()):
         if not key:
             return
         if key not in store:
             store[key] = {k: v for k, v in entry.items() if v}
         else:
             cur = store[key]
-            for f in optional_fields:
+            for f in fill_fields:
                 if not cur.get(f) and entry.get(f):
+                    cur[f] = entry[f]
+            for f in override_fields:  # most-recent doc wins (oldest->newest order)
+                if entry.get(f):
                     cur[f] = entry[f]
 
     for doc in doc_facts_list:
         if not isinstance(doc, dict):
             continue
         kf = doc.get("key_facts") or {}
+        c0 = doc.get("confidence_0_to_1")
+        if isinstance(c0, (int, float)):
+            confidences.append(float(c0))
         if kf.get("blood_type"):
-            blood_type = kf["blood_type"]
+            bt = trimmed(kf["blood_type"])
+            if bt:
+                blood_type = bt  # most-recent raw value wins
+                if _canon_blood_type(bt) not in {_canon_blood_type(x) for x in blood_types_seen}:
+                    blood_types_seen.append(bt)
         for a in safe_arr(kf.get("allergies")):
             sub = trimmed(a.get("substance"))
             merge(allergies, allergy_key(sub or ""),
@@ -904,13 +924,14 @@ def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) ->
         for m in safe_arr(kf.get("medications")):
             nm = trimmed(m.get("name"))
             merge(medications, medication_key(nm or ""),
-                  {"name": nm, "dose": trimmed(m.get("dose")), "frequency": trimmed(m.get("frequency"))},
-                  ["dose", "frequency"])
+                  {"name": nm, "dose": trimmed(m.get("dose")), "frequency": trimmed(m.get("frequency")),
+                   "status": trimmed(m.get("status"))},
+                  ["dose", "frequency"], override_fields=["status"])
         for c in safe_arr(kf.get("conditions")):
             nm = trimmed(c.get("name"))
             merge(conditions, med_history_key(nm or ""),
                   {"name": nm, "status": trimmed(c.get("status")), "notes": trimmed(c.get("notes"))},
-                  ["status", "notes"])
+                  ["notes"], override_fields=["status"])
         for s in safe_arr(kf.get("surgeries_procedures")):
             nm = trimmed(s.get("name"))
             merge(surgeries, surgery_key(nm or ""),
@@ -952,6 +973,17 @@ def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) ->
         seen_tl.add(k)
         tl_out.append(ev)
 
+    contradictions = []
+    if len(blood_types_seen) > 1:
+        contradictions.append(
+            "blood_type: conflicting values across documents (" + ", ".join(blood_types_seen)
+            + f"); using most recent ({blood_type})"
+        )
+    source_confidence = (
+        {"min": round(min(confidences), 2), "avg": round(sum(confidences) / len(confidences), 2)}
+        if confidences else None
+    )
+
     return {
         "blood_type": blood_type,
         "allergies": list(allergies.values()),
@@ -962,6 +994,8 @@ def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) ->
         "key_labs_vitals": capped_labs,
         "extra_notes": notes[:_NOTES_CAP],
         "recent_timeline": tl_out[:_TIMELINE_CAP],
+        "contradictions": contradictions,
+        "source_confidence": source_confidence,
     }
 
 

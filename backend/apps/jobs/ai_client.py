@@ -46,6 +46,7 @@ Rules:
 - Accept partial dates. Use YYYY-MM-DD when known precisely, YYYY-MM when only month is known, YYYY when only year is known. Set date_precision accordingly ("day" / "month" / "year").
 - If no event date can be found in the document, return occurred_at: null and date_precision: null. Do NOT use today's date. Do NOT invent a date.
 - data_kv must always be present. If nothing, return [] (not {}).
+- Set a medication's status to "discontinued" if the document states it was stopped/discontinued; otherwise leave it null.
 Return JSON only in the required schema."""
 
 _RETRY_NUDGE_EXTRACT = (
@@ -392,7 +393,7 @@ def _build_eval_system(has_manual: bool, has_backfill: bool, has_docfacts: bool)
     ladder.append(f"  {r}. APPLE_HEALTH - passive sensor data from the patient's device. Reliable for trends; lacks clinical context.")
     r += 1
     if has_docfacts:
-        ladder.append(f"  {r}. DOCUMENT_FACTS - a single MERGED, de-duplicated facts object aggregated across ALL of the patient's uploaded documents (allergies, medications, conditions, surgeries, labs, implants, notes, recent timeline). May contain OCR errors or outdated values.")
+        ladder.append(f"  {r}. DOCUMENT_FACTS - a single MERGED, de-duplicated facts object aggregated across ALL of the patient's uploaded documents (allergies, medications, conditions, surgeries, labs, implants, notes, recent timeline). May contain OCR errors or outdated values. DOCUMENT_FACTS may include \"contradictions\" (values that conflict across documents — surface these in risk_flags or missing_info; never silently pick one and hide the conflict), per-item \"status\" (do NOT present a medication or condition marked discontinued/resolved as current, especially on the emergency card), and \"source_confidence\".")
 
     no_docs_note = (
         "\n  No uploaded documents are present. Produce a complete, useful summary using available sources alone."

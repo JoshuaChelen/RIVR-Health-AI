@@ -299,6 +299,7 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
         not has_new_docs and stored_digest
         and stored_meta.get("doc_ids") == current_doc_ids
         and stored_meta.get("suppression_sig") == sup_sig
+        and stored_meta.get("digest_version") == profile_logic.DIGEST_VERSION
     )
 
     if can_reuse:
@@ -318,7 +319,8 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
             _log(job, "warn", f"Digest build failed; sending raw facts: {exc}")
             digest = all_doc_facts
 
-    digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now()}
+    digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now(),
+                   "digest_version": profile_logic.DIGEST_VERSION}
 
     if not has_any_evaluatable_data(digest, apple_health, manual_ctx, backfill_ctx):
         _fail(job, "No evaluatable data found. Complete at least your basic profile or upload a document.")

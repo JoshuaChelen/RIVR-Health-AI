@@ -166,3 +166,45 @@ def test_digest_bounds_and_dedupes_timeline():
     d = build_facts_digest(docs, None)
     assert len(d["recent_timeline"]) == 50
     assert set(d["recent_timeline"][0].keys()) == {"occurred_at", "title", "event_type", "summary"}
+
+
+def _sdoc(facts, conf=0.9):
+    """Compact doc builder for safety-reasoning tests (distinct from the existing _doc helper)."""
+    return {"key_facts": facts, "timeline_events": [], "confidence_0_to_1": conf}
+
+
+def test_digest_reconciles_condition_status_most_recent():
+    from apps.jobs.profile_logic import build_facts_digest
+    old = _sdoc({"conditions": [{"name": "Diabetes", "status": "active"}]})
+    new = _sdoc({"conditions": [{"name": "Diabetes", "status": "resolved"}]})
+    d = build_facts_digest([old, new])  # oldest->newest
+    conds = {c["name"]: c.get("status") for c in d["conditions"]}
+    assert conds["Diabetes"] == "resolved"  # most-recent status wins, not "active"
+
+
+def test_digest_reconciles_medication_status_most_recent():
+    from apps.jobs.profile_logic import build_facts_digest
+    old = _sdoc({"medications": [{"name": "Warfarin"}]})
+    new = _sdoc({"medications": [{"name": "Warfarin", "status": "discontinued"}]})
+    d = build_facts_digest([old, new])
+    meds = {m["name"]: m.get("status") for m in d["medications"]}
+    assert meds["Warfarin"] == "discontinued"
+
+
+def test_digest_flags_blood_type_contradiction():
+    from apps.jobs.profile_logic import build_facts_digest
+    d = build_facts_digest([_sdoc({"blood_type": "A+"}), _sdoc({"blood_type": "O-"})])
+    assert d["blood_type"] == "O-"  # most recent
+    assert d["contradictions"] and "blood_type" in d["contradictions"][0]
+
+
+def test_digest_no_false_blood_type_contradiction_on_notation():
+    from apps.jobs.profile_logic import build_facts_digest
+    d = build_facts_digest([_sdoc({"blood_type": "A positive"}), _sdoc({"blood_type": "A+"})])
+    assert d["contradictions"] == []  # same type, different notation
+
+
+def test_digest_source_confidence():
+    from apps.jobs.profile_logic import build_facts_digest
+    d = build_facts_digest([_sdoc({"blood_type": "A+"}, conf=0.6), _sdoc({"medications": [{"name": "X"}]}, conf=0.9)])
+    assert d["source_confidence"] == {"min": 0.6, "avg": 0.75}

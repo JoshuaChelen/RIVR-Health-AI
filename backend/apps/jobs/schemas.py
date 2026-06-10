@@ -50,6 +50,7 @@ class Medication(BaseModel):
     dose: Optional[str] = None
     frequency: Optional[str] = None
     notes: Optional[str] = None
+    status: Optional[str] = None
 
 
 class Condition(BaseModel):
