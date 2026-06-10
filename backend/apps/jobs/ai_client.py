@@ -331,7 +331,7 @@ def _build_eval_system(has_manual: bool, has_backfill: bool, has_docfacts: bool)
     ladder.append(f"  {r}. APPLE_HEALTH - passive sensor data from the patient's device. Reliable for trends; lacks clinical context.")
     r += 1
     if has_docfacts:
-        ladder.append(f"  {r}. DOCUMENT_FACTS - extracted by AI from uploaded health documents. May contain OCR errors, outdated values, or interpretation artifacts.")
+        ladder.append(f"  {r}. DOCUMENT_FACTS - a single MERGED, de-duplicated facts object aggregated across ALL of the patient's uploaded documents (allergies, medications, conditions, surgeries, labs, implants, notes, recent timeline). May contain OCR errors or outdated values.")
 
     no_docs_note = (
         "\n  No uploaded documents are present. Produce a complete, useful summary using available sources alone."
@@ -365,7 +365,15 @@ def _build_eval_system(has_manual: bool, has_backfill: bool, has_docfacts: bool)
 
 def evaluate_user_health(user_id, doc_facts, apple_health, manual_profile=None, profile_backfill=None) -> HealthEvaluation:
     has_manual = bool(manual_profile)
-    has_docfacts = len(doc_facts) > 0
+    if isinstance(doc_facts, dict):
+        has_docfacts = bool(doc_facts.get("blood_type")) or any(
+            doc_facts.get(k) for k in (
+                "allergies", "medications", "conditions", "surgeries_procedures",
+                "implants_devices", "key_labs_vitals", "extra_notes", "recent_timeline",
+            )
+        )
+    else:
+        has_docfacts = len(doc_facts) > 0
     has_backfill = bool(
         profile_backfill
         and (

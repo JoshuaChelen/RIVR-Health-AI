@@ -224,3 +224,53 @@ def test_health_profile_has_digest_fields(user):
     hp = HealthProfile.objects.create(user=user, score=50, score_label="Concerning")
     assert hp.facts_digest == {}
     assert hp.digest_meta == {}
+
+
+def test_evaluate_accepts_digest_object(monkeypatch):
+    from apps.jobs import ai_client
+    captured = {}
+
+    class _R:
+        def __init__(self, parsed): self.output_parsed = parsed
+
+    class _Parser:
+        def parse(self, **kw):
+            captured["input"] = kw["input"]
+            return _R(fake_evaluation())
+
+    class _Client:
+        responses = _Parser()
+
+    monkeypatch.setattr(ai_client, "_client", lambda: _Client())
+    digest = {"blood_type": "O+", "allergies": [{"substance": "Penicillin"}], "medications": [],
+              "conditions": [], "surgeries_procedures": [], "implants_devices": ["Pacemaker"],
+              "key_labs_vitals": [], "extra_notes": [], "recent_timeline": []}
+    out = ai_client.evaluate_user_health("u1", digest, {}, manual_profile=None, profile_backfill=None)
+    assert out.score_0_to_100 == 78
+    user_msg = next(m for m in captured["input"] if m["role"] == "user")["content"]
+    assert "Penicillin" in user_msg and "Pacemaker" in user_msg  # digest reached the prompt
+
+
+def test_evaluate_empty_digest_has_docfacts_false(monkeypatch):
+    from apps.jobs import ai_client
+    # A 9-key dict with no blood_type and all-empty lists must NOT add the
+    # DOCUMENT_FACTS trust-ladder line (the behavioral change vs old len()>0).
+    captured = {}
+
+    class _R:
+        def __init__(self, parsed): self.output_parsed = parsed
+
+    class _Parser:
+        def parse(self, **kw):
+            captured["sys"] = kw["input"][0]["content"]
+            return _R(fake_evaluation())
+
+    class _Client:
+        responses = _Parser()
+
+    monkeypatch.setattr(ai_client, "_client", lambda: _Client())
+    empty_digest = {"blood_type": None, "allergies": [], "medications": [], "conditions": [],
+                    "surgeries_procedures": [], "implants_devices": [], "key_labs_vitals": [],
+                    "extra_notes": [], "recent_timeline": []}
+    ai_client.evaluate_user_health("u1", empty_digest, {})
+    assert "DOCUMENT_FACTS" not in captured["sys"]
