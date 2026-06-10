@@ -217,3 +217,10 @@ def test_pdf_multi_page_interleaving(user, mock_ai, monkeypatch):
     assert t.index("page one text") < t.index("[IMAGE OCR — page 1]") < t.index("[IMAGE OCR — page 2]")
     # page 2 had no text layer -> only its OCR block appears, no page-2 text part
     assert "[IMAGE OCR — page 2]" in t
+
+
+def test_health_profile_has_digest_fields(user):
+    from apps.health.models import HealthProfile
+    hp = HealthProfile.objects.create(user=user, score=50, score_label="Concerning")
+    assert hp.facts_digest == {}
+    assert hp.digest_meta == {}
