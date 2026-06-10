@@ -520,3 +520,58 @@ def test_pipeline_verifies_source_quotes(user, mock_ai, monkeypatch):
     assert kf["medications"][0]["source_quote"] == "diabetic patient"
     assert kf["conditions"][0]["source_quote"] is None
     assert kf["conditions"][0]["confidence_0_to_1"] == 0.6
+
+
+def test_stale_digest_version_forces_rebuild(user, mock_ai, monkeypatch):
+    """A cached digest with an old digest_version must NOT be reused; the pipeline must rebuild it."""
+    import json as _json
+    from apps.health.models import HealthProfile
+    from apps.jobs import pipeline, profile_logic
+
+    # Create a processed document with a stored summary
+    doc = Document.objects.create(user=user, source_type="pdf", status="processed", mime_type="application/pdf")
+    facts = {
+        "document_id": str(doc.id), "title": "Old Doc", "confidence_0_to_1": 0.9,
+        "timeline_events": [],
+        "key_facts": {"blood_type": "A+", "allergies": [], "medications": [{"name": "Metformin"}],
+                      "conditions": [], "surgeries_procedures": [], "implants_devices": [],
+                      "key_labs_vitals": [], "extra_notes": []},
+    }
+    doc.summary_path = default_storage.save(
+        f"documents/{user.id}/stale_v.json", ContentFile(_json.dumps(facts).encode())
+    )
+    doc.save()
+
+    current_doc_ids = sorted([str(doc.id)])
+    stale_digest = {"blood_type": "A+", "medications": [{"name": "Metformin"}],
+                    "allergies": [], "conditions": [], "surgeries_procedures": [],
+                    "implants_devices": [], "key_labs_vitals": [], "extra_notes": [],
+                    "recent_timeline": [], "contradictions": [], "source_confidence": None}
+    stale_meta = {
+        "doc_ids": current_doc_ids,
+        "suppression_sig": "{}",
+        "digest_version": 1,  # old version — must not reuse
+        "built_at": "2025-01-01T00:00:00Z",
+    }
+    # Pre-seed a HealthProfile with the stale digest
+    HealthProfile.objects.create(
+        user=user, version="profile_v2", score=70, score_label="Good",
+        facts_digest=stale_digest, digest_meta=stale_meta,
+        sources={},
+    )
+
+    reads = {"n": 0}
+    orig = pipeline._read_json
+    monkeypatch.setattr(pipeline, "_read_json", lambda key: (reads.__setitem__("n", reads["n"] + 1), orig(key))[1])
+
+    j = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROFILE_EVALUATION, document_ids=[])
+    pipeline.run_job(j.id)
+    j.refresh_from_db()
+    assert j.status == AiJob.Status.SUCCEEDED
+
+    # Digest was rebuilt: _read_json was called (summary files were read)
+    assert reads["n"] > 0, "Expected digest rebuild (summary reads), but got zero reads"
+
+    # The persisted digest_meta now carries the current DIGEST_VERSION
+    hp = HealthProfile.objects.get(user=user)
+    assert hp.digest_meta.get("digest_version") == profile_logic.DIGEST_VERSION

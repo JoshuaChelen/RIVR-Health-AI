@@ -55,6 +55,7 @@ class Medication(BaseModel):
     notes: Optional[str] = None
     source_quote: Optional[str] = None
     confidence_0_to_1: Optional[float] = Field(default=None, ge=0, le=1)
+    status: Optional[str] = None
 
 
 class Condition(BaseModel):

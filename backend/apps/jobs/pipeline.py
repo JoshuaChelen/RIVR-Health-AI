@@ -328,6 +328,7 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
         not has_new_docs and stored_digest
         and stored_meta.get("doc_ids") == current_doc_ids
         and stored_meta.get("suppression_sig") == sup_sig
+        and stored_meta.get("digest_version") == profile_logic.DIGEST_VERSION
     )
 
     reads_failed = False
@@ -356,7 +357,8 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
             # normal digest (which excludes them) and doesn't bloat the eval prompt.
             digest = profile_logic.strip_citation_fields(all_doc_facts)
 
-    digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now()}
+    digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now(),
+                   "digest_version": profile_logic.DIGEST_VERSION}
 
     if not has_any_evaluatable_data(digest, apple_health, manual_ctx, backfill_ctx):
         if reads_failed:
