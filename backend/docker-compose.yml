@@ -2,7 +2,7 @@ name: rivr-backend
 
 services:
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: rivr
       POSTGRES_PASSWORD: rivr

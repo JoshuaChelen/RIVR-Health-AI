@@ -188,6 +188,12 @@ AI_MODEL_OCR = env("AI_MODEL_OCR", default="gpt-4o-mini")
 AI_MODEL_TRANSCRIBE = env("AI_MODEL_TRANSCRIBE", default="whisper-1")
 AI_MODEL_QUESTION_ANSWER = env("AI_MODEL_QUESTION_ANSWER", default="")
 
+# --- Embeddings (Q&A vectorizing) --------------------------------------------
+EMBEDDING_BASE_URL = env("EMBEDDING_BASE_URL", default=OPENAI_BASE_URL)
+EMBEDDING_API_KEY = env("EMBEDDING_API_KEY", default=OPENAI_API_KEY)
+EMBEDDING_MODEL = env("EMBEDDING_MODEL", default="nomic-embed-text-v1.5")
+EMBEDDING_DIM = env.int("EMBEDDING_DIM", default=768)
+
 # --- OCR ingestion -----------------------------------------------------------
 OCR_MIN_IMAGE_PX = env.int("OCR_MIN_IMAGE_PX", default=100)
 OCR_BATCH_SIZE = env.int("OCR_BATCH_SIZE", default=10)

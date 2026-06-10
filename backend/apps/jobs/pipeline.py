@@ -20,7 +20,7 @@ from apps.health.models import HealthEvaluation, HealthProfile
 from apps.profiles.models import UserProfile
 from apps.timeline.models import TimelineEvent
 
-from . import ai_client, extraction, profile_logic
+from . import ai_client, extraction, index, profile_logic
 from .models import AiJob, AiJobEvent
 
 class CancellationError(Exception):
@@ -167,6 +167,10 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
     Document.objects.filter(id=doc.id).update(
         summary_path=_summary_key(user_id, doc.id), processed_at=djtz.now(), processing_error=""
     )
+    try:
+        index.reindex_document(doc, text=text)
+    except Exception as exc:  # non-fatal: the search index is best-effort
+        _log(job, "warn", f"Embedding reindex failed for {doc.id}: {exc}")
     _set_stage(job, "document_done", {"total": total, "done": idx + 1, "currentDocId": str(doc.id)})
     return facts
 

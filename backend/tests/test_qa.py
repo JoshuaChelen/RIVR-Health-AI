@@ -44,3 +44,28 @@ def test_qa_returns_answer_and_sources(client, settings, monkeypatch):
     body = resp.json()
     assert body["answer"] == "You take Metformin."
     assert body["sources"][0]["title"] == "Labs"
+
+
+def test_qa_context_uses_retrieval(db, monkeypatch):
+    from django.contrib.auth import get_user_model
+    from apps.jobs import index
+    from apps.jobs.models import Embedding
+    from apps.health import qa_views
+    user = get_user_model().objects.create_user(email="qa2@example.com", password="pw")
+    Embedding.objects.create(user=user, kind="doc_chunk", content="patient has chronic hypertension", vector=[0.0] * 768)
+    monkeypatch.setattr(index, "search", lambda u, q, k=12: list(Embedding.objects.filter(user=u)))
+    ctx, sources = qa_views.build_qa_context(user, "tell me about blood pressure")
+    assert "chronic hypertension" in ctx
+    assert sources and "hypertension" in sources[0]["detail"]
+
+
+def test_qa_context_falls_back_when_search_errors(db, monkeypatch):
+    from django.contrib.auth import get_user_model
+    from apps.jobs import index
+    from apps.health import qa_views
+    user = get_user_model().objects.create_user(email="qa3@example.com", password="pw")
+    def _boom(*a, **k): raise RuntimeError("embedder down")
+    monkeypatch.setattr(index, "search", _boom)
+    ctx, sources = qa_views.build_qa_context(user, "anything")
+    assert isinstance(ctx, str)  # fell back to the static slice, did not raise
+    assert sources == []
