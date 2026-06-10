@@ -23,6 +23,9 @@ export type AppleHealthSnapshot = {
   stepsAvg7d: number | null;
   walkingRunningDistanceAvg7dMiles: number | null;
   activeEnergyAvg7dKcal: number | null;
+  hrvMsRecent: number | null;
+  weightLbRecent: number | null;
+  bloodPressureRecent: { systolic: number; diastolic: number } | null;
   // Trend arrays for charts
   stepsTrend7d: DailyDataPoint[];
   sleepTrend7d: DailyDataPoint[];
@@ -271,6 +274,61 @@ async function getActiveEnergyAvg7dKcal(): Promise<number | null> {
 }
 
 
+async function getLatestHrvMs(): Promise<number | null> {
+  if (!hasHealthKitModule()) return null;
+
+  const endDate = new Date().toISOString();
+  const startDate = daysAgo(7).toISOString();
+
+  return await new Promise((resolve) => {
+    AppleHealthKit.getHeartRateVariabilitySamples(
+      { startDate, endDate, limit: 1, ascending: false },
+      (err: any, results: any[]) => {
+        if (err || !results?.length) return resolve(null);
+        // HealthKit SDNN is stored in seconds; report milliseconds (the common HRV unit).
+        // NOTE: verify the unit on-device — adjust the *1000 if the library already returns ms.
+        const v = Number(results[0].value);
+        return resolve(Number.isFinite(v) ? Math.round(v * 1000) : null);
+      }
+    );
+  });
+}
+
+async function getLatestWeightLb(): Promise<number | null> {
+  if (!hasHealthKitModule()) return null;
+
+  return await new Promise((resolve) => {
+    AppleHealthKit.getLatestWeight(
+      { unit: AppleHealthKit.Constants.Units.pound },
+      (err: any, result: any) => {
+        if (err || result?.value == null) return resolve(null);
+        const v = Number(result.value);
+        return resolve(Number.isFinite(v) ? Number(v.toFixed(1)) : null);
+      }
+    );
+  });
+}
+
+async function getLatestBloodPressure(): Promise<{ systolic: number; diastolic: number } | null> {
+  if (!hasHealthKitModule()) return null;
+
+  const endDate = new Date().toISOString();
+  const startDate = daysAgo(30).toISOString();
+
+  return await new Promise((resolve) => {
+    AppleHealthKit.getBloodPressureSamples(
+      { startDate, endDate, limit: 1, ascending: false },
+      (err: any, results: any[]) => {
+        if (err || !results?.length) return resolve(null);
+        const s = Number(results[0].bloodPressureSystolicValue);
+        const d = Number(results[0].bloodPressureDiastolicValue);
+        if (!Number.isFinite(s) || !Number.isFinite(d)) return resolve(null);
+        return resolve({ systolic: Math.round(s), diastolic: Math.round(d) });
+      }
+    );
+  });
+}
+
 async function getStepsTrend7Days(): Promise<DailyDataPoint[]> {
   if (!hasHealthKitModule()) return [];
 
@@ -368,6 +426,9 @@ export async function getAppleHealthSnapshot(): Promise<AppleHealthSnapshot> {
     stepsAvg7d,
     walkingRunningDistanceAvg7dMiles,
     activeEnergyAvg7dKcal,
+    hrvMsRecent,
+    weightLbRecent,
+    bloodPressureRecent,
     stepsTrend7d,
     sleepTrend7d,
     heartRateTrend,
@@ -377,6 +438,9 @@ export async function getAppleHealthSnapshot(): Promise<AppleHealthSnapshot> {
     getStepsAvg7Days(),
     getWalkingRunningDistanceAvg7dMiles(),
     getActiveEnergyAvg7dKcal(),
+    getLatestHrvMs(),
+    getLatestWeightLb(),
+    getLatestBloodPressure(),
     getStepsTrend7Days(),
     getSleepTrend7Days(),
     getHeartRateTrend(),
@@ -390,6 +454,9 @@ export async function getAppleHealthSnapshot(): Promise<AppleHealthSnapshot> {
     stepsAvg7d,
     walkingRunningDistanceAvg7dMiles,
     activeEnergyAvg7dKcal,
+    hrvMsRecent,
+    weightLbRecent,
+    bloodPressureRecent,
     stepsTrend7d,
     sleepTrend7d,
     heartRateTrend,

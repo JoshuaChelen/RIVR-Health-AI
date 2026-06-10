@@ -4,6 +4,10 @@ const READ_PERMISSION_KEYS = [
   "StepCount",
   "DistanceWalkingRunning",
   "ActiveEnergyBurned",
+  "HeartRateVariability",
+  "Weight",
+  "BloodPressureSystolic",
+  "BloodPressureDiastolic",
 ] as const;
 
 type HealthKitConstantsLike = {
