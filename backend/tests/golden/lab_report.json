@@ -1,0 +1,22 @@
+{
+  "title": "Comprehensive Metabolic Panel - Northside Diagnostics",
+  "text": "NORTHSIDE DIAGNOSTICS\nLABORATORY REPORT\n\nPatient: Susan M.\nDOB: 07/19/1972\nOrdering Provider: Dr. A. Patel, MD\nSpecimen Collected: 03/22/2024 07:45\nReport Date: 03/22/2024 10:30\n\nCLINICAL INDICATION: Monitoring of chronic kidney disease\n\nCOMPREHENSIVE METABOLIC PANEL:\n\nTest                   Result      Reference Range     Flag\n---------------------------------------------------------------\nGlucose                145 mg/dL   70-99 mg/dL         HIGH\nCreatinine             2.1 mg/dL   0.6-1.1 mg/dL       HIGH\neGFR                   34 mL/min   >= 60 mL/min        LOW\nPotassium              5.4 mEq/L   3.5-5.0 mEq/L       HIGH\nHemoglobin A1c         8.2 %       < 5.7 %             HIGH\n\nINTERPRETATION:\nFindings consistent with Stage 3b Chronic Kidney Disease (CKD). Elevated glucose and HbA1c indicate poorly controlled Type 2 Diabetes Mellitus. Hyperkalemia present; dietary potassium restriction advised. Follow-up repeat CMP in 3 months recommended.\n\nSigned: Dr. A. Patel, MD\nNorthside Diagnostics, License #CL-4421",
+  "expected_key_facts": {
+    "blood_type": null,
+    "allergies": [],
+    "medications": [],
+    "conditions": [
+      {"name": "Chronic Kidney Disease", "status": "active"}
+    ],
+    "surgeries_procedures": [],
+    "implants_devices": [],
+    "key_labs_vitals": [
+      {"name": "Glucose", "value": "145 mg/dL", "when": "03/22/2024"},
+      {"name": "Creatinine", "value": "2.1 mg/dL", "when": "03/22/2024"},
+      {"name": "eGFR", "value": "34 mL/min", "when": "03/22/2024"},
+      {"name": "Potassium", "value": "5.4 mEq/L", "when": "03/22/2024"},
+      {"name": "Hemoglobin A1c", "value": "8.2 %", "when": "03/22/2024"}
+    ],
+    "extra_notes": []
+  }
+}

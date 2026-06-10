@@ -1,0 +1,23 @@
+{
+  "title": "Medication Reconciliation List - Valley Pharmacy",
+  "text": "VALLEY PHARMACY\nMEDICATION RECONCILIATION LIST\n\nPatient: Robert K.\nDOB: 11/03/1955\nDate Prepared: 06/01/2024\nPrescribing Provider: Dr. L. Chen, MD\n\nCURRENT MEDICATIONS:\n\n1. Atorvastatin 40mg\n   Sig: Take one tablet by mouth at bedtime\n   Indication: Hyperlipidemia\n   Last filled: 05/28/2024\n\n2. Amlodipine 5mg\n   Sig: Take one tablet by mouth once daily\n   Indication: Hypertension\n   Last filled: 05/28/2024\n\n3. Metoprolol succinate 50mg\n   Sig: Take one tablet by mouth once daily\n   Indication: Hypertension, heart rate control\n   Last filled: 05/15/2024\n\n4. Omeprazole 20mg\n   Sig: Take one capsule by mouth once daily before breakfast\n   Indication: GERD\n   Last filled: 05/20/2024\n\n5. Aspirin 81mg\n   Sig: Take one tablet by mouth daily\n   Indication: Cardiovascular prophylaxis\n   Last filled: 05/01/2024\n\nDOCUMENTED ALLERGIES:\n\n1. Codeine\n   Reaction: Severe nausea and vomiting\n   Severity: Moderate\n\n2. Ibuprofen\n   Reaction: GI bleeding\n   Severity: High\n\nPharmacist notes: Patient counseled on all medications. No drug-drug interactions identified.",
+  "expected_key_facts": {
+    "blood_type": null,
+    "allergies": [
+      {"substance": "Codeine", "reaction": "severe nausea and vomiting", "severity": "medium"},
+      {"substance": "Ibuprofen", "reaction": "GI bleeding", "severity": "high"}
+    ],
+    "medications": [
+      {"name": "Atorvastatin 40mg"},
+      {"name": "Amlodipine 5mg"},
+      {"name": "Metoprolol succinate 50mg"},
+      {"name": "Omeprazole 20mg"},
+      {"name": "Aspirin 81mg"}
+    ],
+    "conditions": [],
+    "surgeries_procedures": [],
+    "implants_devices": [],
+    "key_labs_vitals": [],
+    "extra_notes": []
+  }
+}
