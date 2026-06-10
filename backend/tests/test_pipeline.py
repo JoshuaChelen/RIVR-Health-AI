@@ -292,3 +292,158 @@ def test_extract_chunked_long_text_merges_all_chunks(monkeypatch):
     assert seen["chunks"] >= 2  # the tail was NOT dropped — multiple chunks extracted
     names = sorted(m.name for m in out.key_facts.medications)
     assert names == [f"Med{i}" for i in range(1, seen["chunks"] + 1)]  # all chunks merged
+def test_health_profile_has_digest_fields(user):
+    from apps.health.models import HealthProfile
+    hp = HealthProfile.objects.create(user=user, score=50, score_label="Concerning")
+    assert hp.facts_digest == {}
+    assert hp.digest_meta == {}
+
+
+def test_evaluate_accepts_digest_object(monkeypatch):
+    from apps.jobs import ai_client
+    captured = {}
+
+    class _R:
+        def __init__(self, parsed): self.output_parsed = parsed
+
+    class _Parser:
+        def parse(self, **kw):
+            captured["input"] = kw["input"]
+            return _R(fake_evaluation())
+
+    class _Client:
+        responses = _Parser()
+
+    monkeypatch.setattr(ai_client, "_client", lambda: _Client())
+    digest = {"blood_type": "O+", "allergies": [{"substance": "Penicillin"}], "medications": [],
+              "conditions": [], "surgeries_procedures": [], "implants_devices": ["Pacemaker"],
+              "key_labs_vitals": [], "extra_notes": [], "recent_timeline": []}
+    out = ai_client.evaluate_user_health("u1", digest, {}, manual_profile=None, profile_backfill=None)
+    assert out.score_0_to_100 == 78
+    user_msg = next(m for m in captured["input"] if m["role"] == "user")["content"]
+    assert "Penicillin" in user_msg and "Pacemaker" in user_msg  # digest reached the prompt
+
+
+def test_evaluate_empty_digest_has_docfacts_false(monkeypatch):
+    from apps.jobs import ai_client
+    # A 9-key dict with no blood_type and all-empty lists must NOT add the
+    # DOCUMENT_FACTS trust-ladder line (the behavioral change vs old len()>0).
+    captured = {}
+
+    class _R:
+        def __init__(self, parsed): self.output_parsed = parsed
+
+    class _Parser:
+        def parse(self, **kw):
+            captured["sys"] = kw["input"][0]["content"]
+            return _R(fake_evaluation())
+
+    class _Client:
+        responses = _Parser()
+
+    monkeypatch.setattr(ai_client, "_client", lambda: _Client())
+    empty_digest = {"blood_type": None, "allergies": [], "medications": [], "conditions": [],
+                    "surgeries_procedures": [], "implants_devices": [], "key_labs_vitals": [],
+                    "extra_notes": [], "recent_timeline": []}
+    ai_client.evaluate_user_health("u1", empty_digest, {})
+    assert "DOCUMENT_FACTS" not in captured["sys"]
+
+
+def test_profile_eval_reuses_cached_digest_zero_reads(user, mock_ai, monkeypatch):
+    from apps.health.models import HealthProfile
+    from apps.jobs import pipeline
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/d.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: fake_facts(doc.id))
+    j1 = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(j1.id)
+    hp = HealthProfile.objects.get(user=user)
+    assert hp.facts_digest and hp.digest_meta.get("doc_ids")
+    # profile-eval job (no new docs) must reuse the digest with ZERO summary reads
+    reads = {"n": 0}
+    orig = pipeline._read_json
+    monkeypatch.setattr(pipeline, "_read_json", lambda key: (reads.__setitem__("n", reads["n"] + 1), orig(key))[1])
+    j2 = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROFILE_EVALUATION, document_ids=[])
+    pipeline.run_job(j2.id)
+    j2.refresh_from_db()
+    assert j2.status == AiJob.Status.SUCCEEDED
+    assert reads["n"] == 0
+
+
+def test_digest_card_keeps_blood_type_and_implants(user, mock_ai, monkeypatch):
+    from apps.jobs import pipeline
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/d2.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    facts = fake_facts(doc.id, key_facts={"blood_type": "AB-", "allergies": [{"substance": "Penicillin", "severity": "high"}],
+        "medications": [], "conditions": [], "surgeries_procedures": [], "implants_devices": ["Stent"],
+        "key_labs_vitals": [], "extra_notes": []})
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: facts)
+    captured = {}
+    def fake_eval(user_id, doc_facts, *a, **k):
+        captured["doc_facts"] = doc_facts
+        return fake_evaluation()
+    monkeypatch.setattr(ai_client, "evaluate_user_health", fake_eval)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    d = captured["doc_facts"]
+    assert isinstance(d, dict)  # the merged digest, not a list
+    assert d["blood_type"] == "AB-"
+    assert d["implants_devices"] == ["Stent"]
+    assert d["allergies"][0]["substance"] == "Penicillin"
+
+
+def test_digest_blood_type_uses_most_recent_document(user, mock_ai, monkeypatch):
+    import json as _json
+    from apps.jobs import pipeline
+    def _mk(bt, name):
+        d = Document.objects.create(user=user, source_type="pdf", status="processed", mime_type="application/pdf")
+        facts = {"document_id": str(d.id), "title": name, "confidence_0_to_1": 0.9, "timeline_events": [],
+                 "key_facts": {"blood_type": bt, "allergies": [], "medications": [], "conditions": [],
+                               "surgeries_procedures": [], "implants_devices": [], "key_labs_vitals": [], "extra_notes": []}}
+        d.summary_path = default_storage.save(f"documents/{user.id}/{name}.json", ContentFile(_json.dumps(facts).encode()))
+        d.save()
+    _mk("A+", "older")
+    _mk("O-", "newer")  # created later -> most recent
+    captured = {}
+    monkeypatch.setattr(ai_client, "evaluate_user_health",
+                        lambda uid, doc_facts, *a, **k: (captured.__setitem__("d", doc_facts), fake_evaluation())[1])
+    pipeline.run_job(AiJob.objects.create(user=user, job_type=AiJob.JobType.PROFILE_EVALUATION, document_ids=[]).id)
+    assert captured["d"]["blood_type"] == "O-"  # most-recent document wins
+
+
+def test_digest_build_failure_falls_back_to_raw_list(user, mock_ai, monkeypatch):
+    from apps.jobs import pipeline, profile_logic
+    from apps.health.models import HealthProfile
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/f.pdf", ContentFile(b"%PDF-1.4 fake")); doc.save()
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: fake_facts(doc.id))
+    def _boom(*a, **k): raise RuntimeError("boom")
+    monkeypatch.setattr(profile_logic, "build_facts_digest", _boom)
+    captured = {}
+    monkeypatch.setattr(ai_client, "evaluate_user_health",
+                        lambda uid, doc_facts, *a, **k: (captured.__setitem__("d", doc_facts), fake_evaluation())[1])
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id); job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED
+    assert isinstance(captured["d"], list)  # raw-list fallback reached the eval
+    hp = HealthProfile.objects.get(user=user)
+    assert hp.facts_digest == {} and hp.digest_meta == {}
+    assert job.events.filter(level="warn").exists()
+
+
+def test_suppression_change_forces_rebuild(user, mock_ai, monkeypatch):
+    from apps.jobs import pipeline, profile_logic
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/s.pdf", ContentFile(b"%PDF-1.4 fake")); doc.save()
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: fake_facts(doc.id))
+    pipeline.run_job(AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id]).id)
+    monkeypatch.setattr(profile_logic, "compute_suppressed_keys",
+                        lambda profile: {"allergies": {"penicillin"}, "medications": set(), "conditions": set(), "surgeries": set()})
+    reads = {"n": 0}; orig = pipeline._read_json
+    monkeypatch.setattr(pipeline, "_read_json", lambda key: (reads.__setitem__("n", reads["n"] + 1), orig(key))[1])
+    j2 = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROFILE_EVALUATION, document_ids=[])
+    pipeline.run_job(j2.id); j2.refresh_from_db()
+    assert j2.status == AiJob.Status.SUCCEEDED
+    assert reads["n"] > 0  # suppression changed -> rebuilt (did not reuse cached digest)

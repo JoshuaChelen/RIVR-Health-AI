@@ -7,6 +7,7 @@ Cancellation is cooperative (polls AiJob.cancel_requested).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date, datetime, timezone
 
@@ -206,7 +207,7 @@ def merge_card_with_profile(card: dict, manual_ctx: dict, raw_profile: dict | No
 
 
 def has_any_evaluatable_data(doc_facts, apple_health, manual_ctx, backfill_ctx) -> bool:
-    if doc_facts:
+    if _digest_has_facts(doc_facts):
         return True
     if any(v is not None for v in (apple_health or {}).values()):
         return True
@@ -220,6 +221,24 @@ def has_any_evaluatable_data(doc_facts, apple_health, manual_ctx, backfill_ctx) 
     if backfill_ctx:
         return True
     return False
+
+
+# ── digest helpers ────────────────────────────────────────────────────────────
+
+def _suppression_sig(suppressed: dict) -> str:
+    norm_s = {k: sorted(v) for k, v in (suppressed or {}).items()}
+    return hashlib.sha256(json.dumps(norm_s, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def _digest_has_facts(digest) -> bool:
+    if not isinstance(digest, dict):
+        return bool(digest)
+    if digest.get("blood_type"):
+        return True
+    return any(digest.get(k) for k in (
+        "allergies", "medications", "conditions", "surgeries_procedures",
+        "implants_devices", "key_labs_vitals", "extra_notes", "recent_timeline",
+    ))
 
 
 # ── common evaluation tail ────────────────────────────────────────────────────
@@ -254,36 +273,58 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
     )
     apple_health = extraction.apple_health_snapshot(snapshot_events)
 
-    historical = []
-    hist_qs = Document.objects.filter(
-        user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt=""
-    ).exclude(source_type=Document.SourceType.MANUAL_INPUT).exclude(id__in=limited_doc_ids)
-    for d in hist_qs:
-        data = _read_json(d.summary_path)
-        if data:
-            historical.append(data)
-    all_doc_facts_raw = historical + doc_facts
-
     _set_stage(job, "loading_manual_profile")
     profile, raw_profile = _profile_row(user_id)
     manual_ctx = profile_logic.build_manual_profile_context(raw_profile) if raw_profile else {}
     backfill_ctx = profile_logic.build_ai_backfilled_context(raw_profile) if raw_profile else None
-
     suppressed = profile_logic.compute_suppressed_keys(raw_profile or {})
-    all_doc_facts = profile_logic.filter_doc_facts_by_suppression(all_doc_facts_raw, suppressed)
+    sup_sig = _suppression_sig(suppressed)
 
-    if not has_any_evaluatable_data(all_doc_facts, apple_health, manual_ctx, backfill_ctx):
+    # All docs that make up the digest. The job's own new docs are not yet marked
+    # PROCESSED here (that happens after the eval), so union them in explicitly.
+    digest_processed_ids = [str(i) for i in Document.objects.filter(
+        user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt=""
+    ).exclude(source_type=Document.SourceType.MANUAL_INPUT).values_list("id", flat=True)]
+    current_doc_ids = sorted(set(digest_processed_ids) | {str(i) for i in limited_doc_ids})
+
+    hp_existing = HealthProfile.objects.filter(user_id=user_id).first()
+    stored_digest = (hp_existing.facts_digest if hp_existing else None) or {}
+    stored_meta = (hp_existing.digest_meta if hp_existing else None) or {}
+    has_new_docs = bool(doc_facts)
+    can_reuse = (
+        not has_new_docs and stored_digest
+        and stored_meta.get("doc_ids") == current_doc_ids
+        and stored_meta.get("suppression_sig") == sup_sig
+    )
+
+    if can_reuse:
+        digest = stored_digest
+    else:
+        historical = []
+        for d in Document.objects.filter(
+            user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt=""
+        ).exclude(source_type=Document.SourceType.MANUAL_INPUT).exclude(id__in=limited_doc_ids).order_by("created_at"):
+            data = _read_json(d.summary_path)
+            if data:
+                historical.append(data)
+        all_doc_facts = profile_logic.filter_doc_facts_by_suppression(historical + doc_facts, suppressed)
+        try:
+            digest = profile_logic.build_facts_digest(all_doc_facts, suppressed)
+        except Exception as exc:  # never break the eval over a digest bug
+            _log(job, "warn", f"Digest build failed; sending raw facts: {exc}")
+            digest = all_doc_facts
+
+    digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now()}
+
+    if not has_any_evaluatable_data(digest, apple_health, manual_ctx, backfill_ctx):
         _fail(job, "No evaluatable data found. Complete at least your basic profile or upload a document.")
         return
 
     _check_cancelled(job)
-    _set_stage(job, "openai_eval", {
-        "totalDocFacts": len(all_doc_facts),
-        "isProfileOnly": len(doc_facts) == 0,
-        "hasClinicalData": bool(manual_ctx.get("_has_clinical_data")),
-    })
+    _set_stage(job, "openai_eval", {"isProfileOnly": not has_new_docs,
+                                    "hasClinicalData": bool(manual_ctx.get("_has_clinical_data"))})
     evaluation = ai_client.evaluate_user_health(
-        str(user_id), all_doc_facts, apple_health, manual_profile=manual_ctx or None, profile_backfill=backfill_ctx
+        str(user_id), digest, apple_health, manual_profile=manual_ctx or None, profile_backfill=backfill_ctx
     ).model_dump()
 
     merged_card = merge_card_with_profile(evaluation["three_by_five_card"], manual_ctx, raw_profile or None)
@@ -327,14 +368,17 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
         defaults={
             "score": evaluation["score_0_to_100"], "score_label": evaluation["score_label"],
             "summary_json": summary_json, "card_json": merged_card, "sources": sources, "version": "profile_v2",
+            # store {} when the raw-list fallback ran, so the next eval rebuilds
+            "facts_digest": digest if isinstance(digest, dict) else {},
+            "digest_meta": digest_meta if isinstance(digest, dict) else {},
         },
     )
 
-    # Non-fatal AI backfill.
-    if all_doc_facts and profile is not None:
+    # Non-fatal AI backfill (only when new docs were just processed).
+    if doc_facts and profile is not None:
         _set_stage(job, "ai_backfill")
         try:
-            candidates = profile_logic.extract_backfill_candidates(all_doc_facts)
+            candidates = profile_logic.extract_backfill_candidates(doc_facts)
             result = profile_logic.compute_backfill_patch(
                 raw_profile, candidates, {"job_id": str(job.id), "evaluation_id": str(eval_row.id)}
             )
@@ -398,7 +442,7 @@ def run_job(job_id) -> None:
             _set_stage(job, "fetching_documents")
             docs = list(Document.objects.filter(
                 user_id=job.user_id, id__in=job.document_ids
-            ).exclude(source_type=Document.SourceType.MANUAL_INPUT))
+            ).exclude(source_type=Document.SourceType.MANUAL_INPUT).order_by("created_at"))
             doc_facts = []
             for idx, doc in enumerate(docs):
                 doc_facts.append(_process_one_document(job, doc, idx, len(docs)))

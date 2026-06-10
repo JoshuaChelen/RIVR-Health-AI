@@ -22,6 +22,8 @@ class HealthProfile(TimeStampedModel):
     card_json = models.JSONField(default=dict, blank=True)
     sources = models.JSONField(default=dict, blank=True)
     version = models.CharField(max_length=32, default="profile_v2")
+    facts_digest = models.JSONField(default=dict, blank=True)
+    digest_meta = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = "health_profiles"
