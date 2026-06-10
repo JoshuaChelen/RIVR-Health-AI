@@ -866,6 +866,9 @@ _TIMELINE_CAP = 50
 def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) -> Dict[str, Any]:
     """Fold many documents' KeyFacts into ONE bounded, deduped facts object.
 
+    Pass docs oldest->newest: last-wins fields (e.g. blood_type) then reflect the most
+    recently processed document.
+
     `suppressed` is accepted only for call-site symmetry and is intentionally UNUSED:
     suppression is already applied upstream via filter_doc_facts_by_suppression before
     facts reach this function. Do not rely on this argument to filter anything.
