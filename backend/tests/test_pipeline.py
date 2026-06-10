@@ -217,3 +217,43 @@ def test_pdf_multi_page_interleaving(user, mock_ai, monkeypatch):
     assert t.index("page one text") < t.index("[IMAGE OCR — page 1]") < t.index("[IMAGE OCR — page 2]")
     # page 2 had no text layer -> only its OCR block appears, no page-2 text part
     assert "[IMAGE OCR — page 2]" in t
+
+
+def _rate_limit_error():
+    import httpx
+    from openai import RateLimitError
+    req = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    return RateLimitError("rate limited", response=httpx.Response(429, request=req), body=None)
+
+
+def test_parse_with_retry_does_not_nudge_on_rate_limit():
+    from openai import RateLimitError
+    from apps.jobs import ai_client
+    calls = {"n": 0}
+    def make_call(is_retry):
+        calls["n"] += 1
+        raise _rate_limit_error()
+    with pytest.raises(RateLimitError):
+        ai_client._parse_with_retry(make_call)
+    assert calls["n"] == 1  # transient API error -> NO corrective-nudge retry
+
+
+def test_parse_with_retry_nudges_on_schema_error():
+    from apps.jobs import ai_client
+    calls = {"n": 0}
+    def make_call(is_retry):
+        calls["n"] += 1
+        if not is_retry:
+            raise ValueError("schema invalid")
+        return "ok"
+    assert ai_client._parse_with_retry(make_call) == "ok"
+    assert calls["n"] == 2  # non-API error -> one corrective-nudge retry
+
+
+def test_client_uses_max_retries(monkeypatch):
+    import openai
+    from apps.jobs import ai_client
+    captured = {}
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: captured.update(kw) or object())
+    ai_client._client()
+    assert captured.get("max_retries") == 4

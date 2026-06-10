@@ -17,13 +17,20 @@ from .schemas import DocumentFacts, HealthEvaluation
 def _client():
     from openai import OpenAI
 
-    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
+    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, max_retries=4)
 
 
 def _parse_with_retry(make_call):
-    """Attempt a structured parse; on failure retry once with a corrective nudge."""
+    """Attempt a structured parse; on a SCHEMA/validation failure retry once with a
+    corrective nudge. Transient API/transport errors (rate limit, network, timeout, 5xx)
+    are re-raised unchanged — the SDK already retried them with backoff, and a corrective
+    nudge cannot fix them."""
+    from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
+
     try:
         return make_call(False)
+    except (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError):
+        raise
     except Exception:
         return make_call(True)
 
