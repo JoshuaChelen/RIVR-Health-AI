@@ -217,3 +217,40 @@ def test_pdf_multi_page_interleaving(user, mock_ai, monkeypatch):
     assert t.index("page one text") < t.index("[IMAGE OCR — page 1]") < t.index("[IMAGE OCR — page 2]")
     # page 2 had no text layer -> only its OCR block appears, no page-2 text part
     assert "[IMAGE OCR — page 2]" in t
+
+
+def _facts_obj(doc_id, **kf_over):
+    from apps.jobs.schemas import DocumentFacts
+    kf = {"blood_type": None, "allergies": [], "medications": [], "conditions": [],
+          "surgeries_procedures": [], "implants_devices": [], "key_labs_vitals": [], "extra_notes": []}
+    kf.update(kf_over)
+    return DocumentFacts.model_validate({"document_id": str(doc_id), "title": "D", "key_facts": kf,
+                                         "timeline_events": [], "confidence_0_to_1": 0.5})
+
+
+def test_extract_chunked_short_text_single_call(monkeypatch):
+    from apps.jobs import ai_client
+    calls = {"n": 0}
+    def fake(doc_id, title, text):
+        calls["n"] += 1
+        return _facts_obj(doc_id, blood_type="O+")
+    monkeypatch.setattr(ai_client, "extract_document_facts", fake)
+    out = ai_client.extract_document_facts_chunked("d1", "T", "short text")
+    assert calls["n"] == 1
+    assert out.key_facts.blood_type == "O+"
+
+
+def test_extract_chunked_long_text_merges_all_chunks(monkeypatch):
+    from apps.jobs import ai_client
+    cap = ai_client.EXTRACT_CHAR_CAP
+    text = ("a " * (cap))  # ~2*cap chars -> at least 2 chunks
+    seen = {"chunks": 0}
+    def fake(doc_id, title, t):
+        seen["chunks"] += 1
+        # each chunk reports a distinct medication so we can prove nothing is dropped
+        return _facts_obj(doc_id, medications=[{"name": f"Med{seen['chunks']}"}])
+    monkeypatch.setattr(ai_client, "extract_document_facts", fake)
+    out = ai_client.extract_document_facts_chunked("d2", "T", text)
+    assert seen["chunks"] >= 2  # the tail was NOT dropped — multiple chunks extracted
+    names = sorted(m.name for m in out.key_facts.medications)
+    assert names == [f"Med{i}" for i in range(1, seen["chunks"] + 1)]  # all chunks merged

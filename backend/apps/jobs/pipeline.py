@@ -22,9 +22,6 @@ from apps.timeline.models import TimelineEvent
 from . import ai_client, extraction, profile_logic
 from .models import AiJob, AiJobEvent
 
-TEXT_CAP = 180_000
-
-
 class CancellationError(Exception):
     pass
 
@@ -141,12 +138,11 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
         if not raw_text.strip():
             raw_text = "[No extractable text found in this document.]"
 
-    capped = raw_text[:TEXT_CAP]
-    text = f"VOICE NOTE TRANSCRIPT:\n{capped}" if is_audio else capped
+    text = f"VOICE NOTE TRANSCRIPT:\n{raw_text}" if is_audio else raw_text
 
     _check_cancelled(job)
     _set_stage(job, "openai_extract", {"total": total, "done": idx, "currentDocId": str(doc.id)})
-    facts_model = ai_client.extract_document_facts(str(doc.id), doc.title, text)
+    facts_model = ai_client.extract_document_facts_chunked(str(doc.id), doc.title, text)
     facts = facts_model.model_dump()
 
     _write_json(_summary_key(user_id, doc.id), facts)
