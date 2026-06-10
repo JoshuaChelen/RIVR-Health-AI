@@ -856,6 +856,112 @@ def filter_doc_facts_by_suppression(
     return result
 
 
+# ─── Canonical-facts digest (fixes the eval re-send-everything problem) ─────────
+
+_LAB_CAP_PER_NAME = 5
+_NOTES_CAP = 40
+_TIMELINE_CAP = 50
+
+
+def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) -> Dict[str, Any]:
+    """Fold many documents' KeyFacts into ONE bounded, deduped facts object.
+
+    `suppressed` is accepted only for call-site symmetry and is intentionally UNUSED:
+    suppression is already applied upstream via filter_doc_facts_by_suppression before
+    facts reach this function. Do not rely on this argument to filter anything.
+    """
+    blood_type = None
+    allergies, medications, conditions, surgeries = {}, {}, {}, {}
+    implants, labs = {}, {}
+    notes, notes_seen = [], set()
+    timeline = []
+
+    def merge(store, key, entry, optional_fields):
+        if not key:
+            return
+        if key not in store:
+            store[key] = {k: v for k, v in entry.items() if v}
+        else:
+            cur = store[key]
+            for f in optional_fields:
+                if not cur.get(f) and entry.get(f):
+                    cur[f] = entry[f]
+
+    for doc in doc_facts_list:
+        if not isinstance(doc, dict):
+            continue
+        kf = doc.get("key_facts") or {}
+        if kf.get("blood_type"):
+            blood_type = kf["blood_type"]
+        for a in safe_arr(kf.get("allergies")):
+            sub = trimmed(a.get("substance"))
+            merge(allergies, allergy_key(sub or ""),
+                  {"substance": sub, "reaction": trimmed(a.get("reaction")), "severity": a.get("severity")},
+                  ["reaction", "severity"])
+        for m in safe_arr(kf.get("medications")):
+            nm = trimmed(m.get("name"))
+            merge(medications, medication_key(nm or ""),
+                  {"name": nm, "dose": trimmed(m.get("dose")), "frequency": trimmed(m.get("frequency"))},
+                  ["dose", "frequency"])
+        for c in safe_arr(kf.get("conditions")):
+            nm = trimmed(c.get("name"))
+            merge(conditions, med_history_key(nm or ""),
+                  {"name": nm, "status": trimmed(c.get("status")), "notes": trimmed(c.get("notes"))},
+                  ["status", "notes"])
+        for s in safe_arr(kf.get("surgeries_procedures")):
+            nm = trimmed(s.get("name"))
+            merge(surgeries, surgery_key(nm or ""),
+                  {"name": nm, "when": trimmed(s.get("when")), "notes": trimmed(s.get("notes"))},
+                  ["when", "notes"])
+        for dev in (kf.get("implants_devices") or []):
+            dev = trimmed(dev) if isinstance(dev, str) else None
+            if dev and norm(dev) not in implants:
+                implants[norm(dev)] = dev
+        for lv in safe_arr(kf.get("key_labs_vitals")):
+            nm = trimmed(lv.get("name"))
+            if not nm:
+                continue
+            entry = {"name": nm, "value": trimmed(lv.get("value")), "when": trimmed(lv.get("when"))}
+            bucket = labs.setdefault(norm(nm), [])
+            if (entry["value"], entry["when"]) not in {(e["value"], e["when"]) for e in bucket}:
+                bucket.append(entry)
+        for note in (kf.get("extra_notes") or []):
+            note = trimmed(note) if isinstance(note, str) else None
+            if note and note.lower() not in notes_seen:
+                notes_seen.add(note.lower())
+                notes.append(note)
+        for ev in (doc.get("timeline_events") or []):
+            title = trimmed(ev.get("title"))
+            if not title:
+                continue
+            timeline.append({"occurred_at": ev.get("occurred_at"), "title": title,
+                             "event_type": ev.get("event_type"), "summary": trimmed(ev.get("summary"))})
+
+    capped_labs = []
+    for items in labs.values():
+        capped_labs.extend(sorted(items, key=lambda x: (x.get("when") or ""), reverse=True)[:_LAB_CAP_PER_NAME])
+
+    seen_tl, tl_out = set(), []
+    for ev in sorted(timeline, key=lambda e: (e.get("occurred_at") or ""), reverse=True):
+        k = (ev.get("occurred_at"), norm(ev.get("title") or ""))
+        if k in seen_tl:
+            continue
+        seen_tl.add(k)
+        tl_out.append(ev)
+
+    return {
+        "blood_type": blood_type,
+        "allergies": list(allergies.values()),
+        "medications": list(medications.values()),
+        "conditions": list(conditions.values()),
+        "surgeries_procedures": list(surgeries.values()),
+        "implants_devices": list(implants.values()),
+        "key_labs_vitals": capped_labs,
+        "extra_notes": notes[:_NOTES_CAP],
+        "recent_timeline": tl_out[:_TIMELINE_CAP],
+    }
+
+
 # ─── ID generation and severity mapping ───────────────────────────────────────
 
 def ai_id() -> str:

@@ -1,5 +1,6 @@
 """Parity tests for the ported AI profile context / backfill / suppression logic."""
 from apps.jobs import extraction, profile_logic as pl
+from apps.jobs.profile_logic import build_facts_digest
 from apps.jobs.schemas import DocumentFacts, HealthEvaluation
 
 
@@ -104,3 +105,64 @@ def test_schemas_validate_sample_payloads():
         "full_summary_markdown": "...", "disclaimer": "Informational only.",
     })
     assert ev.score_0_to_100 == 82 and ev.three_by_five_card.blood_type == "O+"
+
+
+def _doc(**kf):
+    base = {"blood_type": None, "allergies": [], "medications": [], "conditions": [],
+            "surgeries_procedures": [], "implants_devices": [], "key_labs_vitals": [], "extra_notes": []}
+    base.update(kf)
+    return {"key_facts": base, "timeline_events": []}
+
+
+def test_digest_dedupes_medications_across_docs():
+    docs = [_doc(medications=[{"name": "Metformin 500mg"}]) for _ in range(10)]
+    d = build_facts_digest(docs, None)
+    assert len(d["medications"]) == 1
+    assert d["medications"][0]["name"] == "Metformin 500mg"
+
+
+def test_digest_blood_type_last_non_null():
+    assert build_facts_digest([_doc(blood_type="A+"), _doc(blood_type=None), _doc(blood_type="O-")])["blood_type"] == "O-"
+    assert build_facts_digest([_doc(blood_type="A+"), _doc(blood_type=None)])["blood_type"] == "A+"
+
+
+def test_digest_preserves_all_card_critical_categories():
+    docs = [_doc(blood_type="O+", implants_devices=["Pacemaker"],
+                 allergies=[{"substance": "Penicillin", "severity": "high", "reaction": "rash"}])]
+    d = build_facts_digest(docs, None)
+    assert d["blood_type"] == "O+"
+    assert d["implants_devices"] == ["Pacemaker"]
+    assert d["allergies"][0]["substance"] == "Penicillin"
+    assert d["allergies"][0]["severity"] == "high"
+
+
+def test_digest_merges_richer_fields_on_dup():
+    docs = [_doc(allergies=[{"substance": "Penicillin"}]),
+            _doc(allergies=[{"substance": "penicillin", "reaction": "hives", "severity": "high"}])]
+    d = build_facts_digest(docs, None)
+    assert len(d["allergies"]) == 1
+    assert d["allergies"][0]["reaction"] == "hives"
+
+
+def test_digest_caps_labs_to_5_per_name_and_does_not_collapse():
+    docs = [_doc(key_labs_vitals=[{"name": "LDL", "value": f"{100+i}", "when": f"2024-0{i+1}-01"}]) for i in range(7)]
+    d = build_facts_digest(docs, None)
+    ldl = [x for x in d["key_labs_vitals"] if x["name"] == "LDL"]
+    assert len(ldl) == 5  # capped, not collapsed to 1
+    assert sorted([x["when"] for x in ldl], reverse=True)[0] == "2024-07-01"  # most-recent retained
+
+
+def test_digest_caps_extra_notes():
+    docs = [_doc(extra_notes=[f"note {i}"]) for i in range(50)]
+    d = build_facts_digest(docs, None)
+    assert len(d["extra_notes"]) == 40
+
+
+def test_digest_bounds_and_dedupes_timeline():
+    docs = [{"key_facts": _doc()["key_facts"],
+             "timeline_events": [{"occurred_at": f"2024-01-{(i%28)+1:02d}", "title": f"Visit {i}",
+                                  "event_type": "visit", "summary": "x", "tags": [], "data_kv": []}]}
+            for i in range(60)]
+    d = build_facts_digest(docs, None)
+    assert len(d["recent_timeline"]) == 50
+    assert set(d["recent_timeline"][0].keys()) == {"occurred_at", "title", "event_type", "summary"}
