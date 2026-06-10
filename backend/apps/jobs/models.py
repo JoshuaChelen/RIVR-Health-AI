@@ -2,6 +2,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from apps.common.models import BaseModel
+from pgvector.django import HnswIndex, VectorField
 
 
 class AiJob(BaseModel):
@@ -64,3 +65,27 @@ class AiJobEvent(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.level}] {self.message[:40]}"
+
+
+class Embedding(BaseModel):
+    class Kind(models.TextChoices):
+        DOC_CHUNK = "doc_chunk"
+        FACT = "fact"
+        TIMELINE = "timeline"
+
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="embeddings")
+    document = models.ForeignKey(
+        "documents.Document", on_delete=models.CASCADE, null=True, blank=True, related_name="embeddings"
+    )
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    ref = models.CharField(max_length=64, blank=True, default="")
+    content = models.TextField()
+    vector = VectorField(dimensions=768)
+
+    class Meta:
+        db_table = "embeddings"
+        indexes = [
+            HnswIndex(name="emb_vec_hnsw", fields=["vector"], m=16, ef_construction=64,
+                      opclasses=["vector_cosine_ops"]),
+            models.Index(fields=["user"]),
+        ]
