@@ -73,17 +73,17 @@ def test_suppression_removes_deleted_items_from_docfacts():
 
 
 def test_apple_health_snapshot_aggregation():
-    events = [
+    events = [  # newest-first; function takes most-recent per metric
         {"event_type": "apple_health_steps", "data": {"steps": 1000}},
-        {"event_type": "apple_health_steps", "data": {"value": 3000}},
+        {"event_type": "apple_health_steps", "data": {"value": 3000}},  # older -> ignored
         {"event_type": "apple_health_sleep", "data": {"minutes": 420}},
         {"event_type": "apple_health_resting_hr", "data": {"bpm": 58}},
-        {"event_type": "apple_health_resting_hr", "data": {"bpm": 60}},
+        {"event_type": "apple_health_resting_hr", "data": {"bpm": 60}},  # older -> ignored
     ]
     snap = extraction.apple_health_snapshot(events)
-    assert snap["steps_avg_7d"] == 2000
-    assert snap["sleep_avg_min_7d"] == 420
-    assert snap["resting_hr_recent"] == 60  # most recent
+    assert snap["steps_per_day_7d_avg"] == 1000   # most-recent (first in list)
+    assert snap["sleep_min_per_night_7d_avg"] == 420
+    assert snap["heart_rate_bpm_latest"] == 58    # most-recent (first in list)
 
 
 def test_schemas_validate_sample_payloads():
