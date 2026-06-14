@@ -159,7 +159,7 @@ score_0_to_100 / score_label:
   - current symptoms and functional impact
   - cardiometabolic and lifestyle risk factors
   - known protective behaviors (exercise, non-smoking, good sleep, etc.)
-  - available Apple Health trends
+  - available connected-health (wearable/phone) trends
   - known labs and vitals when present
 
   It should NOT primarily reflect:
@@ -197,7 +197,7 @@ overview (2-4 sentences, patient-friendly):
   Synthesize ALL sources into a personal summary of this specific patient. Reference their age and sex if known. Mention their most significant condition, medication, or lifestyle factor. Make it feel specific to them, not a generic template. Do not mention data sources by name.
 
 highlights (positive observations):
-  Draw from MANUAL_PROFILE lifestyle fields (e.g., "never smoked", "exercises regularly"), controlled conditions, healthy labs, and good Apple Health metrics. These should feel genuinely earned, not invented.
+  Draw from MANUAL_PROFILE lifestyle fields (e.g., "never smoked", "exercises regularly"), controlled conditions, healthy labs, and good connected-health metrics. These should feel genuinely earned, not invented.
 
 risk_flags (concerns and risks):
   Include clinical concerns from MANUAL_PROFILE medical_history, current_symptoms, family_history, and adverse lifestyle factors (smoking, heavy alcohol, sedentary). Supplement with document-extracted conditions and abnormal labs. Family history from MANUAL_PROFILE belongs here when clinically relevant (e.g., "Family history of heart disease").
@@ -233,7 +233,7 @@ full_summary_markdown:
   - Start with the big picture of the patient's health based on the available data.
   - Explain what seems to be going well.
   - Explain the main health concerns, conditions, symptoms, or risk patterns that matter most.
-  - Explain how lifestyle, Apple Health trends, medications, symptoms, and history fit together when relevant.
+  - Explain how lifestyle, connected-health trends, medications, symptoms, and history fit together when relevant.
   - When information is missing, mention how that limits the picture, but do not let the summary become a profile-completion report.
   - If the patient's own story/context is present, weave it in naturally with a phrase like: "In the patient's own words..."
   - End with a short plain-language explanation of what deserves attention next.
@@ -403,7 +403,7 @@ def _build_eval_system(has_manual: bool, has_backfill: bool, has_docfacts: bool)
     if has_backfill:
         ladder.append(f"  {r}. PROFILE_BACKFILL (medium trust) - AI-suggested items from prior document analysis, stored in the patient's profile but not explicitly verified. Use as supporting evidence; never override MANUAL_PROFILE.")
         r += 1
-    ladder.append(f"  {r}. APPLE_HEALTH - passive sensor data from the patient's device. Reliable for trends; lacks clinical context.")
+    ladder.append(f"  {r}. CONNECTED_HEALTH - passive sensor data synced from the patient's device (Apple Health on iPhone, or Health Connect / Samsung Health on Android). Reliable for trends; lacks clinical context. HRV may be SDNN (iOS) or RMSSD (Android) per the hrv_algorithm field; these are not directly comparable.")
     r += 1
     if has_docfacts:
         ladder.append(f"  {r}. DOCUMENT_FACTS - a single MERGED, de-duplicated facts object aggregated across ALL of the patient's uploaded documents (allergies, medications, conditions, surgeries, labs, implants, notes, recent timeline). May contain OCR errors or outdated values.")
@@ -466,7 +466,7 @@ def evaluate_user_health(user_id, doc_facts, apple_health, manual_profile=None, 
         f"USER_ID: {user_id}"
         + profile_section
         + backfill_section
-        + f"\n\nAPPLE_HEALTH:\n{json.dumps(apple_health)}"
+        + f"\n\nCONNECTED_HEALTH:\n{json.dumps(apple_health)}"
         + f"\n\nDOCUMENT_FACTS:\n{json.dumps(doc_facts)}"
     )
 

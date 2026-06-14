@@ -69,6 +69,7 @@ def apple_health_snapshot(events):
         "active_energy_kcal_per_day_7d_avg": None,
         "heart_rate_bpm_latest": None,
         "hrv_ms_latest": None,
+        "hrv_algorithm": None,
         "weight_lb_latest": None,
         "blood_pressure_latest": None,
     }
@@ -103,6 +104,16 @@ def apple_health_snapshot(events):
             if out["hrv_ms_latest"] is None:
                 v = num(data, "hrv_ms", "ms", "value")
                 out["hrv_ms_latest"] = round(v, 1) if v is not None else None
+                # iOS HealthKit reports SDNN; Android Health Connect reports
+                # RMSSD. These are different HRV algorithms and not numerically
+                # comparable, so tag which one this value is (from the row's
+                # provenance) so the evaluation model interprets it correctly.
+                origin = str(data.get("origin", "")).lower()
+                out["hrv_algorithm"] = (
+                    "RMSSD" if origin == "health_connect"
+                    else "SDNN" if origin == "healthkit"
+                    else None
+                )
         elif "weight" in et:
             if out["weight_lb_latest"] is None:
                 v = num(data, "weight_lb", "pounds", "lb", "value")

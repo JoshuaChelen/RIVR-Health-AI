@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   Image,
+  Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -153,7 +154,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
     src.apple_health.steps_avg_7d != null ||
     src.apple_health.sleep_avg_min_7d != null ||
     src.apple_health.resting_hr_recent != null
-  ))                                                                        sourceTags.push("Apple Health");
+  ))                                                                        sourceTags.push(Platform.OS === "android" ? "Health Connect" : "Apple Health");
 
   const showContent = !loading && !error;
 
