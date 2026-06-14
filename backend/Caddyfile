@@ -1,7 +1,7 @@
 # Caddy auto-provisions a Let's Encrypt cert for this domain once its DNS
 # A record points at this server. TLS is terminated here; plain HTTP is
 # proxied to the app on the internal compose network.
-api.rivrhealth.com {
+api.rivrhealth.com, 87.99.138.168.sslip.io {
 	encode zstd gzip
 
 	# Object storage: presigned MinIO URLs are path-style (/<bucket>/<key>).
