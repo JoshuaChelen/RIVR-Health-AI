@@ -573,14 +573,20 @@ _QA_SYSTEM = (
 )
 
 
-def answer_health_question(question: str, context: str):
+def answer_health_question(question: str, context: str, history=None):
     from .schemas import QAAnswer
 
     client = _client()
     model = getattr(settings, "AI_MODEL_QUESTION_ANSWER", None) or settings.AI_MODEL_EVAL
-    messages = [
-        {"role": "system", "content": _QA_SYSTEM},
-        {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"},
-    ]
+    messages = [{"role": "system", "content": _QA_SYSTEM}]
+    # Prior conversation turns (already sanitized by the caller) so follow-ups
+    # are answered in context; the freshly-retrieved RAG context rides with the
+    # current question below.
+    for turn in (history or []):
+        role = turn.get("role")
+        content = (turn.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content[:4000]})
+    messages.append({"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"})
     resp = client.responses.parse(model=model, input=messages, text_format=QAAnswer)
     return resp.output_parsed

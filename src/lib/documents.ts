@@ -99,9 +99,7 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
     await api.patch("/api/documents/" + existing.id + "/", {
       content_json: snapshot,
       status: "uploaded",
-      processing_error: null,
-      processed_at: null,
-      updated_at: new Date().toISOString(),
+      processing_error: "",
     });
   } else {
     await api.post("/api/documents/", {
@@ -110,8 +108,7 @@ const profile = (profileRaw ?? null) as ManualProfileRow | null;
       content_json: snapshot,
       status: "uploaded",
       mime_type: "application/json",
-      processing_error: null,
-      processed_at: null,
+      processing_error: "",
     });
   }
 }

@@ -4,5 +4,5 @@ export type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
   ForgotPassword: undefined;
-  UpdatePassword: undefined;
+  UpdatePassword: { uid?: string; token?: string } | undefined;
 };

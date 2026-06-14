@@ -32,4 +32,13 @@ describe("document scan flow", () => {
   it("surfaces the native image-library fallback in the scan entry copy", () => {
     expect(uploadFileSource).toContain("Take photos or choose images");
   });
+
+  it("builds a real Blob/File for web PDF uploads instead of a bare uri object", () => {
+    const body = getFunctionBody(uploadFileSource, "handlePdf");
+
+    // On web a plain { uri, name, type } object is dropped by FormData, so the
+    // upload must go through toWebUploadFile (which yields a real File).
+    expect(body).toContain("toWebUploadFile(asset");
+    expect(body).toContain('Platform.OS === "web"');
+  });
 });

@@ -17,6 +17,7 @@ import HealthSummaryScreen from "../screens/App/HealthSummaryScreen";
 import { AIInsightsScreen } from "../screens/App/AIInsightsScreen";
 import { ShinScoreScreen } from "../screens/App/ShinScoreScreen";
 import { AppleHealthScreen } from "../screens/App/AppleHealthScreen";
+import { AskAIScreen } from "../screens/App/AskAIScreen";
 
 import { typescale } from "../theme/tokens";
 import { useTheme } from "../context/ThemeContext";
@@ -109,6 +110,11 @@ export function AppNavigator() {
         name="AIInsights"
         component={AIInsightsScreen}
         options={{ title: "AI Recommendations" }}
+      />
+      <Stack.Screen
+        name="AskAI"
+        component={AskAIScreen}
+        options={{ title: "Ask AI" }}
       />
       <Stack.Screen
         name="PreVisitNote"

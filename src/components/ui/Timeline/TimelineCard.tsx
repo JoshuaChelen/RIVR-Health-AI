@@ -186,17 +186,10 @@ export function TimelineCard({
             </View>
 
             {onSetDate ? (
-              <Pressable
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel="Set visit date"
-                onPress={onSetDate}
-                hitSlop={6}
-                style={({ pressed }) => [styles.setDateBtn, pressed && { opacity: 0.7 }]}
-              >
-                <Ionicons name="calendar-outline" size={12} color={colors.teal} />
-                <AppText style={styles.setDateBtnText}>Set date</AppText>
-              </Pressable>
+              // Reserves room for the floating Set-date button, which is rendered
+              // OUTSIDE the card's Pressable (below) so iOS taps it directly
+              // instead of the parent Pressable swallowing the touch.
+              <View style={styles.setDateSpacer} />
             ) : (
               <View style={styles.dateBlock}>
                 <AppText style={styles.date}>{dateLabel}</AppText>
@@ -225,6 +218,27 @@ export function TimelineCard({
             </View>
           ) : null}
         </Pressable>
+
+        {/* Set-date CTA lives OUTSIDE the card's main Pressable — nested
+            Pressables don't reliably receive taps on iOS, so the parent would
+            otherwise swallow this button's onPress. */}
+        {onSetDate ? (
+          <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Set visit date"
+            onPress={onSetDate}
+            hitSlop={6}
+            style={({ pressed }) => [
+              styles.setDateBtn,
+              styles.setDateBtnFloat,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="calendar-outline" size={12} color={colors.teal} />
+            <AppText style={styles.setDateBtnText}>Set date</AppText>
+          </Pressable>
+        ) : null}
 
         {/* ── Footer: category pill + include toggle ── */}
         <View style={styles.footer}>
@@ -346,6 +360,17 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.xs,
     color: c.teal,
     fontWeight: typescale.weight.bold,
+  },
+  setDateBtnFloat: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 2,
+    elevation: 2,
+  },
+  setDateSpacer: {
+    width: 88,
+    flexShrink: 0,
   },
 
   // Summary

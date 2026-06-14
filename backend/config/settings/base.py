@@ -114,6 +114,10 @@ AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
 AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="rivr-media")
 AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default="")
 AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
+# Host used to rewrite client-facing signed URLs when the internal storage
+# endpoint (e.g. the docker MinIO hostname `minio:9000`) isn't reachable from
+# devices/simulators. Empty in prod, where signed URLs already use a real host.
+AWS_S3_PUBLIC_ENDPOINT_URL = env("AWS_S3_PUBLIC_ENDPOINT_URL", default="")
 
 if AWS_ACCESS_KEY_ID:
     # MinIO needs path-style addressing; signed URLs for private objects.

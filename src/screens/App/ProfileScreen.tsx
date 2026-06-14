@@ -18,7 +18,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
 
 import { useSession } from "../../context/SessionContext";
-import { getProfile, updateProfile, uploadAvatar } from "../../lib/api/data";
+import { getProfile, updateProfile, uploadAvatar, deleteAvatar, deleteAccount } from "../../lib/api/data";
 import type { UserProfile } from "../../lib/profile";
 import { useAvatarUrl } from "../../lib/avatar";
 import { parseDob, dobIsoToInput, dobIsoToDisplay, computeAge, formatDobAsTyped } from "../../lib/profileUtils";
@@ -286,7 +286,7 @@ export function ProfileScreen({ navigation }: Props) {
 
     setAvatarBusy(true);
     try {
-      await updateProfile({ avatar_path: null });
+      await deleteAvatar();
       await reloadProfile();
     } catch (e: any) {
       captureException(e);
@@ -849,17 +849,7 @@ async function saveEmergency() {
                       onPress: async () => {
                         setDeleting(true);
                         try {
-                          const res = await fetch(
-                            `${process.env.EXPO_PUBLIC_API_URL}/api/account/delete/`,
-                            {
-                              method: "POST",
-                            }
-                          );
-
-                          if (!res.ok) {
-                            const body = await res.json();
-                            throw new Error(body.error ?? "Failed to delete account");
-                          }
+                          await deleteAccount();
 
                           clearEmergencyCardWidget();
                           await signOut();

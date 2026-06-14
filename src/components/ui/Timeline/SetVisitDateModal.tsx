@@ -3,13 +3,13 @@ import {
   Modal,
   View,
   StyleSheet,
-  SafeAreaView,
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   TextInput,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { captureException } from "../../../lib/sentry";
@@ -27,7 +27,7 @@ type Precision = "day" | "month" | "year";
 type Props = {
   visible: boolean;
   documentId: string;
-  documentTitle: string;
+  eventTitles: string[];
   undatedEventCount: number;
   onSaved: () => void;
   onClose: () => void;
@@ -42,13 +42,15 @@ const PRECISIONS: readonly { key: Precision; label: string; hint: string; patter
 export function SetVisitDateModal({
   visible,
   documentId,
-  documentTitle,
+  eventTitles,
   undatedEventCount,
   onSaved,
   onClose,
 }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPad = spacing.lg + Math.max(insets.bottom, Platform.OS === "ios" ? 20 : 0);
 
   const [value, setValue]         = useState("");
   const [precision, setPrecision] = useState<Precision>("day");
@@ -71,6 +73,13 @@ export function SetVisitDateModal({
 
   const def = PRECISIONS.find((p) => p.key === precision)!;
   if (undatedEventCount <= 0) return null;
+
+  const eventLabel =
+    eventTitles.length === 0
+      ? "This event"
+      : eventTitles.length <= 2
+      ? eventTitles.join(", ")
+      : `${eventTitles.slice(0, 2).join(", ")} +${eventTitles.length - 2} more`;
 
   const handleClose = () => {
     if (saving) return;
@@ -97,10 +106,16 @@ export function SetVisitDateModal({
 
     setSaving(true);
     try {
-      const { results } = await listTimeline(`?document=${documentId}`);
-      const undated = (results as { id: string; occurred_at: string | null }[]).filter(
-        (ev) => !ev.occurred_at,
-      );
+      // The list endpoint is paginated (PAGE_SIZE 30); follow pages so a
+      // document with many undated events isn't silently truncated.
+      const undated: { id: string }[] = [];
+      const PAGE = 100;
+      for (let offset = 0; ; offset += PAGE) {
+        const page = await listTimeline(`?document=${documentId}&limit=${PAGE}&offset=${offset}`);
+        const rows = page.results as { id: string; occurred_at: string | null }[];
+        undated.push(...rows.filter((ev) => !ev.occurred_at));
+        if (offset + PAGE >= page.count || rows.length === 0) break;
+      }
       await Promise.all(
         undated.map((ev) =>
           updateTimelineEvent(ev.id, { occurred_at, date_precision: precision }),
@@ -128,18 +143,20 @@ export function SetVisitDateModal({
         style={styles.backdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <SafeAreaView style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: bottomPad }]}>
+          <View style={styles.grabber} />
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <AppText style={styles.title}>When was this visit?</AppText>
+              <AppText style={styles.title}>When did this happen?</AppText>
               <AppText style={styles.subtitle} numberOfLines={2}>
-                {documentTitle}
+                {eventLabel}
               </AppText>
-              <AppText style={styles.count}>
-                Will date {undatedEventCount} undated event
-                {undatedEventCount === 1 ? "" : "s"} from this document.
-              </AppText>
+              {undatedEventCount > 1 ? (
+                <AppText style={styles.count}>
+                  Dates {undatedEventCount} undated events from the same record.
+                </AppText>
+              ) : null}
             </View>
             <Pressable
               onPress={handleClose}
@@ -223,7 +240,7 @@ export function SetVisitDateModal({
               </>
             )}
           </View>
-        </SafeAreaView>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -241,10 +258,18 @@ const useStyles = createStyles((c) =>
       borderTopLeftRadius: radius.xl,
       borderTopRightRadius: radius.xl,
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
+      paddingTop: spacing.sm,
       paddingBottom: spacing.lg,
       gap: spacing.md,
       ...shadows.card,
+    },
+    grabber: {
+      alignSelf: "center",
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      marginBottom: spacing.xs,
     },
 
     header: {
@@ -258,9 +283,10 @@ const useStyles = createStyles((c) =>
       color: c.text,
     },
     subtitle: {
-      fontSize: typescale.size.sm,
-      color: c.textSub,
-      marginTop: 2,
+      fontSize: typescale.size.base,
+      color: c.text,
+      fontWeight: typescale.weight.semibold,
+      marginTop: 4,
     },
     count: {
       fontSize: typescale.size.xs,

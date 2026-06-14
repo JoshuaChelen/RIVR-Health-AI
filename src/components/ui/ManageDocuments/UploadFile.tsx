@@ -23,6 +23,7 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { uploadDocument, listDocuments } from "../../../lib/api/data";
 import { getCurrentUserId } from "../../../lib/auth";
 import { compileScanPagesForWeb } from "../../../lib/scanPdf";
+import { toWebUploadFile } from "../../../lib/uploadAsset";
 import {
   nativeMediaLaunchFailedMessage,
   nativePermissionDeniedMessage,
@@ -511,7 +512,13 @@ export function UploadFile({ onUploaded }: Props) {
         }
 
         setPdfStatus(`Uploading ${i + 1} of ${assets.length}…`);
-        const file = { uri: asset.uri, name: fileName, type: asset.mimeType ?? "application/pdf" } as any;
+        // Web FormData needs a real Blob/File; native networking takes the
+        // { uri, name, type } object. See lib/uploadAsset.ts.
+        const mimeType = asset.mimeType ?? "application/pdf";
+        const file =
+          Platform.OS === "web"
+            ? await toWebUploadFile(asset, fileName, mimeType)
+            : ({ uri: asset.uri, name: fileName, type: mimeType } as any);
         await uploadDocument(file, "pdf");
         uploaded += 1;
       }

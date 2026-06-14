@@ -9,6 +9,7 @@ import hashlib
 import io
 import uuid
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from PIL import Image
@@ -47,9 +48,16 @@ def signed_url(key: str, expire: int = 600) -> str | None:
     if not key:
         return None
     try:
-        return default_storage.url(key, expire=expire)
+        url = default_storage.url(key, expire=expire)
     except TypeError:
-        return default_storage.url(key)
+        url = default_storage.url(key)
+    # Local dev: signed URLs point at the internal MinIO host (minio:9000),
+    # which devices/simulators can't reach. Rewrite to the public endpoint.
+    internal = getattr(settings, "AWS_S3_ENDPOINT_URL", "") or ""
+    public = getattr(settings, "AWS_S3_PUBLIC_ENDPOINT_URL", "") or ""
+    if url and internal and public and url.startswith(internal):
+        url = public + url[len(internal):]
+    return url
 
 
 def delete(key: str) -> None:

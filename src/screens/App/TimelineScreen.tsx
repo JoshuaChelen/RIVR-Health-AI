@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Pressable,
-  TextInput,
 } from "react-native";
 import { SetVisitDateModal } from "../../components/ui/Timeline/SetVisitDateModal";
 import { useFocusEffect } from "@react-navigation/native";
@@ -17,10 +16,6 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 
 
 import { captureException } from "../../lib/sentry";
-import {
-  askHealthQuestion,
-  type AiQuestionResult,
-} from "../../lib/aiQuestionSearch";
 import {
   clinicalTagsForEvent,
   formatTimelineDateMain,
@@ -57,15 +52,12 @@ export function TimelineScreen({ navigation }: Props) {
   const [hasMore, setHasMore]       = useState(true);
   const [err, setErr]               = useState<string | null>(null);
   const [patientDob, setPatientDob] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [aiResult, setAiResult] = useState<AiQuestionResult>({ status: "idle" });
-  const [aiSearching, setAiSearching] = useState(false);
 
   const flatListRef = useRef<FlatList<RenderRow>>(null);
 
   const [modalDoc, setModalDoc] = useState<{
     documentId: string;
-    documentTitle: string;
+    eventTitles: string[];
     count: number;
   } | null>(null);
 
@@ -86,8 +78,12 @@ export function TimelineScreen({ navigation }: Props) {
         `?limit=${PAGE_SIZE}&offset=${offset}&exclude_source=apple_health&ordering=-occurred_at`,
       );
 
-      type RawRow = Omit<TimelineEventRow, "documentTitle"> & {
-        documents: { title: string | null } | { title: string | null }[] | null;
+      // The Django API returns the FK as `document` (id) and a flat
+      // `document_title` (serializer source="document.title"). The old Supabase
+      // shape was a nested `documents` join; map the current shape instead.
+      type RawRow = Omit<TimelineEventRow, "documentTitle" | "document_id"> & {
+        document: string | null;
+        document_title: string | null;
       };
 
       if (!append && patientDob == null) {
@@ -98,13 +94,13 @@ export function TimelineScreen({ navigation }: Props) {
 
       const rows = ((result.results ?? []) as unknown as RawRow[])
         .filter((e) => e.source !== "apple_health")
-        .map<TimelineEventRow>((e) => {
-          // Postgrest may return the join as a single object or as a 1-element
-          // array depending on the relationship metadata. Handle both shapes.
-          const doc = Array.isArray(e.documents) ? e.documents[0] : e.documents;
-          const documentTitle = doc?.title ?? null;
-          return normalizeTimelineEvent({ ...e, documentTitle });
-        });
+        .map<TimelineEventRow>((e) =>
+          normalizeTimelineEvent({
+            ...e,
+            document_id: e.document ?? null,
+            documentTitle: e.document_title ?? null,
+          }),
+        );
 
       setHasMore(result.count > offset + PAGE_SIZE);
 
@@ -136,44 +132,6 @@ export function TimelineScreen({ navigation }: Props) {
     setHasMore(true);
     load(0, false);
   }, [load]);
-
-  useEffect(() => {
-    const question = searchQuery.trim();
-    if (!question) {
-      setAiSearching(false);
-      setAiResult({ status: "idle" });
-      return;
-    }
-
-    let cancelled = false;
-    setAiSearching(true);
-
-    const timer = setTimeout(async () => {
-      try {
-        const result = await askHealthQuestion(question);
-
-        if (!cancelled) {
-          setAiResult(result);
-        }
-      } catch {
-        if (!cancelled) {
-          setAiResult({
-            status: "unavailable",
-            message: "AI search is unavailable right now. Try again after the AI worker is connected.",
-          });
-        }
-      } finally {
-        if (!cancelled) {
-          setAiSearching(false);
-        }
-      }
-    }, 500);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [searchQuery]);
 
   const rows: RenderRow[] = useMemo(() => {
     const out: RenderRow[] = [];
@@ -234,15 +192,15 @@ export function TimelineScreen({ navigation }: Props) {
       if (!event.document_id) return;
       // Read events via ref so this callback's identity stays stable across
       // events changes — avoids cascading renderItem rebuilds.
-      const count = eventsRef.current.filter(
+      const undatedForDoc = eventsRef.current.filter(
         (e) =>
           e.document_id === event.document_id &&
           (!e.occurred_at || !e.date_precision),
-      ).length;
+      );
       setModalDoc({
-        documentId:    event.document_id,
-        documentTitle: event.documentTitle ?? "Document",
-        count,
+        documentId:  event.document_id,
+        eventTitles: undatedForDoc.map((e) => e.title || "Untitled event"),
+        count:       undatedForDoc.length,
       });
     },
     [],
@@ -330,6 +288,17 @@ export function TimelineScreen({ navigation }: Props) {
     });
   }, [unknownHeaderIndex]);
 
+  // The "needs a date" banner opens the date modal for the first undated event
+  // that has a document (the modal dates per-document); otherwise it scrolls to
+  // them so the user can use the per-card "Set date" button.
+  const openFirstUndated = useCallback(() => {
+    const ev = eventsRef.current.find(
+      (e) => (!e.occurred_at || !e.date_precision) && e.document_id,
+    );
+    if (ev) openSetDate(ev);
+    else scrollToUnknown();
+  }, [openSetDate, scrollToUnknown]);
+
   const listHeader = useMemo(() => (
     <>
       {err ? (
@@ -342,8 +311,8 @@ export function TimelineScreen({ navigation }: Props) {
         <Pressable
           accessible
           accessibilityRole="button"
-          accessibilityLabel={`${undatedCount} events need a date. Tap to scroll to them.`}
-          onPress={scrollToUnknown}
+          accessibilityLabel={`${undatedCount} events need a date. Tap to set their date.`}
+          onPress={openFirstUndated}
           style={({ pressed }) => [styles.undatedBanner, pressed && { opacity: 0.85 }]}
         >
           <View style={styles.undatedBannerIcon}>
@@ -360,74 +329,8 @@ export function TimelineScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={16} color={colors.teal} />
         </Pressable>
       ) : null}
-
-      <View style={styles.searchWrap}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={16} color={colors.muted} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Ask AI about your records..."
-            placeholderTextColor={colors.subtle}
-            showSoftInputOnFocus
-            style={styles.searchInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            accessibilityLabel="Ask AI about your health records"
-          />
-          {searchQuery ? (
-            <Pressable
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Clear AI search"
-              onPress={() => setSearchQuery("")}
-              hitSlop={8}
-            >
-              <Ionicons name="close-circle" size={16} color={colors.subtle} />
-            </Pressable>
-          ) : null}
-        </View>
-        {searchQuery ? (
-          <AppText style={styles.searchResultText}>AI searches your uploaded records and timeline.</AppText>
-        ) : (
-          <AppText style={styles.searchHint}>
-            Ask what medications you were taking after surgery, or what records mention shoulder pain.
-          </AppText>
-        )}
-      </View>
-      {searchQuery.trim() ? (
-        <View style={styles.aiAnswerCard}>
-          <View style={styles.aiAnswerIcon}>
-            <Ionicons name="sparkles-outline" size={15} color={colors.teal} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <AppText style={styles.aiAnswerTitle}>AI answer from your records</AppText>
-            <AppText style={styles.aiAnswerBody}>
-              {aiSearching
-                ? "Reviewing your uploaded documents, health summary, and timeline..."
-                : aiResult.status === "answered"
-                  ? aiResult.answer
-                  : aiResult.status === "unavailable"
-                    ? aiResult.message
-                    : "Type a question to ask about your health records."}
-            </AppText>
-            {aiResult.status === "answered" && aiResult.sources.length > 0 ? (
-              <View style={styles.aiSources}>
-                {aiResult.sources.map((source, index) => (
-                  <View key={`${source.title}-${index}`} style={styles.aiSourcePill}>
-                    <AppText style={styles.aiSourceText} numberOfLines={1}>
-                      {source.type ? `${source.type}: ` : ""}{source.title}
-                    </AppText>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
-      ) : null}
     </>
-  ), [err, load, undatedCount, scrollToUnknown, styles, colors, searchQuery, aiSearching, aiResult]);
+  ), [err, load, undatedCount, openFirstUndated, styles, colors]);
 
   const listEmpty = useMemo(() => {
     if (loading) {
@@ -570,7 +473,7 @@ export function TimelineScreen({ navigation }: Props) {
         <SetVisitDateModal
           visible
           documentId={modalDoc.documentId}
-          documentTitle={modalDoc.documentTitle}
+          eventTitles={modalDoc.eventTitles}
           undatedEventCount={modalDoc.count}
           onSaved={() => {
             setHasMore(true);
@@ -681,96 +584,6 @@ const useStyles = createStyles((c) => StyleSheet.create({
     fontSize: typescale.size.base,
     fontWeight: typescale.weight.semibold,
     color: "#fff",
-  },
-
-  // Search
-  searchWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.xs,
-  },
-  searchBox: {
-    minHeight: 46,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: c.border,
-    backgroundColor: c.surface,
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    ...shadows.xs,
-  },
-  searchInput: {
-    flex: 1,
-    minWidth: 0,
-    color: c.text,
-    fontSize: typescale.size.base,
-    fontWeight: typescale.weight.medium,
-    paddingVertical: 0,
-  },
-  searchHint: {
-    fontSize: typescale.size.xs,
-    color: c.muted,
-    paddingHorizontal: spacing.xs,
-  },
-  searchResultText: {
-    fontSize: typescale.size.xs,
-    color: c.teal,
-    fontWeight: typescale.weight.semibold,
-    paddingHorizontal: spacing.xs,
-  },
-  aiAnswerCard: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    backgroundColor: c.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: c.tealBorder,
-    padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    ...shadows.xs,
-  },
-  aiAnswerIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: c.tealSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  aiAnswerTitle: {
-    fontSize: typescale.size.sm,
-    fontWeight: typescale.weight.bold,
-    color: c.text,
-  },
-  aiAnswerBody: {
-    marginTop: 2,
-    fontSize: typescale.size.xs,
-    color: c.textSub,
-    lineHeight: typescale.size.xs * typescale.lineHeight.normal,
-  },
-  aiSources: {
-    marginTop: spacing.sm,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  aiSourcePill: {
-    maxWidth: "100%",
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: c.border,
-    backgroundColor: c.bgSecondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  aiSourceText: {
-    fontSize: typescale.size.xs,
-    color: c.textSub,
-    fontWeight: typescale.weight.medium,
   },
 
   // Timeline wrapper

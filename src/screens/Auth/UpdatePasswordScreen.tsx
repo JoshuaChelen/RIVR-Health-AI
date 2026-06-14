@@ -12,9 +12,6 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { captureException } from "../../lib/sentry";
 import { api } from "../../lib/api/client";
-import { useSession } from "../../context/SessionContext";
-import { clearEmergencyCardWidget } from "../../lib/emergencyCardWidget";
-
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { Card } from "../../components/ui/Primitives/Card";
@@ -28,10 +25,11 @@ import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "UpdatePassword">;
 
-export function UpdatePasswordScreen({ navigation }: Props) {
+export function UpdatePasswordScreen({ navigation, route }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const { user, signOut } = useSession();
+  // Reset-from-email arrives via the `auth/reset` deep link carrying uid+token.
+  const { uid, token } = route.params ?? {};
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [busy, setBusy]         = useState(false);
@@ -40,8 +38,8 @@ export function UpdatePasswordScreen({ navigation }: Props) {
   const [success, setSuccess]   = useState<string | null>(null);
 
   useEffect(() => {
-    setReady(!!user);
-  }, [user]);
+    setReady(!!uid && !!token);
+  }, [uid, token]);
 
   const update = async () => {
     setErr(null);
@@ -58,11 +56,9 @@ export function UpdatePasswordScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-      await api.post("/api/auth/password/change", { current_password: "", new_password: password });
+      await api.post("/api/auth/password/reset", { uid, token, password });
 
-      setSuccess("Password updated. Please sign in again.");
-      clearEmergencyCardWidget();
-      await signOut();
+      setSuccess("Password updated. Please sign in.");
       navigation.navigate("Login");
     } catch (e: any) {
       captureException(e);

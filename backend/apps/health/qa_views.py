@@ -14,6 +14,21 @@ from apps.timeline.models import TimelineEvent
 from .models import HealthProfile
 
 MAX_QUESTION = 500
+MAX_HISTORY_TURNS = 8
+
+
+def _sanitize_history(raw) -> list[dict]:
+    """Keep only well-formed user/assistant turns; cap count and length."""
+    out: list[dict] = []
+    if isinstance(raw, list):
+        for turn in raw[-MAX_HISTORY_TURNS:]:
+            if not isinstance(turn, dict):
+                continue
+            role = turn.get("role")
+            content = turn.get("content")
+            if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+                out.append({"role": role, "content": content.strip()[:4000]})
+    return out
 
 
 def _static_qa_context(user) -> str:
@@ -39,10 +54,15 @@ def _static_qa_context(user) -> str:
     return "\n\n".join(parts)[:30000]
 
 
-def build_qa_context(user, question: str):
-    """Return (context_str, sources). Retrieval-based; falls back to the static slice on any error."""
+def build_qa_context(user, question: str, prior_question: str = ""):
+    """Return (context_str, sources). Retrieval-based; falls back to the static slice on any error.
+
+    `prior_question` (the previous user turn) is folded into the retrieval query
+    so follow-ups like "is it getting worse?" still pull the right records.
+    """
+    retrieval_query = (f"{prior_question} {question}".strip() if prior_question else question)[:1000]
     try:
-        hits = index.search(user, question, k=12)
+        hits = index.search(user, retrieval_query, k=12)
     except Exception:
         return _static_qa_context(user), []
 
@@ -77,6 +97,12 @@ class QAView(APIView):
             return Response({"detail": "question required"}, status=status.HTTP_400_BAD_REQUEST)
         if not settings.OPENAI_API_KEY:
             return Response({"detail": "AI search is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        context, _sources = build_qa_context(request.user, question[:MAX_QUESTION])
-        result = ai_client.answer_health_question(question[:MAX_QUESTION], context)
+        history = _sanitize_history(request.data.get("history"))
+        prior_question = next(
+            (t["content"] for t in reversed(history) if t["role"] == "user"), ""
+        )
+        context, _sources = build_qa_context(request.user, question[:MAX_QUESTION], prior_question)
+        result = ai_client.answer_health_question(
+            question[:MAX_QUESTION], context, history=history
+        )
         return Response(result.model_dump())

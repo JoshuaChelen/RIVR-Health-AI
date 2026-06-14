@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import NetInfo from "@react-native-community/netinfo";
-import { Platform } from "react-native";
+import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
+import { AppState, Platform } from "react-native";
 
 type NetworkState = {
   isConnected: boolean;
@@ -33,12 +33,22 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    const unsubscribe = NetInfo.addEventListener((netState) => {
-      setState({
-        isConnected: netState.isConnected ?? true,
-      });
+    // Native: NetInfo can hold a stale `false` after the device reconnects (it
+    // doesn't reliably re-emit, especially across app backgrounding), which
+    // leaves the offline banner stuck. Prime the state immediately, and force a
+    // fresh read whenever the app returns to the foreground.
+    const apply = (netState: NetInfoState) =>
+      setState({ isConnected: netState.isConnected ?? true });
+
+    NetInfo.fetch().then(apply);
+    const unsubscribe = NetInfo.addEventListener(apply);
+    const appStateSub = AppState.addEventListener("change", (next) => {
+      if (next === "active") NetInfo.refresh().then(apply);
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      appStateSub.remove();
+    };
   }, []);
 
   return (

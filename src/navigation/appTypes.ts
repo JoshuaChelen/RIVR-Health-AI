@@ -1,6 +1,7 @@
 // src/navigation/appTypes.ts
 export type AppStackParamList = {
   Home: undefined;
+  AskAI: undefined;
   Details: { id: string };
   ManageDocuments: undefined;
   Share: undefined;

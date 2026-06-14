@@ -294,6 +294,31 @@ export function HomeScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={18} color={colors.teal} />
         </Pressable>
 
+        {/* ── Ask AI card ───────────────────────────────────── */}
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Ask AI"
+          accessibilityHint="Chat with AI about your health records"
+          style={({ pressed }) => [
+            styles.summaryCard,
+            pressed && styles.summaryPressed,
+          ]}
+          onPress={() => navigation.navigate("AskAI")}
+        >
+          <View style={styles.summaryAccent} />
+          <View style={styles.summaryIconWrap}>
+            <Ionicons name="chatbubbles-outline" size={18} color={colors.teal} />
+          </View>
+          <View style={styles.summaryTextBlock}>
+            <AppText style={styles.summaryTitle}>Ask AI</AppText>
+            <AppText style={styles.summarySub}>
+              Chat about your records, labs &amp; history
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.teal} />
+        </Pressable>
+
         {/* ── Actions + metrics grid ─────────────────────────── */}
           <View style={styles.actionsRow}>
             <QuickAction

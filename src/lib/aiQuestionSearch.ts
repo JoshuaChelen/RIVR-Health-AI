@@ -1,4 +1,4 @@
-import { askHealthQuestion as apiAskHealthQuestion } from "./api/data";
+import { askHealthQuestion as apiAskHealthQuestion, type QaTurn } from "./api/data";
 
 export type AiQuestionSource = {
   title: string;
@@ -16,12 +16,15 @@ export type AiQuestionResult =
 const UNAVAILABLE_MESSAGE =
   "AI search is unavailable right now. Try again after the AI worker is connected.";
 
-export async function askHealthQuestion(question: string): Promise<AiQuestionResult> {
+export async function askHealthQuestion(
+  question: string,
+  history: QaTurn[] = [],
+): Promise<AiQuestionResult> {
   const trimmed = question.trim();
   if (!trimmed) return { status: "idle" };
 
   try {
-    const { answer, sources } = await apiAskHealthQuestion(trimmed);
+    const { answer, sources } = await apiAskHealthQuestion(trimmed, history);
 
     return {
       status: "answered",

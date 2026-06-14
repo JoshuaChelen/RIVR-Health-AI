@@ -2,8 +2,9 @@ import type { LinkingOptions } from "@react-navigation/native";
 
 type RootLinkingParamList = {
   Login: undefined;
-  UpdatePassword: undefined;
+  UpdatePassword: { uid?: string; token?: string } | undefined;
   Home: undefined;
+  AskAI: undefined;
   ManageDocuments: undefined;
   Share: undefined;
   Timeline: undefined;
@@ -24,6 +25,7 @@ export const appLinking: LinkingOptions<RootLinkingParamList> = {
       Login: "auth/confirmed",
       UpdatePassword: "auth/reset",
       Home: "",
+      AskAI: "ask-ai",
       ManageDocuments: "documents",
       Share: "share",
       Timeline: "timeline",

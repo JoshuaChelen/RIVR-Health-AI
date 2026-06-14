@@ -21,6 +21,16 @@ export function uploadAvatar(image: unknown): Promise<{ avatar_path: string; url
   form.append("image", image as Blob);
   return api.upload("/api/profile/avatar", form);
 }
+// Remove the avatar via DELETE so the stored object is reclaimed; a PATCH that
+// just blanks avatar_path leaves the file orphaned in object storage.
+export function deleteAvatar(): Promise<void> {
+  return api.del<void>("/api/profile/avatar");
+}
+// Permanently delete the current user (DELETE /api/account → 204). Routed
+// through the api client so the JWT auth header + token refresh are applied.
+export function deleteAccount(): Promise<void> {
+  return api.del<void>("/api/account");
+}
 
 // --- health ------------------------------------------------------------------
 export async function getHealthProfile(): Promise<any | null> {
@@ -88,6 +98,10 @@ export function deleteTimelineEvent(id: string): Promise<unknown> {
 export function createShare(shareTypes: string[], pin?: string): Promise<{ shareUrl: string; expiresAt: string }> {
   return api.post("/api/shares", { shareTypes, pin });
 }
-export function askHealthQuestion(question: string): Promise<{ answer: string; sources: any[] }> {
-  return api.post("/api/qa", { question });
+export type QaTurn = { role: "user" | "assistant"; content: string };
+export function askHealthQuestion(
+  question: string,
+  history: QaTurn[] = [],
+): Promise<{ answer: string; sources: any[] }> {
+  return api.post("/api/qa", { question, history });
 }
