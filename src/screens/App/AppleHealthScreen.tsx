@@ -22,6 +22,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   useAppleHealth,
   type DailyDataPoint,
+  type AppleHealthStatus,
 } from "../../context/AppleHealthContext";
 import { openHealthSettings } from "../../lib/health/healthkit";
 
@@ -30,7 +31,7 @@ import { openHealthSettings } from "../../lib/health/healthkit";
 const HEALTH_LABEL = Platform.OS === "android" ? "Health Connect" : "Apple Health";
 
 type Props = NativeStackScreenProps<AppStackParamList, "AppleHealth">;
-type AHStatus = "loading" | "unlinked" | "linked" | "disconnected" | "unsupported";
+type AHStatus = AppleHealthStatus;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -27,6 +27,17 @@ CSRF_TRUSTED_ORIGINS = env.list(  # noqa: F405
     default=["https://api.rivrhealth.com"],
 )
 
+# CORS: fail closed in production. base.py defaults CORS_ALLOW_ALL_ORIGINS to
+# True (dev-friendly); pin a secure default here so a missing env var doesn't
+# silently open the API to every origin. The mobile app is native (no CORS), so
+# this only governs browser/web clients — set CORS_ALLOWED_ORIGINS (or, if you
+# must, CORS_ALLOW_ALL_ORIGINS) in the environment to match the web app.
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)  # noqa: F405
+CORS_ALLOWED_ORIGINS = env.list(  # noqa: F405
+    "CORS_ALLOWED_ORIGINS",
+    default=["https://api.rivrhealth.com", "https://rivrhealth.com"],
+)
+
 # Log to stdout so `docker compose logs` captures everything.
 LOGGING = {
     "version": 1,

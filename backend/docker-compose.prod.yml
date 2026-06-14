@@ -20,6 +20,11 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   minio:
     image: minio/minio
@@ -51,6 +56,11 @@ services:
              python manage.py collectstatic --noinput &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120 --access-logfile - --error-logfile -"
     env_file: [.env.prod]
+    # Pin prod settings here so the stack can never silently fall back to the
+    # config.settings.dev default baked into wsgi/celery (DEBUG=True). Overrides
+    # env_file; .env.prod also sets it, so they agree.
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)\""]
       interval: 10s
@@ -59,26 +69,32 @@ services:
       start_period: 90s
     depends_on:
       db: {condition: service_healthy}
-      redis: {condition: service_started}
+      redis: {condition: service_healthy}
+      createbuckets: {condition: service_completed_successfully}
 
   worker:
     image: rivr-backend:latest
     restart: unless-stopped
     command: celery -A config worker -l info --concurrency 2
     env_file: [.env.prod]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
     depends_on:
       web: {condition: service_healthy}
       db: {condition: service_healthy}
-      redis: {condition: service_started}
+      redis: {condition: service_healthy}
+      createbuckets: {condition: service_completed_successfully}
 
   beat:
     image: rivr-backend:latest
     restart: unless-stopped
     command: celery -A config beat -l info
     env_file: [.env.prod]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
     depends_on:
       web: {condition: service_healthy}
-      redis: {condition: service_started}
+      redis: {condition: service_healthy}
 
   caddy:
     image: caddy:2

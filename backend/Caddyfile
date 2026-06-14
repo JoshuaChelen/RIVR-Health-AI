@@ -4,6 +4,9 @@
 api.rivrhealth.com, 87.99.138.168.sslip.io {
 	encode zstd gzip
 
+	# Tell browsers to stick to HTTPS for this host (defense against SSL-strip).
+	header Strict-Transport-Security "max-age=31536000"
+
 	# Object storage: presigned MinIO URLs are path-style (/<bucket>/<key>).
 	# boto3 signs them against the internal endpoint host `minio:9000`, so we
 	# must forward that exact Host upstream or MinIO rejects the signature.
