@@ -37,7 +37,7 @@ def test_qa_returns_answer_and_sources(client, settings, monkeypatch):
     monkeypatch.setattr(
         ai_client,
         "answer_health_question",
-        lambda q, c: QAAnswer(answer="You take Metformin.", sources=[{"title": "Labs", "type": "document"}]),
+        lambda q, c, history=None: QAAnswer(answer="You take Metformin.", sources=[{"title": "Labs", "type": "document"}]),
     )
     resp = client.post("/api/qa", {"question": "What meds am I on?"}, format="json")
     assert resp.status_code == 200
