@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   Image,
+  Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -533,6 +534,9 @@ function AiSuggestionsCard({
 
 // ─── Apple Health mini card ───────────────────────────────────────────────────
 
+// On Android the provider is Health Connect (Samsung Health syncs into it).
+const HEALTH_LABEL = Platform.OS === "android" ? "Health Connect" : "Apple Health";
+
 function AppleHealthMiniCard({
   health,
   onPress,
@@ -552,14 +556,16 @@ function AppleHealthMiniCard({
         accentColor={colors.border}
         iconBg={colors.bgSecondary}
         icon={<Ionicons name="phone-portrait-outline" size={13} color={colors.subtle} />}
-        title="Apple Health"
+        title={HEALTH_LABEL}
         titleColor={colors.muted}
         footerLabel="Not available"
         footerColor={colors.subtle}
         onPress={() => onPress()}
       >
         <View style={styles.ahMiniEmpty}>
-          <AppText style={styles.ahMiniEmptyLabel}>iPhone only</AppText>
+          <AppText style={styles.ahMiniEmptyLabel}>
+            {Platform.OS === "android" ? "Unavailable" : "iPhone only"}
+          </AppText>
           <AppText style={styles.ahMiniEmptySub}>
             Not available on this device
           </AppText>
@@ -575,7 +581,7 @@ function AppleHealthMiniCard({
         accentColor={colors.warning}
         iconBg={colors.warnSoft}
         icon={<Ionicons name="heart-outline" size={13} color={colors.warning} />}
-        title="Apple Health"
+        title={HEALTH_LABEL}
         titleColor={colors.muted}
         footerLabel="Reconnect"
         footerColor={colors.teal}
@@ -598,7 +604,7 @@ function AppleHealthMiniCard({
         accentColor={colors.border}
         iconBg={colors.bgSecondary}
         icon={<Ionicons name="heart-outline" size={13} color={colors.subtle} />}
-        title="Apple Health"
+        title={HEALTH_LABEL}
         titleColor={colors.muted}
         footerLabel="Connect"
         footerColor={colors.teal}

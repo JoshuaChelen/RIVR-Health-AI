@@ -4,7 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Linking,
+  Platform,
   type LayoutChangeEvent,
 } from "react-native";
 import Svg, { Rect, Path, Circle } from "react-native-svg";
@@ -23,6 +23,11 @@ import {
   useAppleHealth,
   type DailyDataPoint,
 } from "../../context/AppleHealthContext";
+import { openHealthSettings } from "../../lib/health/healthkit";
+
+// On Android the underlying provider is Health Connect (which Samsung Health
+// syncs into); on iOS it's Apple Health.
+const HEALTH_LABEL = Platform.OS === "android" ? "Health Connect" : "Apple Health";
 
 type Props = NativeStackScreenProps<AppStackParamList, "AppleHealth">;
 type AHStatus = "loading" | "unlinked" | "linked" | "disconnected" | "unsupported";
@@ -239,9 +244,13 @@ export function AppleHealthScreen({ route }: Props) {
             <View style={styles.infoIconWrap}>
               <Ionicons name="phone-portrait-outline" size={28} color={colors.muted} />
             </View>
-            <AppText style={styles.infoTitle}>iPhone required</AppText>
+            <AppText style={styles.infoTitle}>
+              {Platform.OS === "android" ? "Health Connect unavailable" : "iPhone required"}
+            </AppText>
             <AppText style={styles.infoBody}>
-              {"Apple Health is only available on iPhone. This feature isn't accessible on this device or build."}
+              {Platform.OS === "android"
+                ? "Health Connect isn't available on this device. On Android 13 and below, install it from the Play Store, then try again."
+                : "Apple Health is only available on iPhone. This feature isn't accessible on this device or build."}
             </AppText>
           </View>
         )}
@@ -358,7 +367,7 @@ export function AppleHealthScreen({ route }: Props) {
 
         {status === "unlinked" && (
           <PrimaryButton
-            label={refreshing ? "Connecting…" : "Connect Apple Health"}
+            label={refreshing ? "Connecting…" : `Connect ${HEALTH_LABEL}`}
             onPress={link}
             disabled={refreshing}
           />
@@ -367,13 +376,13 @@ export function AppleHealthScreen({ route }: Props) {
         {status === "disconnected" && (
           <View style={styles.actionsStack}>
             <PrimaryButton
-              label={refreshing ? "Reconnecting…" : "Reconnect Apple Health"}
+              label={refreshing ? "Reconnecting…" : `Reconnect ${HEALTH_LABEL}`}
               onPress={link}
               disabled={refreshing}
             />
             <SecondaryButton
-              label="Open iPhone Settings"
-              onPress={() => Linking.openURL("app-settings:")}
+              label={Platform.OS === "android" ? "Open Health Connect" : "Open iPhone Settings"}
+              onPress={() => openHealthSettings()}
             />
           </View>
         )}
@@ -477,7 +486,7 @@ function StatusHero({
           )}
         </View>
 
-        <AppText style={styles.hero_title}>Apple Health</AppText>
+        <AppText style={styles.hero_title}>{HEALTH_LABEL}</AppText>
 
         <View style={[styles.hero_badge, { backgroundColor: badgeBgColor }]}>
           <AppText style={[styles.hero_badgeText, { color: badgeTextColor }]}>

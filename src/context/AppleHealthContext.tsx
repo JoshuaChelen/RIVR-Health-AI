@@ -6,15 +6,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform } from "react-native";
 import { useSession } from "./SessionContext";
 import { linkHealth, unlinkHealth, getProfile } from "../lib/api/data";
 import {
   getHealthAvailability,
   linkAppleHealth,
   getAppleHealthSnapshot,
-  type DailyDataPoint,
-} from "../lib/health/healthkit.ios";
+} from "../lib/health/healthkit";
+import type { DailyDataPoint } from "../lib/health/types";
 import { syncAppleHealthToTimeline } from "../lib/health/syncAppleHealth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -133,16 +132,10 @@ export function AppleHealthProvider({
     setRefreshing(true);
 
     try {
-      if (Platform.OS !== "ios") {
-        setStatus("unsupported");
-        setErrorText("Apple Health is only available on iPhone.");
-        return;
-      }
-
       const availability = await getHealthAvailability();
       if (!availability.ok) {
         setStatus("unsupported");
-        setErrorText(availability.error ?? "Apple Health is unavailable.");
+        setErrorText(availability.error ?? "Health data is unavailable.");
         return;
       }
 
@@ -208,21 +201,10 @@ export function AppleHealthProvider({
     setErrorText(null);
 
     try {
-      if (Platform.OS !== "ios") {
-        setStatus("unsupported");
-        setErrorText("Apple Health is only available on iPhone.");
-        return;
-      }
-
       const res = await linkAppleHealth();
       if (!res.ok) {
-        const msg = res.error ?? "Could not connect Apple Health.";
-        setErrorText(msg);
-        const isBuildOrDeviceError =
-          msg.toLowerCase().includes("iphone") ||
-          msg.toLowerCase().includes("unavailable") ||
-          msg.toLowerCase().includes("native module");
-        setStatus(isBuildOrDeviceError ? "unsupported" : "unlinked");
+        setErrorText(res.error ?? "Could not connect health data.");
+        setStatus(res.unsupported ? "unsupported" : "unlinked");
         return;
       }
 

@@ -1,36 +1,24 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import AppleHealthKit, { HealthKitPermissions } from "react-native-health";
 import {
   buildHealthKitPermissions,
   formatHealthKitError,
   hasRequiredHealthKitPermissionConstants,
 } from "./healthkitPermissions";
+import type {
+  AppleHealthSnapshot,
+  DailyDataPoint,
+  HealthAvailabilityResult,
+  HealthLinkResult,
+} from "./types";
 
-export type HealthAvailabilityResult = {
-  ok: boolean;
-  error?: string;
-};
-
-export type DailyDataPoint = {
-  date: string; // YYYY-MM-DD
-  value: number;
-};
-
-export type AppleHealthSnapshot = {
-  fetchedAt: Date;
-  heartRate: number | null;
-  sleepAvgMin: number | null;
-  stepsAvg7d: number | null;
-  walkingRunningDistanceAvg7dMiles: number | null;
-  activeEnergyAvg7dKcal: number | null;
-  hrvMsRecent: number | null;
-  weightLbRecent: number | null;
-  bloodPressureRecent: { systolic: number; diastolic: number } | null;
-  // Trend arrays for charts
-  stepsTrend7d: DailyDataPoint[];
-  sleepTrend7d: DailyDataPoint[];
-  heartRateTrend: DailyDataPoint[];
-};
+// Shared types live in ./types; re-export so existing importers keep working.
+export type {
+  AppleHealthSnapshot,
+  DailyDataPoint,
+  HealthAvailabilityResult,
+  HealthLinkResult,
+} from "./types";
 
 function hasHealthKitModule(): boolean {
   return (
@@ -105,13 +93,13 @@ export async function getHealthAvailability(): Promise<HealthAvailabilityResult>
   });
 }
 
-export async function linkAppleHealth(): Promise<{ ok: boolean; error?: string }> {
+export async function linkAppleHealth(): Promise<HealthLinkResult> {
   const availability = await getHealthAvailability();
   if (!availability.ok) {
-    return { ok: false, error: availability.error };
+    return { ok: false, unsupported: true, error: availability.error };
   }
 
-  return await new Promise((resolve) => {
+  return await new Promise<HealthLinkResult>((resolve) => {
     const permissions = buildHealthKitPermissions(
       (AppleHealthKit as any).Constants
     ) as HealthKitPermissions;
@@ -461,4 +449,9 @@ export async function getAppleHealthSnapshot(): Promise<AppleHealthSnapshot> {
     sleepTrend7d,
     heartRateTrend,
   };
+}
+
+export async function openHealthSettings(): Promise<void> {
+  // iOS exposes per-app Health permissions in the app's Settings page.
+  Linking.openURL("app-settings:");
 }

@@ -1,5 +1,11 @@
+import { Platform } from "react-native";
 import { createTimelineEvents, listTimeline, deleteTimelineEvent } from "../api/data";
-import type { AppleHealthSnapshot } from "./healthkit.ios";
+import type { AppleHealthSnapshot } from "./types";
+
+// Provenance tag stored inside each row's free-form `data` blob. The de-dup
+// `source` stays "apple_health" so iOS and Android share one timeline lane and
+// the existing single-source de-dup query keeps working.
+const HEALTH_ORIGIN = Platform.OS === "android" ? "health_connect" : "healthkit";
 
 export type AppleHealthSyncResult = {
   ok: boolean;
@@ -40,7 +46,7 @@ export async function syncAppleHealthToTimeline(
       category: "activity",
       source: "apple_health",
       summary: `${steps.toLocaleString()} steps/day (7d avg)`,
-      data: { steps, window: "7d_avg", origin: "healthkit" },
+      data: { steps, window: "7d_avg", origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["steps", "activity"],
     });
@@ -59,7 +65,7 @@ export async function syncAppleHealthToTimeline(
       category: "sleep",
       source: "apple_health",
       summary: `${h}h ${String(m).padStart(2, "0")}m avg/night (7d)`,
-      data: { minutes, window: "7d_avg", origin: "healthkit" },
+      data: { minutes, window: "7d_avg", origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["sleep"],
     });
@@ -75,7 +81,7 @@ export async function syncAppleHealthToTimeline(
       category: "vitals",
       source: "apple_health",
       summary: `${snap.heartRate} bpm (latest reading)`,
-      data: { bpm: snap.heartRate, origin: "healthkit" },
+      data: { bpm: snap.heartRate, origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["heart_rate", "vitals"],
     });
@@ -92,7 +98,7 @@ export async function syncAppleHealthToTimeline(
       category: "activity",
       source: "apple_health",
       summary: `${miles} mi/day (7d avg)`,
-      data: { miles, window: "7d_avg", origin: "healthkit" },
+      data: { miles, window: "7d_avg", origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["distance", "activity"],
     });
@@ -109,7 +115,7 @@ export async function syncAppleHealthToTimeline(
       category: "activity",
       source: "apple_health",
       summary: `${kcal.toLocaleString()} kcal/day (7d avg)`,
-      data: { kcal, window: "7d_avg", origin: "healthkit" },
+      data: { kcal, window: "7d_avg", origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["energy", "activity"],
     });
@@ -125,7 +131,7 @@ export async function syncAppleHealthToTimeline(
       category: "vitals",
       source: "apple_health",
       summary: `${snap.hrvMsRecent} ms HRV (latest)`,
-      data: { ms: snap.hrvMsRecent, origin: "healthkit" },
+      data: { ms: snap.hrvMsRecent, origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["hrv", "vitals"],
     });
@@ -141,7 +147,7 @@ export async function syncAppleHealthToTimeline(
       category: "vitals",
       source: "apple_health",
       summary: `${snap.weightLbRecent} lb (latest)`,
-      data: { weight_lb: snap.weightLbRecent, origin: "healthkit" },
+      data: { weight_lb: snap.weightLbRecent, origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["weight", "vitals"],
     });
@@ -158,7 +164,7 @@ export async function syncAppleHealthToTimeline(
       category: "vitals",
       source: "apple_health",
       summary: `${systolic}/${diastolic} mmHg (latest)`,
-      data: { systolic, diastolic, origin: "healthkit" },
+      data: { systolic, diastolic, origin: HEALTH_ORIGIN },
       included_in_previsit: false,
       tags: ["blood_pressure", "vitals"],
     });
