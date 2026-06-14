@@ -1,0 +1,21 @@
+# Caddy auto-provisions a Let's Encrypt cert for this domain once its DNS
+# A record points at this server. TLS is terminated here; plain HTTP is
+# proxied to the app on the internal compose network.
+api.rivrhealth.com {
+	encode zstd gzip
+
+	# Object storage: presigned MinIO URLs are path-style (/<bucket>/<key>).
+	# boto3 signs them against the internal endpoint host `minio:9000`, so we
+	# must forward that exact Host upstream or MinIO rejects the signature.
+	@media path /rivr-media/*
+	handle @media {
+		reverse_proxy minio:9000 {
+			header_up Host minio:9000
+		}
+	}
+
+	# Everything else → Django (gunicorn).
+	handle {
+		reverse_proxy web:8000
+	}
+}

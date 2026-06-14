@@ -1,0 +1,97 @@
+name: rivr-prod
+
+# Production stack for a single host, behind Caddy (auto-HTTPS).
+# Secrets/config come from .env.prod (created on the server, never committed).
+# Bring up:  docker compose -f docker-compose.prod.yml up -d --build
+# Only Caddy publishes host ports (80/443); everything else is network-internal.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file: [.env.prod]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rivr"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    env_file: [.env.prod]
+    volumes: ["miniodata:/data"]
+
+  createbuckets:
+    image: minio/mc
+    depends_on: [minio]
+    env_file: [.env.prod]
+    # $$ escapes compose interpolation so the container shell expands the
+    # env_file-injected creds at runtime.
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000 $$AWS_ACCESS_KEY_ID $$AWS_SECRET_ACCESS_KEY; do echo waiting for minio; sleep 2; done;
+      /usr/bin/mc mb -p local/rivr-media;
+      /usr/bin/mc anonymous set none local/rivr-media;
+      exit 0;
+      "
+
+  web:
+    build: {context: ., dockerfile: Dockerfile}
+    image: rivr-backend:latest
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120 --access-logfile - --error-logfile -"
+    env_file: [.env.prod]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
+
+  worker:
+    image: rivr-backend:latest
+    restart: unless-stopped
+    command: celery -A config worker -l info --concurrency 2
+    env_file: [.env.prod]
+    depends_on:
+      web: {condition: service_healthy}
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
+
+  beat:
+    image: rivr-backend:latest
+    restart: unless-stopped
+    command: celery -A config beat -l info
+    env_file: [.env.prod]
+    depends_on:
+      web: {condition: service_healthy}
+      redis: {condition: service_started}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [web]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  pgdata:
+  miniodata:
+  caddydata:
+  caddyconfig:
