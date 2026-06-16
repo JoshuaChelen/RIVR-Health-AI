@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable } from "react-native";
+import { Platform, Pressable } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "./appTypes";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -144,7 +144,7 @@ export function AppNavigator() {
       <Stack.Screen
         name="AppleHealth"
         component={AppleHealthScreen}
-        options={{ title: "Apple Health" }}
+        options={{ title: Platform.OS === "android" ? "Health Connect" : "Apple Health" }}
       />
     </Stack.Navigator>
   );

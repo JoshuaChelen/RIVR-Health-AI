@@ -165,8 +165,8 @@ export function AppleHealthProvider({
 
       if (!hasAnyData) {
         setErrorText(
-          "Apple Health is authorized, but no readable samples were found yet. " +
-            "Try opening the Health app or syncing your Apple Watch, then refresh."
+          "Connected, but no readable health data was found yet. " +
+            "Open your health app, make sure it's syncing, then refresh."
         );
         return;
       }
@@ -188,7 +188,7 @@ export function AppleHealthProvider({
       // if they were already linked. Only go to unlinked when we haven't
       // established a linked state yet.
       setStatus((prev) => (prev === "linked" ? "linked" : "unlinked"));
-      setErrorText(e?.message ?? "Unknown Apple Health error.");
+      setErrorText(e?.message ?? "Unknown health error.");
     } finally {
       setRefreshing(false);
     }
@@ -219,7 +219,7 @@ export function AppleHealthProvider({
     } catch (e: any) {
       profileLinkedRef.current = false;
       setStatus("unlinked");
-      setErrorText(e?.message ?? "Failed to connect Apple Health.");
+      setErrorText(e?.message ?? "Failed to connect health data.");
     } finally {
       setRefreshing(false);
     }

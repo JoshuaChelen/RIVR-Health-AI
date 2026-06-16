@@ -633,7 +633,7 @@ function AppleHealthMiniCard({
       accentColor={colors.teal}
       iconBg={colors.tealSoft}
       icon={<Ionicons name="heart-outline" size={13} color={colors.teal} />}
-      title="Apple Health"
+      title={HEALTH_LABEL}
       footerLabel="View health data"
       onPress={() => onPress()}
     >

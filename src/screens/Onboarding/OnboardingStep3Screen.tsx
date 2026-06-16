@@ -178,7 +178,7 @@ export function OnboardingStep3Screen({ navigation }: Props) {
                     disabled={saving}
                   />
                   <AppText style={styles.skipNote}>
-                    No worries! You can always add this later from your profile. You can also connect Apple Health any time.
+                    No worries! You can always add this later from your profile. You can also connect your health data any time.
                   </AppText>
                 </>
               ) : null}

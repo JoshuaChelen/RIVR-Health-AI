@@ -236,7 +236,7 @@ export function AppleHealthScreen({ route }: Props) {
 
         {/* ── Error banner ──────────────────────────────────── */}
         {errorText && !isLinkedWithWarning ? (
-          <ErrorBanner message="Couldn't load Apple Health data" onRetry={refresh} />
+          <ErrorBanner message={`Couldn't load ${HEALTH_LABEL} data`} onRetry={refresh} />
         ) : null}
 
         {/* ── Unsupported info card ────────────────────────── */}
@@ -264,7 +264,7 @@ export function AppleHealthScreen({ route }: Props) {
             </View>
             <AppText style={styles.inviteTitle}>Sync your vitals</AppText>
             <AppText style={styles.inviteBody}>
-              Connect Apple Health to automatically sync your steps, sleep, heart rate, and more. Your data stays on your device — RIVR never writes to Apple Health.
+              {`Connect ${HEALTH_LABEL} to automatically sync your steps, sleep, heart rate, and more. Your data stays on your device — RIVR never writes to ${HEALTH_LABEL}.`}
             </AppText>
           </View>
         )}
@@ -277,7 +277,9 @@ export function AppleHealthScreen({ route }: Props) {
               <AppText style={styles.disconnectGuideTitle}>How to re-enable access</AppText>
             </View>
             <AppText style={styles.disconnectGuideBody}>
-              Go to Settings → Privacy &amp; Security → Health → RIVR Health and enable all data types.
+              {Platform.OS === "android"
+                ? "Open Health Connect → App permissions → RIVR and re-enable the health data types."
+                : "Go to Settings → Privacy & Security → Health → RIVR Health and enable all data types."}
             </AppText>
           </View>
         )}
@@ -399,8 +401,7 @@ export function AppleHealthScreen({ route }: Props) {
 
         {/* ── 4. Footer ─────────────────────────────────────── */}
         <AppText style={styles.footer}>
-          RIVR reads heart rate, sleep, steps, distance, and active energy — and
-          never writes to Apple Health.
+          {`RIVR reads heart rate, sleep, steps, distance, and active energy — and never writes to ${HEALTH_LABEL}.`}
         </AppText>
       </ScrollView>
     </Screen>
@@ -439,7 +440,7 @@ function StatusHero({
     iconColor = colors.muted;
     iconBg = colors.bgSecondary;
     badgeLabel = "Checking…";
-    subtitle = "Checking Apple Health status.";
+    subtitle = `Checking ${HEALTH_LABEL} status.`;
   } else if (isLinkedClean) {
     iconName = "checkmark-circle";
     iconColor = colors.success;
@@ -455,25 +456,25 @@ function StatusHero({
     badgeLabel = "Authorized";
     badgeTextColor = colors.warning;
     badgeBgColor = colors.warnSoft;
-    subtitle = "Authorized — waiting for Apple Health data.";
+    subtitle = `Authorized — waiting for ${HEALTH_LABEL} data.`;
   } else if (status === "unlinked") {
     iconName = "link-outline";
     iconColor = colors.teal;
     iconBg = colors.tealSoft;
     badgeLabel = "Not connected";
-    subtitle = "Connect Apple Health to view live vitals in RIVR.";
+    subtitle = `Connect ${HEALTH_LABEL} to view live vitals in RIVR.`;
   } else if (status === "disconnected") {
     iconName = "link-outline";
     iconColor = colors.muted;
     iconBg = colors.bgSecondary;
     badgeLabel = "Disconnected";
-    subtitle = "RIVR is no longer reading your Apple Health data.";
+    subtitle = `RIVR is no longer reading your ${HEALTH_LABEL} data.`;
   } else if (status === "unsupported") {
     iconName = "phone-portrait-outline";
     iconColor = colors.muted;
     iconBg = colors.bgSecondary;
     badgeLabel = "Unavailable";
-    subtitle = "Apple Health is not available on this device or build.";
+    subtitle = `${HEALTH_LABEL} is not available on this device or build.`;
   }
 
   return (
@@ -481,7 +482,7 @@ function StatusHero({
       <View style={styles.hero_topRow}>
         <View style={[styles.hero_iconWrap, { backgroundColor: iconBg }]}>
           {showSpinner ? (
-            <ActivityIndicator size="small" color={colors.muted} accessibilityLabel="Checking Apple Health status" />
+            <ActivityIndicator size="small" color={colors.muted} accessibilityLabel={`Checking ${HEALTH_LABEL} status`} />
           ) : (
             <Ionicons name={iconName} size={20} color={iconColor} />
           )}
@@ -621,7 +622,7 @@ function ActionsCard({
       <View style={styles.ac_divider} />
 
       <SecondaryButton
-        label={refreshing ? "Disconnecting…" : "Disconnect Apple Health"}
+        label={refreshing ? "Disconnecting…" : `Disconnect ${HEALTH_LABEL}`}
         onPress={onDisconnect}
         disabled={refreshing}
       />

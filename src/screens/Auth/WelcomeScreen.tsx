@@ -30,7 +30,7 @@ const panels = [
     icon: "document-text-outline" as const,
     title: "All your records in one place",
     subtitle:
-      "Upload documents, connect Apple Health, and build your complete health picture.",
+      "Upload documents, connect your health data, and build your complete health picture.",
   },
   {
     icon: "sparkles-outline" as const,
