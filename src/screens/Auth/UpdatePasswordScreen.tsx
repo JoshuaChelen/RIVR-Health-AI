@@ -45,8 +45,8 @@ export function UpdatePasswordScreen({ navigation, route }: Props) {
     setErr(null);
     setSuccess(null);
 
-    if (password.length < 6) {
-      setErr("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      setErr("Password must be at least 8 characters.");
       return;
     }
     if (password !== confirm) {

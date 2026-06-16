@@ -30,14 +30,25 @@ export class ApiError extends Error {
   status: number;
   data: unknown;
   constructor(status: number, data: unknown) {
-    const detail =
-      data && typeof data === "object" && "detail" in data
-        ? String((data as { detail: unknown }).detail)
-        : `Request failed (${status})`;
-    super(detail);
+    super(ApiError.messageFrom(status, data));
     this.name = "ApiError";
     this.status = status;
     this.data = data;
+  }
+
+  // Surface the actual server message. DRF returns {detail: "..."} for generic
+  // errors and {field: ["msg", ...]} (or {field: "msg"}) for validation errors
+  // like registration — show the first concrete message instead of a bare code.
+  private static messageFrom(status: number, data: unknown): string {
+    if (data && typeof data === "object") {
+      const d = data as Record<string, unknown>;
+      if (typeof d.detail === "string") return d.detail;
+      for (const v of Object.values(d)) {
+        if (Array.isArray(v) && v.length > 0 && typeof v[0] === "string") return v[0];
+        if (typeof v === "string") return v;
+      }
+    }
+    return `Request failed (${status})`;
   }
 }
 
