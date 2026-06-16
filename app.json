@@ -37,7 +37,8 @@
       "./plugins/with-ios-fmt-xcode-fix",
       "@bacons/apple-targets",
       "react-native-health-connect",
-      "./plugins/with-health-connect-android14"
+      "./plugins/with-health-connect-android14",
+      "./plugins/with-health-connect-permission-delegate"
     ],
     "ios": {
       "supportsTablet": true,
