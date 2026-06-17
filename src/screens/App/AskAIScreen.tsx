@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   FlatList,
@@ -52,6 +52,8 @@ export function AskAIScreen() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -73,17 +75,24 @@ export function AskAIScreen() {
       setSending(true);
       scrollToEnd();
 
-      const result = await askHealthQuestion(q, history);
-      const reply: ChatMessage =
-        result.status === "answered"
-          ? { id: nextId(), role: "assistant", content: result.answer, sources: result.sources }
-          : result.status === "unavailable"
-          ? { id: nextId(), role: "assistant", content: result.message, error: true }
-          : { id: nextId(), role: "assistant", content: "I couldn't find an answer.", error: true };
-
-      setMessages((prev) => [...prev, reply]);
-      setSending(false);
-      scrollToEnd();
+      try {
+        const result = await askHealthQuestion(q, history);
+        const reply: ChatMessage =
+          result.status === "answered"
+            ? { id: nextId(), role: "assistant", content: result.answer, sources: result.sources }
+            : result.status === "unavailable"
+            ? { id: nextId(), role: "assistant", content: result.message, error: true }
+            : { id: nextId(), role: "assistant", content: "I couldn't find an answer.", error: true };
+        if (mountedRef.current) setMessages((prev) => [...prev, reply]);
+      } catch {
+        // Network/server failure — surface it instead of leaving the input stuck.
+        if (mountedRef.current) {
+          setMessages((prev) => [...prev, { id: nextId(), role: "assistant",
+            content: "Something went wrong reaching the assistant. Please try again.", error: true }]);
+        }
+      } finally {
+        if (mountedRef.current) { setSending(false); scrollToEnd(); }
+      }
     },
     [messages, sending, scrollToEnd],
   );

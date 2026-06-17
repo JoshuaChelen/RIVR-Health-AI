@@ -131,7 +131,9 @@ export function manualProfileSignature(p: UserProfile | null | undefined): strin
   });
 }
 
-export async function getProfile(userId: string): Promise<UserProfile | null> {
+// `userId` is optional and ignored — the profile endpoint is JWT-scoped to the
+// current user. Kept for call-site compatibility; never used to fetch another user.
+export async function getProfile(_userId?: string): Promise<UserProfile | null> {
   const data = await import("./api/data").then((m) => m.getProfile());
   return data;
 }

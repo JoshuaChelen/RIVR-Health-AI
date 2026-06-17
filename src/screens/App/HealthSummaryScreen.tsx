@@ -48,6 +48,7 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   const [latestDocProcessedAt, setLatestDocProcessedAt] = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
   const userIdRef                     = useRef<string | null>(null);
+  const pollFailuresRef               = useRef(0);
 
   const styles = useStyles();
   const { colors } = useTheme();
@@ -75,9 +76,11 @@ export default function HealthSummaryScreen({ navigation }: Props) {
         p?.card_json ?? ev?.result?.three_by_five_card ?? null,
         p?.updated_at ?? null,
       );
+      pollFailuresRef.current = 0;
     } catch (e: any) {
       captureException(e);
       setError(e?.message ?? "Failed to load health summary.");
+      pollFailuresRef.current += 1;
     } finally {
       setLoading(false);
     }
@@ -86,11 +89,15 @@ export default function HealthSummaryScreen({ navigation }: Props) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // ── Polling: reload when health_profiles row is updated ──────────────────────
+  // Stops auto-polling after repeated failures so a down/erroring API isn't hammered
+  // every 4s (battery + load). A single transient blip won't stop it; manual retry
+  // (ErrorBanner) re-runs load() and resets the counter on success.
   useEffect(() => {
     const userId = userIdRef.current;
     if (!userId) return;
 
     const interval = setInterval(() => {
+      if (pollFailuresRef.current >= 3) return;
       load();
     }, 4000);
 
