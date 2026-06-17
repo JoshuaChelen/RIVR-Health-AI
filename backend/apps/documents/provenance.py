@@ -120,6 +120,7 @@ def build_analysis(user, document) -> dict:
     return {
         "document_id": str(document.id),
         "title": document.title,
+        "detached": document.detached_at is not None,
         "confidence_0_to_1": summary.get("confidence_0_to_1"),
         "key_facts": summary.get("key_facts", {}),
         "timeline_events": summary.get("timeline_events", []),

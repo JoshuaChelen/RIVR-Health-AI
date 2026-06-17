@@ -24,12 +24,23 @@ class DocumentViewSet(OwnedModelViewSet):
 
     def perform_destroy(self, instance: Document) -> None:
         # Detach contributions first (idempotent) so deleting a processed doc
-        # doesn't orphan AI items, then remove BOTH stored objects.
+        # doesn't orphan AI items, then remove BOTH stored objects. Storage and
+        # detach are best-effort: a transient storage/IO error must NOT leave the
+        # DB row orphaned, so the row delete always proceeds.
         if instance.source_type != Document.SourceType.MANUAL_INPUT and instance.summary_path:
-            from .provenance import detach_document
-            detach_document(self.request.user, instance)
-            storage.delete(instance.summary_path)
-        storage.delete(instance.pdf_path)
+            try:
+                from .provenance import detach_document
+                detach_document(self.request.user, instance)
+            except Exception:
+                pass
+            try:
+                storage.delete(instance.summary_path)
+            except Exception:
+                pass
+        try:
+            storage.delete(instance.pdf_path)
+        except Exception:
+            pass
         super().perform_destroy(instance)
 
     @action(detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser])
@@ -84,7 +95,11 @@ class DocumentViewSet(OwnedModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
         from apps.jobs.services import enqueue_processing
         from config import celery_app
-        Document.objects.filter(id=doc.id).update(detached_at=None)
+        # Clear detached state and mark PROCESSING up front, so the state is
+        # consistent even when enqueue reuses an already-active job (which only
+        # sets PROCESSING when it creates a NEW job).
+        Document.objects.filter(id=doc.id).update(
+            detached_at=None, status=Document.Status.PROCESSING)
         job, reused = enqueue_processing(request.user, [doc.id])
         if job is None:
             return Response({"detail": "Nothing to process."}, status=status.HTTP_400_BAD_REQUEST)

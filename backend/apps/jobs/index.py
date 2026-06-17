@@ -2,6 +2,7 @@
 import json
 
 from django.core.files.storage import default_storage
+from django.db.models import Q
 from pgvector.django import CosineDistance
 
 from . import embeddings
@@ -65,6 +66,10 @@ def search(user, query: str, k: int = 12) -> list[Embedding]:
     qvec = embeddings.embed([query], query=True)
     if not qvec:
         return []
+    # Exclude embeddings tied to a detached document (its results were removed by
+    # the user); keep document-less rows (e.g. timeline) and active-document rows.
     return list(
-        Embedding.objects.filter(user=user).order_by(CosineDistance("vector", qvec[0]))[:k]
+        Embedding.objects.filter(user=user)
+        .filter(Q(document__isnull=True) | Q(document__detached_at__isnull=True))
+        .order_by(CosineDistance("vector", qvec[0]))[:k]
     )

@@ -12,7 +12,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         qs = Document.objects.filter(
-            status=Document.Status.PROCESSED, summary_path__gt=""
+            status=Document.Status.PROCESSED, summary_path__gt="",
+            detached_at__isnull=True,
         ).exclude(source_type=Document.SourceType.MANUAL_INPUT)
         if opts["user"]:
             qs = qs.filter(user_id=opts["user"])

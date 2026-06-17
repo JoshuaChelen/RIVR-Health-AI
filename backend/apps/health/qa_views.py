@@ -38,7 +38,8 @@ def _static_qa_context(user) -> str:
         summary = (hp.summary_json or {}).get("full_summary_markdown") or ""
         parts.append(f"HEALTH_SUMMARY (score {hp.score} {hp.score_label}):\n{summary[:8000]}")
     docs = Document.objects.filter(
-        user=user, status=Document.Status.PROCESSED, summary_path__gt=""
+        user=user, status=Document.Status.PROCESSED, summary_path__gt="",
+        detached_at__isnull=True,
     ).exclude(source_type=Document.SourceType.MANUAL_INPUT)[:12]
     for doc in docs:
         try:
