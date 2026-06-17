@@ -18,7 +18,7 @@ import { upsertManualInputDocument } from "../../lib/documents";
 import { getCurrentUserId } from "../../lib/auth";
 import {
   listDocuments, enqueueDocumentProcessing,
-  confirmAiItem, rejectAiItem, getAiItemSources,
+  confirmAiItem, rejectAiItem, editAiItem, getAiItemSources,
 } from "../../lib/api/data";
 import {
   makeId, safeList, joinParts,
@@ -29,6 +29,7 @@ import {
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
+import { BottomSheet } from "../../components/ui/Primitives/BottomSheet";
 import { TextField } from "../../components/ui/Primitives/TextField";
 import { OptionPills } from "../../components/ui/Onboarding/OptionPills";
 import { SectionCard } from "../../components/ui/Profile/SectionCard";
@@ -82,6 +83,17 @@ const useSubStyles = createStyles((c) => StyleSheet.create({
   aiActionText: { fontSize: typescale.size.xs, fontWeight: typescale.weight.semibold as any, color: c.teal },
   aiReject: { backgroundColor: c.dangerSoft },
   aiRejectText: { color: c.danger },
+  aiEditForm: { gap: spacing.sm },
+  aiEditRow: { gap: 4 },
+  aiEditLabel: { fontSize: typescale.size.xs, fontWeight: typescale.weight.semibold as any, color: c.muted },
+  aiEditInput: { backgroundColor: c.bgSecondary, borderRadius: radius.md, borderWidth: 1, borderColor: c.border,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, color: c.text, fontSize: typescale.size.sm },
+  aiEditButtons: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs },
+  aiEditCancel: { flex: 1, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center",
+    backgroundColor: c.bgSecondary, borderWidth: 1, borderColor: c.border },
+  aiEditSave: { flex: 1.4, height: 44, borderRadius: radius.md, alignItems: "center", justifyContent: "center",
+    backgroundColor: c.teal },
+  aiEditSaveText: { fontSize: typescale.size.sm, fontWeight: typescale.weight.bold as any, color: "#fff" },
 }));
 
 function ItemRow({ primary, secondary, onDelete }: {
@@ -104,15 +116,28 @@ function ItemRow({ primary, secondary, onDelete }: {
   );
 }
 
+// Editable detail fields per array field — MUST match backend DETAIL_FIELDS
+// (apps/profiles/ai_item_views.py); the key field is intentionally not editable.
+const AI_EDITABLE: Record<string, { key: string; label: string }[]> = {
+  allergies: [{ key: "reaction", label: "Reaction" }, { key: "severity", label: "Severity" }],
+  medications: [{ key: "dose", label: "Dose" }, { key: "frequency", label: "Frequency" }],
+  medical_history: [{ key: "year", label: "Year" }, { key: "notes", label: "Notes" }],
+  surgical_history: [{ key: "year", label: "Year" }, { key: "notes", label: "Notes" }],
+};
+
 // AI badge + inline review actions for an ai_-id profile item. `reviewStatus`
 // is the server-owned per-item state; when unset the item still needs review.
-function AiItemControls({ itemId, reviewStatus, onReviewed }: {
+function AiItemControls({ itemId, field, item, reviewStatus, onReviewed }: {
   itemId: string;
+  field: string;
+  item: Record<string, any>;
   reviewStatus?: string;
   onReviewed: () => void;
 }) {
   const s = useSubStyles();
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
 
   async function onConfirm() {
     setBusy(true);
@@ -135,6 +160,27 @@ function AiItemControls({ itemId, reviewStatus, onReviewed }: {
     } catch (e) {
       captureException(e);
       Alert.alert("Couldn't reject", "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openEdit() {
+    const init: Record<string, string> = {};
+    for (const f of AI_EDITABLE[field] ?? []) init[f.key] = String(item[f.key] ?? "");
+    setEditValues(init);
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    setEditing(false);
+    setBusy(true);
+    try {
+      await editAiItem(itemId, editValues);
+      onReviewed();
+    } catch (e) {
+      captureException(e);
+      Alert.alert("Couldn't save", "Please try again.");
     } finally {
       setBusy(false);
     }
@@ -163,6 +209,9 @@ function AiItemControls({ itemId, reviewStatus, onReviewed }: {
         <Pressable accessibilityRole="button" accessibilityLabel="Confirm AI item" disabled={busy} onPress={onConfirm} style={({ pressed }) => [s.aiAction, pressed && { opacity: 0.6 }]}>
           <AppText style={s.aiActionText}>Confirm</AppText>
         </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit AI item" disabled={busy} onPress={openEdit} style={({ pressed }) => [s.aiAction, pressed && { opacity: 0.6 }]}>
+          <AppText style={s.aiActionText}>Edit</AppText>
+        </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Reject AI item" disabled={busy} onPress={onReject} style={({ pressed }) => [s.aiAction, s.aiReject, pressed && { opacity: 0.6 }]}>
           <AppText style={[s.aiActionText, s.aiRejectText]}>Reject</AppText>
         </Pressable>
@@ -170,6 +219,34 @@ function AiItemControls({ itemId, reviewStatus, onReviewed }: {
           <AppText style={s.aiActionText}>Source</AppText>
         </Pressable>
       </View>
+
+      {editing ? (
+        <BottomSheet visible accent="teal" title="Edit AI item"
+          message="Correct what the AI recorded. The original AI value is kept for reference."
+          onClose={() => setEditing(false)}>
+          <View style={s.aiEditForm}>
+            {(AI_EDITABLE[field] ?? []).map((f) => (
+              <View key={f.key} style={s.aiEditRow}>
+                <AppText style={s.aiEditLabel}>{f.label}</AppText>
+                <TextInput
+                  style={s.aiEditInput}
+                  value={editValues[f.key] ?? ""}
+                  onChangeText={(t) => setEditValues((v) => ({ ...v, [f.key]: t }))}
+                  placeholder={f.label}
+                />
+              </View>
+            ))}
+            <View style={s.aiEditButtons}>
+              <Pressable style={s.aiEditCancel} onPress={() => setEditing(false)}>
+                <AppText style={s.aiActionText}>Cancel</AppText>
+              </Pressable>
+              <Pressable style={s.aiEditSave} onPress={saveEdit}>
+                <AppText style={s.aiEditSaveText}>Save</AppText>
+              </Pressable>
+            </View>
+          </View>
+        </BottomSheet>
+      ) : null}
     </View>
   );
 }
@@ -636,7 +713,7 @@ useEffect(() => {
                       {i > 0 && <ListDivider />}
                       <ItemRow primary={item.allergen} secondary={joinParts(item.reaction, item.severity)} />
                       {isAi ? (
-                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                        <AiItemControls itemId={item.id} field="allergies" item={item as any} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
                       ) : null}
                     </View>
                   );
@@ -695,7 +772,7 @@ useEffect(() => {
                       {i > 0 && <ListDivider />}
                       <ItemRow primary={item.name} secondary={joinParts(item.dose, item.frequency)} />
                       {isAi ? (
-                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                        <AiItemControls itemId={item.id} field="medications" item={item as any} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
                       ) : null}
                     </View>
                   );
@@ -754,7 +831,7 @@ useEffect(() => {
                       {i > 0 && <ListDivider />}
                       <ItemRow primary={item.condition} secondary={joinParts(item.year ? `Diagnosed ${item.year}` : null, item.notes)} />
                       {isAi ? (
-                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                        <AiItemControls itemId={item.id} field="medical_history" item={item as any} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
                       ) : null}
                     </View>
                   );
@@ -813,7 +890,7 @@ useEffect(() => {
                       {i > 0 && <ListDivider />}
                       <ItemRow primary={item.procedure} secondary={joinParts(item.year, item.notes)} />
                       {isAi ? (
-                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                        <AiItemControls itemId={item.id} field="surgical_history" item={item as any} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
                       ) : null}
                     </View>
                   );

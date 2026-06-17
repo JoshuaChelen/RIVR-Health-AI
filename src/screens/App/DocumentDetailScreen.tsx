@@ -9,13 +9,13 @@ import { createStyles } from "../../theme/createStyles";
 import { spacing, radius, typescale } from "../../theme/tokens";
 import {
   getDocumentAnalysis, getDocumentFile, detachDocument, reprocessDocument,
-  confirmAiItem, rejectAiItem, editAiItem,
+  confirmAiItem, rejectAiItem, editAiItem, unrejectAiItem, confirmAllDocument,
 } from "../../lib/api/data";
 import { badgeForState, isActionable, type ContributionState } from "../../lib/documentReview";
 
 type Props = NativeStackScreenProps<AppStackParamList, "DocumentDetail">;
 type Contribution = {
-  field: string; label: string; fact: Record<string, any>;
+  field: string; key?: string; label: string; fact: Record<string, any>;
   current?: Record<string, any> | null;
   origin: "ai" | "manual"; state: ContributionState; profile_item_id: string | null;
   ai_original: Record<string, any> | null;
@@ -45,6 +45,7 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
   const [confirmDetach, setConfirmDetach] = useState(false);
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [editing, setEditing] = useState<Contribution | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
 
@@ -54,6 +55,13 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
     catch (e: any) { setError(e?.message ?? "Could not load analysis."); }
     finally { setLoading(false); }
   }, [id]);
+
+  // A data-changing review action kicks off a background re-eval of the summary +
+  // emergency card. Flag it briefly so the user knows the rest of their data is catching up.
+  function flagUpdating() {
+    setUpdating(true);
+    setTimeout(() => setUpdating(false), 6000);
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -73,9 +81,23 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
   }
   async function onReject(itemId: string) {
     setBusyItem(itemId);
-    try { await rejectAiItem(itemId); await load(); }
+    try { await rejectAiItem(itemId); flagUpdating(); await load(); }
     catch (e: any) { Alert.alert("Couldn't reject", e?.message ?? "Please try again."); }
     finally { setBusyItem(null); }
+  }
+  async function onUnreject(c: Contribution) {
+    if (!c.key) return;
+    setBusyItem(c.key);
+    try { await unrejectAiItem(c.field, c.key); flagUpdating(); await load(); }
+    catch (e: any) { Alert.alert("Couldn't undo", e?.message ?? "Please try again."); }
+    finally { setBusyItem(null); }
+  }
+  async function onConfirmAll() {
+    if (acting) return;
+    setActing(true);
+    try { await confirmAllDocument(id); await load(); }
+    catch (e: any) { Alert.alert("Couldn't confirm all", e?.message ?? "Please try again."); }
+    finally { setActing(false); }
   }
   function openEdit(c: Contribution) {
     const src = c.current ?? c.fact ?? {};
@@ -89,7 +111,7 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
     if (!c?.profile_item_id) { setEditing(null); return; }
     setBusyItem(c.profile_item_id);
     setEditing(null);
-    try { await editAiItem(c.profile_item_id, editValues); await load(); }
+    try { await editAiItem(c.profile_item_id, editValues); flagUpdating(); await load(); }
     catch (e: any) { Alert.alert("Couldn't save", e?.message ?? "Please try again."); }
     finally { setBusyItem(null); }
   }
@@ -126,6 +148,13 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
+      {updating ? (
+        <View style={s.updatingBox}>
+          <ActivityIndicator color={colors.teal} size="small" />
+          <AppText style={s.updatingText}>Updating your summary & emergency card…</AppText>
+        </View>
+      ) : null}
+
       <Pressable style={s.openBtn} onPress={openOriginal} accessibilityRole="button">
         <AppText style={s.openBtnText}>View original file</AppText>
       </Pressable>
@@ -135,6 +164,13 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
           <AppText style={s.confidenceLabel}>AI confidence: {Math.round(confidence * 100)}%</AppText>
           <AppText style={s.confidenceHint}>Self-reported by the AI — verify against the original.</AppText>
         </View>
+      ) : null}
+
+      {contribs.some((c) => c.origin === "ai" && c.state === "unreviewed") ? (
+        <Pressable style={[s.confirmAll, acting && s.disabled]} disabled={acting}
+          onPress={onConfirmAll} accessibilityRole="button">
+          <AppText style={s.confirmAllText}>Looks right — confirm all</AppText>
+        </Pressable>
       ) : null}
 
       {Object.keys(FIELD_TITLES).map((field) => {
@@ -170,6 +206,13 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
                       </Pressable>
                       <Pressable disabled={itemBusy} onPress={() => onReject(c.profile_item_id!)} style={s.actionReject}>
                         <AppText style={s.actionRejectText}>Reject</AppText>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {c.state === "rejected" ? (
+                    <View style={s.actions}>
+                      <Pressable disabled={busyItem === c.key} onPress={() => onUnreject(c)} style={s.actionConfirm}>
+                        <AppText style={s.actionConfirmText}>Undo rejection</AppText>
                       </Pressable>
                     </View>
                   ) : null}
@@ -257,6 +300,11 @@ const useStyles = createStyles((c) => StyleSheet.create({
   error: { color: c.danger },
   detachedBox: { backgroundColor: c.warnSoft, borderRadius: radius.md, padding: spacing.md },
   detachedText: { color: c.warning, fontSize: typescale.size.sm, fontWeight: typescale.weight.medium },
+  updatingBox: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: c.tealSoft,
+    borderRadius: radius.md, padding: spacing.md },
+  updatingText: { color: c.teal, fontSize: typescale.size.sm, fontWeight: typescale.weight.medium },
+  confirmAll: { backgroundColor: c.tealSoft, borderRadius: radius.md, padding: spacing.sm, alignItems: "center" },
+  confirmAllText: { color: c.teal, fontWeight: typescale.weight.semibold, fontSize: typescale.size.sm },
   openBtn: { backgroundColor: c.tealSoft, borderRadius: radius.md, padding: spacing.md, alignItems: "center" },
   openBtnText: { color: c.teal, fontWeight: typescale.weight.semibold },
   confidenceBox: { backgroundColor: c.bgSecondary, borderRadius: radius.md, padding: spacing.md, gap: 2 },

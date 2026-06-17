@@ -93,6 +93,7 @@ def compute_contributions(profile: UserProfile, summary: dict) -> list[dict]:
                 is_ai = pl.is_ai_backfilled(item.get("id"))
                 out.append({
                     "field": cfg.profile_field,
+                    "key": key,
                     "label": label,
                     "fact": fact,
                     # the profile item's CURRENT displayable values (post any edit),
@@ -108,6 +109,7 @@ def compute_contributions(profile: UserProfile, summary: dict) -> list[dict]:
                 rejected = key in suppressed.get(cfg.suppressed_bucket, set())
                 out.append({
                     "field": cfg.profile_field,
+                    "key": key,  # lets the client un-reject (field + key)
                     "label": label,
                     "fact": fact,
                     "origin": "ai",

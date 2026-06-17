@@ -68,6 +68,7 @@ export function HomeScreen({ navigation }: Props) {
   const [aiRecommendations, setAiRecommendations] = useState<RecommendationItem[]>([]);
   const [error, setError] = useState(false);
   const [isScoreStale, setIsScoreStale] = useState(false);
+  const [unreviewedCount, setUnreviewedCount] = useState(0);
 
   const styles = useStyles();
   const { colors } = useTheme();
@@ -114,6 +115,7 @@ export function HomeScreen({ navigation }: Props) {
       }
 
       setAvatarPath(userProfile?.avatar_path ?? null);
+      setUnreviewedCount(Number(userProfile?.ai_review?.unreviewed) || 0);
 
       // Staleness: check if docs were processed after the last evaluation
       const latestDocAt = latestDocRes.data?.processed_at ?? null;
@@ -178,6 +180,32 @@ export function HomeScreen({ navigation }: Props) {
             ) : null}
           </Pressable>
         </View>
+
+        {/* ── AI findings to review nudge ────────────────────── */}
+        {unreviewedCount > 0 ? (
+          <Pressable
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`Review ${unreviewedCount} AI findings`}
+            onPress={() => navigation.navigate("ManageDocuments")}
+            style={({ pressed }) => [
+              {
+                flexDirection: "row", alignItems: "center", gap: spacing.sm,
+                marginHorizontal: spacing.xl, marginBottom: spacing.md,
+                paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+                borderRadius: radius.md, backgroundColor: colors.tealSoft,
+                borderWidth: 1, borderColor: colors.tealBorder,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Ionicons name="sparkles-outline" size={18} color={colors.teal} />
+            <AppText style={{ flex: 1, color: colors.teal, fontWeight: typescale.weight.semibold }}>
+              {unreviewedCount} AI {unreviewedCount === 1 ? "finding" : "findings"} to review
+            </AppText>
+            <Ionicons name="chevron-forward" size={18} color={colors.teal} />
+          </Pressable>
+        ) : null}
 
         {/* ── Error ────────────────────────────────────────── */}
         {error && !scoreLoading ? (

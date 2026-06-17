@@ -43,6 +43,9 @@ export function editAiItem(itemId: string, patch: Record<string, unknown>): Prom
 export function getAiItemSources(itemId: string): Promise<{ sources: { document_id: string; title: string }[] }> {
   return api.get(`/api/profile/ai-items/${itemId}/sources`);
 }
+export function unrejectAiItem(field: string, key: string): Promise<{ field: string; key: string; restored: boolean }> {
+  return api.post("/api/profile/ai-items/unreject", { field, key });
+}
 
 // --- health ------------------------------------------------------------------
 export async function getHealthProfile(): Promise<any | null> {
@@ -83,6 +86,9 @@ export function detachDocument(id: string): Promise<{ removed: Record<string, nu
 }
 export function reprocessDocument(id: string): Promise<{ jobId: string; reused: boolean }> {
   return api.post(`/api/documents/${id}/reprocess/`);
+}
+export function confirmAllDocument(id: string): Promise<{ confirmed: number }> {
+  return api.post(`/api/documents/${id}/confirm-all/`);
 }
 
 // --- jobs --------------------------------------------------------------------

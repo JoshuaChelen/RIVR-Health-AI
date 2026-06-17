@@ -96,6 +96,9 @@ export type UserProfile = {
   /** Storage path inside the `profile-pictures` bucket. e.g. `{user_id}/avatar.jpg`. */
   avatar_path?: string | null;
 
+  /** Server-computed AI review counts (read-only); drives the "N to review" nudge. */
+  ai_review?: { total: number; unreviewed: number };
+
   created_at: string;
   updated_at: string;
 };
