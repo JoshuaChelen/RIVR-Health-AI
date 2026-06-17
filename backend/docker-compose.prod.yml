@@ -51,10 +51,13 @@ services:
     build: {context: ., dockerfile: Dockerfile}
     image: rivr-backend:latest
     restart: unless-stopped
+    # Workers default to (2*CPU)+1 (gunicorn's recommendation) but can be pinned
+    # via GUNICORN_WORKERS in .env.prod on small/large hosts. $$ escapes compose
+    # interpolation so the container shell evaluates nproc at runtime.
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120 --access-logfile - --error-logfile -"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers $${GUNICORN_WORKERS:-$$(( $$(nproc) * 2 + 1 ))} --timeout 120 --access-logfile - --error-logfile -"
     env_file: [.env.prod]
     # Pin prod settings here so the stack can never silently fall back to the
     # config.settings.dev default baked into wsgi/celery (DEBUG=True). Overrides
@@ -75,7 +78,8 @@ services:
   worker:
     image: rivr-backend:latest
     restart: unless-stopped
-    command: celery -A config worker -l info --concurrency 2
+    # Concurrency defaults to CPU count; override with CELERY_CONCURRENCY in .env.prod.
+    command: sh -c "celery -A config worker -l info --concurrency $${CELERY_CONCURRENCY:-$$(nproc)}"
     env_file: [.env.prod]
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod

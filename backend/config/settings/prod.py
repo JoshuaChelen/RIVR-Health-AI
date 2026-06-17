@@ -22,6 +22,29 @@ SECURE_SSL_REDIRECT = False
 # auth (no cookies), so this only affects the Django admin / web sessions.
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# Security response headers. Caddy serves HTTPS, so HSTS is safe; default to one
+# year and allow disabling via env (set DJANGO_HSTS_SECONDS=0) before the domain
+# is fully cut over. The nosniff/referrer headers are cheap defense-in-depth.
+SECURE_HSTS_SECONDS = env.int("DJANGO_HSTS_SECONDS", default=31536000)  # noqa: F405
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# Self-hosted MinIO behind the internal docker hostname (minio:9000) yields
+# signed URLs that devices/simulators can't reach. We rewrite the host via
+# AWS_S3_PUBLIC_ENDPOINT_URL; fail fast in prod if the internal endpoint is used
+# without a reachable public endpoint, rather than serving dead media links.
+if "minio:9000" in AWS_S3_ENDPOINT_URL and not AWS_S3_PUBLIC_ENDPOINT_URL:  # noqa: F405
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured(
+        "AWS_S3_ENDPOINT_URL points at the internal MinIO host (minio:9000) but "
+        "AWS_S3_PUBLIC_ENDPOINT_URL is unset — signed media URLs would be "
+        "unreachable by clients. Set AWS_S3_PUBLIC_ENDPOINT_URL to the public "
+        "storage URL (e.g. https://api.rivrhealth.com/media)."
+    )
 CSRF_TRUSTED_ORIGINS = env.list(  # noqa: F405
     "DJANGO_CSRF_TRUSTED_ORIGINS",
     default=["https://api.rivrhealth.com"],
