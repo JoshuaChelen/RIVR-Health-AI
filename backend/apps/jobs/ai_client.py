@@ -57,6 +57,7 @@ Rules:
 - Be conservative. Do not guess blood type.
 - timeline_events: include only high confidence events (diagnoses, surgeries, lab results, medications).
 - For each allergy entry set type to "intolerance" ONLY when the document explicitly indicates a non-allergic intolerance (e.g. "lactose intolerance", "food intolerance", "medication intolerance"); otherwise use "allergy". Never infer intolerance from an allergy mention.
+- For each allergy, medication, condition, and surgery/procedure, include source_quote = the EXACT verbatim text from the document that this was extracted from (copy it character-for-character; do NOT paraphrase; use null if there is no exact supporting text), and confidence_0_to_1 = your 0..1 confidence that the extraction is correct.
 - For occurred_at, look carefully for dates anywhere in the document: visit/encounter dates, signature dates, lab collection/draw dates, prescription dates, discharge dates, headers, footers, and report-generated dates.
 - Accept partial dates. Use YYYY-MM-DD when known precisely, YYYY-MM when only month is known, YYYY when only year is known. Set date_precision accordingly ("day" / "month" / "year").
 - If no event date can be found in the document, return occurred_at: null and date_precision: null. Do NOT use today's date. Do NOT invent a date.

@@ -43,6 +43,8 @@ class Allergy(BaseModel):
     reaction: Optional[str] = None
     severity: Literal["low", "medium", "high", "unknown"]
     type: Literal["allergy", "intolerance"] = "allergy"
+    source_quote: Optional[str] = None
+    confidence_0_to_1: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class Medication(BaseModel):
@@ -51,6 +53,8 @@ class Medication(BaseModel):
     dose: Optional[str] = None
     frequency: Optional[str] = None
     notes: Optional[str] = None
+    source_quote: Optional[str] = None
+    confidence_0_to_1: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class Condition(BaseModel):
@@ -58,6 +62,8 @@ class Condition(BaseModel):
     name: str
     status: Optional[str] = None
     notes: Optional[str] = None
+    source_quote: Optional[str] = None
+    confidence_0_to_1: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class SurgeryProcedure(BaseModel):
@@ -65,6 +71,8 @@ class SurgeryProcedure(BaseModel):
     name: str
     when: Optional[str] = None
     notes: Optional[str] = None
+    source_quote: Optional[str] = None
+    confidence_0_to_1: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class LabVital(BaseModel):

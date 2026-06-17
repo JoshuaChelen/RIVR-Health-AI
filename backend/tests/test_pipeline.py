@@ -493,3 +493,30 @@ def test_detached_docs_excluded_from_digest_query(db):
         user=u, status=Document.Status.PROCESSED, summary_path__gt="", detached_at__isnull=True
     ).exclude(source_type=Document.SourceType.MANUAL_INPUT).values_list("id", flat=True))
     assert ids == [active.id]
+
+
+import json as _json
+
+
+def test_pipeline_verifies_source_quotes(user, mock_ai, monkeypatch):
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/q.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+
+    def facts_with_quotes(*a, **k):
+        return fake_facts(doc.id, key_facts={
+            "blood_type": None, "allergies": [], "surgeries_procedures": [], "implants_devices": [],
+            "key_labs_vitals": [], "extra_notes": [],
+            "medications": [{"name": "Metformin", "source_quote": "diabetic patient", "confidence_0_to_1": 0.7}],
+            "conditions": [{"name": "Diabetes", "source_quote": "NOT IN THE DOCUMENT", "confidence_0_to_1": 0.6}],
+        })
+    monkeypatch.setattr(ai_client, "extract_document_facts", facts_with_quotes)
+
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    doc.refresh_from_db()
+    with default_storage.open(doc.summary_path) as fh:
+        kf = _json.loads(fh.read())["key_facts"]
+    assert kf["medications"][0]["source_quote"] == "diabetic patient"
+    assert kf["conditions"][0]["source_quote"] is None
+    assert kf["conditions"][0]["confidence_0_to_1"] == 0.6

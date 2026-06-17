@@ -20,7 +20,7 @@ from apps.health.models import HealthEvaluation, HealthProfile
 from apps.profiles.models import UserProfile
 from apps.timeline.models import TimelineEvent
 
-from . import ai_client, extraction, index, profile_logic
+from . import ai_client, citations, extraction, index, profile_logic
 from .models import AiJob, AiJobEvent
 
 class CancellationError(Exception):
@@ -156,6 +156,9 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
     for _lv in (facts.get("key_facts", {}).get("key_labs_vitals") or []):
         if _lv.get("value"):
             _lv["value"] = extraction.normalize_units(_lv["value"])
+
+    # Keep only source quotes that are provably in the document text.
+    facts["key_facts"] = citations.verify_quotes(facts.get("key_facts", {}), text)
 
     _write_json(_summary_key(user_id, doc.id), facts)
 

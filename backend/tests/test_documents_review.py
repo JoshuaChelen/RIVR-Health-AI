@@ -100,3 +100,15 @@ def test_destroy_removes_summary_and_contributions(client, user):
     assert not default_storage.exists(skey)
     profile.refresh_from_db()
     assert profile.medications == []
+
+
+def test_analysis_surfaces_source_quote_and_confidence(client, user):
+    doc = Document.objects.create(user=user, source_type="pdf", status="processed")
+    doc.summary_path = _summary(user.id, doc.id, {"medications": [
+        {"name": "Metformin", "source_quote": "Metformin 500mg", "confidence_0_to_1": 0.82}]})
+    doc.save()
+    resp = client.get(f"/api/documents/{doc.id}/analysis/")
+    assert resp.status_code == 200
+    med = next(c for c in resp.json()["contributions"] if c["label"] == "Metformin")
+    assert med["fact"]["source_quote"] == "Metformin 500mg"
+    assert med["fact"]["confidence_0_to_1"] == 0.82
