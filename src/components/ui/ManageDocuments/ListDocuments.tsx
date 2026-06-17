@@ -610,6 +610,18 @@ export function ListDocuments({
     setUserId(user?.id ?? null);
   }, [user?.id]);
 
+  // Processed "Your records" list. Refetched on load AND on every poll tick so it
+  // reflects detach / re-run / a doc finishing processing without a manual refresh.
+  const refreshRecords = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const rec = await listDocuments(`?status=processed&offset=0&limit=50&ordering=-created_at`);
+      setRecords(((rec.results ?? []) as DocRow[]).filter((d) => d.source_type !== "manual_input"));
+    } catch {
+      // Silent — records are supplementary; the active list surfaces errors.
+    }
+  }, [userId]);
+
   // Initial fetch (paginated)
   const fetchDocs = useCallback(async (offset: number, append: boolean) => {
     if (!userId) return;
@@ -625,8 +637,7 @@ export function ListDocuments({
         setDocs((prev) => [...prev, ...rows]);
       } else {
         setDocs(rows);
-        const rec = await listDocuments(`?status=processed&offset=0&limit=50&ordering=-created_at`);
-        setRecords(((rec.results ?? []) as DocRow[]).filter((d) => d.source_type !== "manual_input"));
+        await refreshRecords();
       }
     } catch (e: any) {
       setError(e?.message ?? "Failed to load documents.");
@@ -634,7 +645,7 @@ export function ListDocuments({
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [userId, refreshRecords]);
 
   useEffect(() => {
     if (!userId) return;
@@ -721,13 +732,16 @@ export function ListDocuments({
           }
           return changed ? next : prev;
         });
+        // Keep "Your records" current as docs finish processing or are detached/
+        // re-run from the detail screen.
+        await refreshRecords();
       } catch (e) {
         // Silent fail on polling
       }
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [userId, getAnim, animateOut]);
+  }, [userId, getAnim, animateOut, refreshRecords]);
 
   // Polling for ai_jobs stage (handled in next effect)
 
@@ -889,7 +903,7 @@ export function ListDocuments({
                         {d.title ?? "(untitled)"}
                       </AppText>
                       <AppText style={{ color: colors.muted, fontSize: typescale.size.xs }}>
-                        {new Date(d.created_at).toLocaleDateString()} · {d.detached_at ? "Results removed" : "Reviewed in analysis"}
+                        {new Date(d.created_at).toLocaleDateString()} · {d.detached_at ? "Results removed" : "Tap to review"}
                       </AppText>
                     </View>
                   </Pressable>

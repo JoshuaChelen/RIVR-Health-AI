@@ -121,6 +121,7 @@ function AiItemControls({ itemId, reviewStatus, onReviewed }: {
       onReviewed();
     } catch (e) {
       captureException(e);
+      Alert.alert("Couldn't confirm", "Please try again.");
     } finally {
       setBusy(false);
     }
@@ -133,6 +134,7 @@ function AiItemControls({ itemId, reviewStatus, onReviewed }: {
       onReviewed();
     } catch (e) {
       captureException(e);
+      Alert.alert("Couldn't reject", "Please try again.");
     } finally {
       setBusy(false);
     }
@@ -145,6 +147,7 @@ function AiItemControls({ itemId, reviewStatus, onReviewed }: {
       Alert.alert("Source documents", titles || "No source documents found.");
     } catch (e) {
       captureException(e);
+      Alert.alert("Couldn't load sources", "Please try again.");
     }
   }
 

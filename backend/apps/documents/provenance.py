@@ -94,6 +94,10 @@ def compute_contributions(profile: UserProfile, summary: dict) -> list[dict]:
                     "field": cfg.profile_field,
                     "label": label,
                     "fact": fact,
+                    # the profile item's CURRENT displayable values (post any edit),
+                    # so the client can pre-fill the edit form accurately.
+                    "current": {k: v for k, v in item.items()
+                                if k not in ("id", "review_status", "reviewed_at", "ai_original")},
                     "origin": "ai" if is_ai else "manual",
                     "state": (item.get("review_status") or "unreviewed") if is_ai else "present",
                     "profile_item_id": item.get("id"),
