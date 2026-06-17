@@ -31,6 +31,18 @@ export function deleteAvatar(): Promise<void> {
 export function deleteAccount(): Promise<void> {
   return api.del<void>("/api/account");
 }
+export function confirmAiItem(itemId: string): Promise<any> {
+  return api.post(`/api/profile/ai-items/${itemId}/confirm`);
+}
+export function rejectAiItem(itemId: string): Promise<any> {
+  return api.post(`/api/profile/ai-items/${itemId}/reject`);
+}
+export function editAiItem(itemId: string, patch: Record<string, unknown>): Promise<any> {
+  return api.patch(`/api/profile/ai-items/${itemId}`, patch);
+}
+export function getAiItemSources(itemId: string): Promise<{ sources: { document_id: string; title: string }[] }> {
+  return api.get(`/api/profile/ai-items/${itemId}/sources`);
+}
 
 // --- health ------------------------------------------------------------------
 export async function getHealthProfile(): Promise<any | null> {
@@ -59,6 +71,18 @@ export function uploadDocument(file: unknown, sourceType: string, title?: string
 }
 export function deleteDocument(id: string): Promise<unknown> {
   return api.del(`/api/documents/${id}/`);
+}
+export function getDocumentAnalysis(id: string): Promise<any> {
+  return api.get(`/api/documents/${id}/analysis/`);
+}
+export function getDocumentFile(id: string): Promise<{ url: string | null }> {
+  return api.get(`/api/documents/${id}/file/`);
+}
+export function detachDocument(id: string): Promise<{ removed: Record<string, number>; kept_shared: Record<string, number> }> {
+  return api.post(`/api/documents/${id}/detach/`);
+}
+export function reprocessDocument(id: string): Promise<{ jobId: string; reused: boolean }> {
+  return api.post(`/api/documents/${id}/reprocess/`);
 }
 
 // --- jobs --------------------------------------------------------------------
