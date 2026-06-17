@@ -1360,6 +1360,8 @@ export function isActionable(state: ContributionState, origin: "ai" | "manual"):
 ```
 Create `src/lib/documentReview.test.ts`:
 ```typescript
+import { describe, expect, it } from "vitest";
+
 import { badgeForState, isActionable } from "./documentReview";
 
 describe("badgeForState", () => {
@@ -1382,10 +1384,10 @@ describe("isActionable", () => {
 });
 ```
 
-- [ ] **Step 3: Run the jest test**
+- [ ] **Step 3: Run the vitest test**
 
-Run: `npx jest src/lib/documentReview.test.ts`
-Expected: PASS
+Run: `npx vitest run src/lib/documentReview.test.ts`
+Expected: PASS (this project uses vitest, not jest)
 
 - [ ] **Step 4: Commit**
 
@@ -1780,10 +1782,10 @@ git commit -m "feat(client): AI badges + confirm/reject/source on medical profil
 Run: `cd backend && .venv/bin/pytest -q`
 Expected: all PASS (new + pre-existing).
 
-- [ ] **Step 2: Client tests + typecheck + lint**
+- [ ] **Step 2: Client tests + typecheck**
 
-Run: `npx jest src/lib/documentReview.test.ts && npx tsc --noEmit && npx eslint src/screens/App/DocumentDetailScreen.tsx src/lib/documentReview.ts`
-Expected: PASS / no errors.
+Run: `npx vitest run src/lib/documentReview.test.ts && npm run typecheck`
+Expected: vitest PASS; typecheck reports **0 `error TS` lines** (the tree was clean at baseline, so any new error is ours to fix).
 
 - [ ] **Step 3: Migration check**
 
