@@ -11,7 +11,7 @@ import {
   getDocumentAnalysis, getDocumentFile, detachDocument, reprocessDocument,
   confirmAiItem, rejectAiItem, editAiItem, unrejectAiItem, confirmAllDocument,
 } from "../../lib/api/data";
-import { badgeForState, isActionable, type ContributionState } from "../../lib/documentReview";
+import { badgeForState, isActionable, confidenceChip, type ContributionState } from "../../lib/documentReview";
 
 type Props = NativeStackScreenProps<AppStackParamList, "DocumentDetail">;
 type Contribution = {
@@ -200,6 +200,17 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
                   {c.ai_original ? (
                     <AppText style={s.original}>AI originally read: {summarize(c.ai_original)}</AppText>
                   ) : null}
+                  {c.fact?.source_quote ? (
+                    <AppText style={s.quote}>“{c.fact.source_quote}”</AppText>
+                  ) : null}
+                  {(() => {
+                    const chip = confidenceChip(c.fact?.confidence_0_to_1);
+                    return chip ? (
+                      <View style={[s.confChip, { backgroundColor: toneBg(colors, chip.tone) }]}>
+                        <AppText style={[s.confChipText, { color: toneFg(colors, chip.tone) }]}>{chip.label}</AppText>
+                      </View>
+                    ) : null;
+                  })()}
                   {actionable ? (
                     <View style={s.actions}>
                       {c.state !== "confirmed" ? (
@@ -340,6 +351,9 @@ const useStyles = createStyles((c) => StyleSheet.create({
   badge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   badgeText: { fontSize: typescale.size.xs, fontWeight: typescale.weight.semibold },
   original: { color: c.muted, fontSize: typescale.size.xs },
+  quote: { color: c.textSub, fontSize: typescale.size.xs, fontStyle: "italic" },
+  confChip: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  confChipText: { fontSize: typescale.size.xs, fontWeight: typescale.weight.semibold },
   actions: { flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" },
   actionConfirm: { backgroundColor: c.tealSoft, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6 },
   actionConfirmText: { color: c.teal, fontWeight: typescale.weight.semibold, fontSize: typescale.size.xs },

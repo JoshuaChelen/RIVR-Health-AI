@@ -20,3 +20,18 @@ describe("isActionable", () => {
     expect(isActionable("present", "manual")).toBe(false);
   });
 });
+
+import { confidenceChip } from "./documentReview";
+
+describe("confidenceChip", () => {
+  it("returns null for a non-number", () => {
+    expect(confidenceChip(undefined)).toBeNull();
+    expect(confidenceChip(null)).toBeNull();
+  });
+  it("labels a percent and is ok at/above 0.5", () => {
+    expect(confidenceChip(0.82)).toEqual({ label: "82% confident", tone: "ok" });
+  });
+  it("warns below 0.5", () => {
+    expect(confidenceChip(0.3)?.tone).toBe("warn");
+  });
+});

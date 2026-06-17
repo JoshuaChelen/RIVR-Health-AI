@@ -18,3 +18,9 @@ export function badgeForState(state: ContributionState, origin: "ai" | "manual")
 export function isActionable(state: ContributionState, origin: "ai" | "manual"): boolean {
   return origin === "ai" && (state === "unreviewed" || state === "confirmed" || state === "edited");
 }
+
+// Per-item confidence -> a small chip; amber (warn) below 0.5, else ok. null when unknown.
+export function confidenceChip(v?: number | null): { label: string; tone: "ok" | "warn" } | null {
+  if (typeof v !== "number" || Number.isNaN(v)) return null;
+  return { label: `${Math.round(v * 100)}% confident`, tone: v < 0.5 ? "warn" : "ok" };
+}
