@@ -85,7 +85,12 @@ class DocumentViewSet(OwnedModelViewSet):
             return Response({"detail": "Manual records have no detachable results."},
                             status=status.HTTP_400_BAD_REQUEST)
         from .provenance import detach_document
-        return Response(detach_document(request.user, doc))
+        result = detach_document(request.user, doc)
+        # Regenerate the derived health profile (card/summary/score) without the
+        # detached document's contributions.
+        from apps.jobs.services import trigger_profile_evaluation
+        trigger_profile_evaluation(request.user)
+        return Response(result)
 
     @action(detail=True, methods=["post"])
     def reprocess(self, request, pk=None):

@@ -8,13 +8,33 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.documents.models import Document
-from apps.jobs import ai_client, index
+from apps.jobs import ai_client, index, profile_logic
+from apps.profiles.models import UserProfile
 from apps.timeline.models import TimelineEvent
 
 from .models import HealthProfile
 
 MAX_QUESTION = 500
 MAX_HISTORY_TURNS = 8
+
+
+def _suppression(user):
+    """(suppressed-keys dict, flat set of all suppressed normalized keys) for a user.
+
+    Keeps items the user has rejected out of the QA context / retrieval results.
+    """
+    prof = UserProfile.objects.filter(user=user).first()
+    if prof is None:
+        empty = {"allergies": set(), "medications": set(), "conditions": set(), "surgeries": set()}
+        return empty, set()
+    pdict = {
+        "allergies": prof.allergies, "medications": prof.medications,
+        "medical_history": prof.medical_history, "surgical_history": prof.surgical_history,
+        "ai_backfill_meta": prof.ai_backfill_meta,
+    }
+    sup = profile_logic.compute_suppressed_keys(pdict)
+    flat = set().union(*sup.values())
+    return sup, flat
 
 
 def _sanitize_history(raw) -> list[dict]:
@@ -37,6 +57,7 @@ def _static_qa_context(user) -> str:
     if hp:
         summary = (hp.summary_json or {}).get("full_summary_markdown") or ""
         parts.append(f"HEALTH_SUMMARY (score {hp.score} {hp.score_label}):\n{summary[:8000]}")
+    suppressed, _flat = _suppression(user)
     docs = Document.objects.filter(
         user=user, status=Document.Status.PROCESSED, summary_path__gt="",
         detached_at__isnull=True,
@@ -45,6 +66,8 @@ def _static_qa_context(user) -> str:
         try:
             with default_storage.open(doc.summary_path) as fh:
                 facts = json.loads(fh.read())
+            # Drop facts the user has rejected so they can't be cited in answers.
+            facts = profile_logic.filter_doc_facts_by_suppression([facts], suppressed)[0]
             parts.append(f"DOCUMENT [{doc.title}]: {json.dumps(facts.get('key_facts', {}))[:1500]}")
         except Exception:
             continue
@@ -74,7 +97,11 @@ def build_qa_context(user, question: str, prior_question: str = ""):
         summary = (hp.summary_json or {}).get("full_summary_markdown") or ""
         if summary:
             parts.append(f"HEALTH_SUMMARY (score {hp.score} {hp.score_label}):\n{summary[:8000]}")
+    _suppressed, flat = _suppression(user)
     for h in hits:
+        content_norm = profile_logic.norm(h.content or "")
+        if any(k and k in content_norm for k in flat):
+            continue  # rejected item — don't let it be retrieved/cited
         parts.append(f"RECORD: {h.content}")
         sources.append({
             "title": (h.document.title if h.document_id and h.document else "Record"),

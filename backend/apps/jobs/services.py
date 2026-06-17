@@ -54,3 +54,23 @@ def enqueue_profile_evaluation(user) -> tuple[AiJob, bool]:
         user=user, job_type=AiJob.JobType.PROFILE_EVALUATION, document_ids=[]
     )
     return job, False
+
+
+def trigger_profile_evaluation(user) -> AiJob:
+    """Enqueue a profile_evaluation AND dispatch the celery task on commit.
+
+    Used after a review action (reject/edit/detach) so the derived HealthProfile
+    (3x5 card, summary, score, facts_digest) is regenerated honoring the user's
+    change. Rapid actions coalesce because enqueue_profile_evaluation reuses an
+    already-active job.
+    """
+    from config import celery_app
+
+    job, reused = enqueue_profile_evaluation(user)
+    if not reused:
+        transaction.on_commit(
+            lambda: celery_app.send_task(
+                "apps.jobs.tasks.profile_evaluation_task", args=[str(job.id)]
+            )
+        )
+    return job

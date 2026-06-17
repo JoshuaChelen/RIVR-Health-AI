@@ -65,8 +65,14 @@ class AiItemRejectView(_ItemBase):
         if item is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         arr = getattr(profile, field)
-        arr.pop(idx)  # leave added_keys intact -> suppression prevents resurfacing
+        rejected = arr.pop(idx)  # leave added_keys intact -> suppression prevents resurfacing
         profile.save(update_fields=[field, "updated_at"])
+        # Remove the matching timeline event(s) and regenerate the derived health
+        # profile (3x5 card, summary, score) so the rejection shows up everywhere.
+        from apps.documents.provenance import delete_timeline_for_item
+        from apps.jobs.services import trigger_profile_evaluation
+        delete_timeline_for_item(request.user, field, rejected)
+        trigger_profile_evaluation(request.user)
         return Response({"id": item_id, "rejected": True})
 
 
@@ -92,6 +98,10 @@ class AiItemEditView(_ItemBase):
         item["reviewed_at"] = djtz.now().isoformat()
         getattr(profile, field)[idx] = item
         profile.save(update_fields=[field, "updated_at"])
+        # Regenerate the derived health profile so the corrected value (e.g. dose)
+        # shows on the 3x5 card / summary.
+        from apps.jobs.services import trigger_profile_evaluation
+        trigger_profile_evaluation(request.user)
         return Response(item)
 
 

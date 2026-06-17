@@ -166,6 +166,47 @@ def documents_sharing_key(profile: UserProfile, other_summaries: list[dict],
     return False
 
 
+def delete_timeline_for_item(user, profile_field: str, item: dict) -> int:
+    """Best-effort: delete document_ai timeline events for a rejected item.
+
+    Scoped to the active documents that actually contributed the item's key, and
+    matched by the item's normalized key appearing in the event title/summary
+    (e.g. condition "Cancer" -> event "Cancer Diagnosis"). Conservative: only
+    events from contributing docs are considered, so unrelated events stay.
+    """
+    from apps.timeline.models import TimelineEvent
+    from .models import Document
+
+    cfg = next((c for c in FIELD_MAP if c.profile_field == profile_field), None)
+    if cfg is None:
+        return 0
+    key = cfg.profile_key(item)
+    if not key:
+        return 0
+
+    doc_ids = []
+    for d in (Document.objects
+              .filter(user=user, status=Document.Status.PROCESSED, detached_at__isnull=True)
+              .exclude(source_type=Document.SourceType.MANUAL_INPUT)):
+        summary = read_summary(d.summary_path)
+        if not summary:
+            continue
+        facts = (summary.get("key_facts", {}) or {}).get(cfg.doc_field) or []
+        if any(isinstance(f, dict) and cfg.doc_key(f) == key for f in facts):
+            doc_ids.append(d.id)
+    if not doc_ids:
+        return 0
+
+    ids = [
+        ev.id for ev in TimelineEvent.objects.filter(
+            user=user, document_id__in=doc_ids, source="document_ai")
+        if key in pl.norm(ev.title or "") or key in pl.norm(ev.summary or "")
+    ]
+    if ids:
+        TimelineEvent.objects.filter(id__in=ids).delete()
+    return len(ids)
+
+
 @transaction.atomic
 def detach_document(user, document) -> dict:
     """Remove this document's UNIQUE ai contributions; keep shared/manual ones.
