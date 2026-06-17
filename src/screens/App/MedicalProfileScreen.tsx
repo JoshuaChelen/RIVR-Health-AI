@@ -26,6 +26,7 @@ import {
   type SurgeryItem, type FamilyHistoryItem,
   type HospitalizationItem, type SocialHistoryItem,
 } from "../../lib/profileMedical";
+import { allergySecondaryLabel } from "../../lib/intolerance";
 
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { AppText } from "../../components/ui/Primitives/AppText";
@@ -53,6 +54,7 @@ const SMOKING_OPTS  = ["Never", "Former", "Current", "Prefer not to say"];
 const ALCOHOL_OPTS  = ["None", "Occasional", "Moderate", "Heavy", "Prefer not to say"];
 const EXERCISE_OPTS = ["Sedentary", "Light", "Moderate", "Active", "Very Active"];
 const SEVERITY_OPTS = ["Mild", "Moderate", "Severe"];
+const TYPE_OPTS = ["allergy", "intolerance"];
 const RELATION_OPTS = ["Parent", "Sibling", "Grandparent", "Child", "Other"];
 
 
@@ -118,8 +120,9 @@ function ItemRow({ primary, secondary, onDelete }: {
 
 // Editable detail fields per array field — MUST match backend DETAIL_FIELDS
 // (apps/profiles/ai_item_views.py); the key field is intentionally not editable.
-const AI_EDITABLE: Record<string, { key: string; label: string }[]> = {
-  allergies: [{ key: "reaction", label: "Reaction" }, { key: "severity", label: "Severity" }],
+const AI_EDITABLE: Record<string, { key: string; label: string; options?: string[] }[]> = {
+  allergies: [{ key: "reaction", label: "Reaction" }, { key: "severity", label: "Severity" },
+              { key: "type", label: "Type", options: ["allergy", "intolerance"] }],
   medications: [{ key: "dose", label: "Dose" }, { key: "frequency", label: "Frequency" }],
   medical_history: [{ key: "year", label: "Year" }, { key: "notes", label: "Notes" }],
   surgical_history: [{ key: "year", label: "Year" }, { key: "notes", label: "Notes" }],
@@ -228,12 +231,17 @@ function AiItemControls({ itemId, field, item, reviewStatus, onReviewed }: {
             {(AI_EDITABLE[field] ?? []).map((f) => (
               <View key={f.key} style={s.aiEditRow}>
                 <AppText style={s.aiEditLabel}>{f.label}</AppText>
-                <TextInput
-                  style={s.aiEditInput}
-                  value={editValues[f.key] ?? ""}
-                  onChangeText={(t) => setEditValues((v) => ({ ...v, [f.key]: t }))}
-                  placeholder={f.label}
-                />
+                {f.options ? (
+                  <OptionPills options={f.options} selected={editValues[f.key] || "allergy"}
+                    onSelect={(v) => setEditValues((s2) => ({ ...s2, [f.key]: v }))} />
+                ) : (
+                  <TextInput
+                    style={s.aiEditInput}
+                    value={editValues[f.key] ?? ""}
+                    onChangeText={(t) => setEditValues((v) => ({ ...v, [f.key]: t }))}
+                    placeholder={f.label}
+                  />
+                )}
               </View>
             ))}
             <View style={s.aiEditButtons}>
@@ -463,7 +471,7 @@ useEffect(() => {
   // ─── Allergies ─────────────────────────────────────────────────────────────
   function addAllergy() {
     if (!f("allergen").trim()) return;
-    setEditAllergies((prev) => [...prev, { id: makeId(), allergen: f("allergen").trim(), reaction: f("reaction").trim(), severity: f("severity") }]);
+    setEditAllergies((prev) => [...prev, { id: makeId(), allergen: f("allergen").trim(), reaction: f("reaction").trim(), severity: f("severity"), type: (f("type") || "allergy") as "allergy" | "intolerance" }]);
     setAddForm({});
   }
   function saveAllergies() {
@@ -472,7 +480,7 @@ useEffect(() => {
     // addForm still holds the form data and we include it here.
     const pending = f("allergen").trim();
     const list = pending
-      ? [...editAllergies, { id: makeId(), allergen: pending, reaction: f("reaction").trim(), severity: f("severity") }]
+      ? [...editAllergies, { id: makeId(), allergen: pending, reaction: f("reaction").trim(), severity: f("severity"), type: (f("type") || "allergy") as "allergy" | "intolerance" }]
       : editAllergies;
     persist({ allergies: list });
   }
@@ -686,7 +694,7 @@ useEffect(() => {
                       {i > 0 && <ListDivider />}
                       <ItemRow
                         primary={item.allergen}
-                        secondary={joinParts(item.reaction, item.severity)}
+                        secondary={allergySecondaryLabel(item.reaction, item.severity, (item as any).type)}
                         onDelete={() => setEditAllergies((p) => p.filter((x) => x.id !== item.id))}
                       />
                     </View>
@@ -700,6 +708,10 @@ useEffect(() => {
                     <AppText variant="label">Severity</AppText>
                     <OptionPills options={SEVERITY_OPTS} selected={f("severity") || null} onSelect={(v) => setField("severity", v)} />
                   </View>
+                  <View style={styles.pillGroup}>
+                    <AppText variant="label">Type</AppText>
+                    <OptionPills options={TYPE_OPTS} selected={f("type") || "allergy"} onSelect={(v) => setField("type", v)} />
+                  </View>
                   <AddButton label="Add allergy" onPress={addAllergy} />
                 </View>
               </View>
@@ -711,7 +723,7 @@ useEffect(() => {
                   return (
                     <View key={item.id}>
                       {i > 0 && <ListDivider />}
-                      <ItemRow primary={item.allergen} secondary={joinParts(item.reaction, item.severity)} />
+                      <ItemRow primary={item.allergen} secondary={allergySecondaryLabel(item.reaction, item.severity, (item as any).type)} />
                       {isAi ? (
                         <AiItemControls itemId={item.id} field="allergies" item={item as any} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
                       ) : null}

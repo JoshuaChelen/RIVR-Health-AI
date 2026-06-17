@@ -28,8 +28,9 @@ const FIELD_TITLES: Record<string, string> = {
 
 // Editable detail fields per array field — MUST match the backend DETAIL_FIELDS
 // in apps/profiles/ai_item_views.py (the key field is intentionally not editable).
-const EDITABLE: Record<string, { key: string; label: string }[]> = {
-  allergies: [{ key: "reaction", label: "Reaction" }, { key: "severity", label: "Severity" }],
+const EDITABLE: Record<string, { key: string; label: string; options?: string[] }[]> = {
+  allergies: [{ key: "reaction", label: "Reaction" }, { key: "severity", label: "Severity" },
+              { key: "type", label: "Type", options: ["allergy", "intolerance"] }],
   medications: [{ key: "dose", label: "Dose" }, { key: "frequency", label: "Frequency" }],
   medical_history: [{ key: "year", label: "Year" }, { key: "notes", label: "Notes" }],
   surgical_history: [{ key: "year", label: "Year" }, { key: "notes", label: "Notes" }],
@@ -258,13 +259,27 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
             {(EDITABLE[editing.field] ?? []).map((f) => (
               <View key={f.key} style={s.editRow}>
                 <AppText style={s.editLabel}>{f.label}</AppText>
-                <TextInput
-                  style={s.editInput}
-                  value={editValues[f.key] ?? ""}
-                  onChangeText={(t) => setEditValues((v) => ({ ...v, [f.key]: t }))}
-                  placeholder={f.label}
-                  placeholderTextColor={colors.muted}
-                />
+                {f.options ? (
+                  <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                    {f.options.map((opt) => {
+                      const sel = (editValues[f.key] || "allergy") === opt;
+                      return (
+                        <Pressable key={opt} onPress={() => setEditValues((v) => ({ ...v, [f.key]: opt }))}
+                          style={[s.actionEdit, sel && { backgroundColor: colors.tealSoft }]}>
+                          <AppText style={[s.actionEditText, sel && { color: colors.teal }]}>{opt}</AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={s.editInput}
+                    value={editValues[f.key] ?? ""}
+                    onChangeText={(t) => setEditValues((v) => ({ ...v, [f.key]: t }))}
+                    placeholder={f.label}
+                    placeholderTextColor={colors.muted}
+                  />
+                )}
               </View>
             ))}
             <View style={s.sheetRow}>

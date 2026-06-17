@@ -6,6 +6,7 @@ export type AllergyItem = {
   allergen: string;
   reaction: string;   // optional in UI but required on type for simplicity
   severity: string;   // Mild | Moderate | Severe | ""
+  type?: "allergy" | "intolerance";   // absent ⇒ allergy
 };
 
 export type MedicationItem = {
