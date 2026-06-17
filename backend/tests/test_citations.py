@@ -48,3 +48,16 @@ def test_verify_quotes_ignores_non_reviewable_lists():
     from apps.jobs.citations import verify_quotes
     kf = {"key_labs_vitals": [{"name": "HbA1c", "source_quote": "not checked"}]}
     assert verify_quotes(kf, "some text")["key_labs_vitals"][0]["source_quote"] == "not checked"
+
+
+def test_strip_citation_fields_removes_quote_and_confidence():
+    from apps.jobs.profile_logic import strip_citation_fields
+    docs = [{"key_facts": {
+        "medications": [{"name": "Metformin", "dose": "500mg", "source_quote": "long quote", "confidence_0_to_1": 0.8}],
+        "allergies": [{"substance": "Latex", "source_quote": "q", "confidence_0_to_1": 0.5}],
+        "conditions": [], "surgeries_procedures": []}}]
+    out = strip_citation_fields(docs)
+    m = out[0]["key_facts"]["medications"][0]
+    assert "source_quote" not in m and "confidence_0_to_1" not in m
+    assert m["name"] == "Metformin" and m["dose"] == "500mg"
+    assert "source_quote" not in out[0]["key_facts"]["allergies"][0]

@@ -345,7 +345,9 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
             digest = profile_logic.build_facts_digest(all_doc_facts, suppressed)
         except Exception as exc:  # never break the eval over a digest bug
             _log(job, "warn", f"Digest build failed; sending raw facts: {exc}")
-            digest = all_doc_facts
+            # Strip display-only citation fields so the raw-facts fallback matches the
+            # normal digest (which excludes them) and doesn't bloat the eval prompt.
+            digest = profile_logic.strip_citation_fields(all_doc_facts)
 
     digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now()}
 

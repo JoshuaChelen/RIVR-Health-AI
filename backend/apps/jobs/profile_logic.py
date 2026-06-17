@@ -870,8 +870,43 @@ _NOTES_CAP = 40
 _TIMELINE_CAP = 50
 
 
+_CITATION_FIELDS = ("source_quote", "confidence_0_to_1")
+_CITATION_LISTS = ("allergies", "medications", "conditions", "surgeries_procedures")
+
+
+def strip_citation_fields(doc_facts_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Return doc-facts with per-item citation fields removed.
+
+    Citations (source_quote, confidence_0_to_1) are display-only (phase 2B) and must
+    not reach the eval prompt. build_facts_digest already excludes them; this is used
+    on the raw-facts fallback path so that path stays citation-free too (no token bloat).
+    """
+    out: List[Dict[str, Any]] = []
+    for doc in doc_facts_list:
+        if not isinstance(doc, dict):
+            out.append(doc)
+            continue
+        kf = doc.get("key_facts")
+        if not isinstance(kf, dict):
+            out.append(doc)
+            continue
+        new_kf = dict(kf)
+        for field in _CITATION_LISTS:
+            new_kf[field] = [
+                {k: v for k, v in item.items() if k not in _CITATION_FIELDS}
+                if isinstance(item, dict) else item
+                for item in (new_kf.get(field) or [])
+            ]
+        out.append({**doc, "key_facts": new_kf})
+    return out
+
+
 def build_facts_digest(doc_facts_list: List[Dict[str, Any]], suppressed=None) -> Dict[str, Any]:
     """Fold many documents' KeyFacts into ONE bounded, deduped facts object.
+
+    Note: per-item citation fields (source_quote, confidence_0_to_1) are intentionally
+    NOT carried into the digest — they are display-only and the eval doesn't use them
+    (keeps the eval prompt small). The original summary.json keeps them for the UI.
 
     Pass docs oldest->newest: last-wins fields (e.g. blood_type) then reflect the most
     recently processed document.

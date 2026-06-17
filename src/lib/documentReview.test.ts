@@ -35,3 +35,12 @@ describe("confidenceChip", () => {
     expect(confidenceChip(0.3)?.tone).toBe("warn");
   });
 });
+
+describe("confidenceChip boundaries", () => {
+  it("treats exactly 0.5 as ok", () => {
+    expect(confidenceChip(0.5)?.tone).toBe("ok");
+  });
+  it("handles zero confidence (warn, 0%)", () => {
+    expect(confidenceChip(0)).toEqual({ label: "0% confident", tone: "warn" });
+  });
+});
