@@ -42,6 +42,7 @@ class Allergy(BaseModel):
     substance: str
     reaction: Optional[str] = None
     severity: Literal["low", "medium", "high", "unknown"]
+    type: Literal["allergy", "intolerance"] = "allergy"
 
 
 class Medication(BaseModel):

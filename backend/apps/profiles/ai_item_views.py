@@ -35,7 +35,7 @@ def _propagate_review_change(user, action: str) -> None:
 KEY_FIELD = {"allergies": "allergen", "medications": "name",
              "medical_history": "condition", "surgical_history": "procedure"}
 DETAIL_FIELDS = {
-    "allergies": {"reaction", "severity"},
+    "allergies": {"reaction", "severity", "type"},
     "medications": {"dose", "frequency"},
     "medical_history": {"year", "notes"},
     "surgical_history": {"year", "notes"},
@@ -112,6 +112,9 @@ class AiItemEditView(_ItemBase):
         bad = set(incoming) - allowed
         if bad:
             return Response({"detail": f"Cannot edit: {', '.join(sorted(bad))}."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if "type" in incoming and incoming["type"] not in ("allergy", "intolerance"):
+            return Response({"detail": "type must be 'allergy' or 'intolerance'."},
                             status=status.HTTP_400_BAD_REQUEST)
         if "ai_original" not in item:
             item["ai_original"] = {k: item.get(k) for k in ({KEY_FIELD[field]} | allowed)}

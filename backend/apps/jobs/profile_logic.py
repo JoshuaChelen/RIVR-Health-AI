@@ -21,6 +21,7 @@ class AllergyItem(TypedDict, total=False):
     allergen: str
     reaction: str
     severity: str
+    type: str
 
 
 class MedicationItem(TypedDict, total=False):
@@ -104,6 +105,7 @@ class NormalizedAllergy(TypedDict, total=False):
     allergen: str
     reaction: str
     severity: str
+    type: str
 
 
 class NormalizedMedication(TypedDict, total=False):
@@ -405,6 +407,8 @@ def build_manual_profile_context(row: UserProfileRow) -> ManualProfileContext:
             normalized["reaction"] = reaction
         if severity := trimmed(a.get("severity")):
             normalized["severity"] = severity
+        if a.get("type") in ("allergy", "intolerance"):
+            normalized["type"] = a["type"]
         allergies.append(normalized)
 
     # ── Medications ─────────────────────────────────────────────────────────
@@ -558,6 +562,8 @@ def build_ai_backfilled_context(row: UserProfileRow) -> Optional[AiBackfilledCon
             normalized["reaction"] = reaction
         if severity := trimmed(a.get("severity")):
             normalized["severity"] = severity
+        if a.get("type") in ("allergy", "intolerance"):
+            normalized["type"] = a["type"]
         allergies.append(normalized)
 
     medications: List[NormalizedMedication] = []
@@ -657,6 +663,7 @@ def extract_backfill_candidates(doc_facts_list: List[Dict[str, Any]]) -> Backfil
                     "allergen": substance,
                     "reaction": trimmed(a.get("reaction", "")) or "",
                     "severity": map_severity(a.get("severity", "")),
+                    "type": a.get("type") or "allergy",
                 }
             )
 

@@ -198,7 +198,10 @@ def merge_card_with_profile(card: dict, manual_ctx: dict, raw_profile: dict | No
 
     raw_allergies = raw_profile.get("allergies")
     if manual_ctx.get("allergies"):
-        merged["allergies"] = [a["allergen"] for a in manual_ctx["allergies"]]
+        merged["allergies"] = [
+            a["allergen"] + (" (intolerance)" if a.get("type") == "intolerance" else "")
+            for a in manual_ctx["allergies"]
+        ]
     elif isinstance(raw_allergies, list) and not has_manual_items("allergies"):
         # user has no manual allergies (empty or only AI items the model already saw)
         if len(raw_allergies) == 0:
