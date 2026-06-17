@@ -1,7 +1,12 @@
 """Phase 2A: allergy/intolerance type subfield."""
+import json
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
+from apps.documents.models import Document
 from apps.profiles.models import UserProfile
 
 
@@ -77,3 +82,33 @@ def test_edit_can_set_type(client, user):
 def test_edit_rejects_bad_type(client, user):
     _seed_allergy(user)
     assert client.patch("/api/profile/ai-items/ai_a1", {"type": "nope"}, format="json").status_code == 400
+
+
+# ── Audit fix: AI-only intolerances must be labeled on the card ─────────────
+def test_card_labels_ai_only_intolerance():
+    from apps.jobs.pipeline import merge_card_with_profile
+    raw_profile = {"allergies": [{"id": "ai_x", "allergen": "Lactose", "type": "intolerance"}]}
+    merged = merge_card_with_profile({"allergies": ["Lactose"]}, {}, raw_profile)  # no manual allergies
+    assert merged["allergies"] == ["Lactose (intolerance)"]
+
+
+# ── Audit fix: bad type in doc facts defaults to allergy ────────────────────
+def test_backfill_defaults_invalid_type():
+    from apps.jobs.profile_logic import extract_backfill_candidates
+    docs = [{"key_facts": {"allergies": [{"substance": "X", "severity": "low", "type": "weird"}]}}]
+    assert extract_backfill_candidates(docs)["allergies"][0]["type"] == "allergy"
+
+
+# ── Audit fix: un-reject preserves an allergy's type ────────────────────────
+def test_unreject_restores_allergy_type(user):
+    from apps.documents.provenance import restore_item_from_docs
+    doc = Document.objects.create(user=user, source_type="pdf", status="processed")
+    key = f"documents/{user.id}/processed/{doc.id}/summary.json"
+    default_storage.save(key, ContentFile(json.dumps({
+        "key_facts": {"allergies": [{"substance": "Lactose", "severity": "low", "type": "intolerance"}],
+                      "medications": [], "conditions": [], "surgeries_procedures": [],
+                      "implants_devices": [], "key_labs_vitals": [], "extra_notes": []},
+        "timeline_events": [], "confidence_0_to_1": 0.5}).encode()))
+    doc.summary_path = key; doc.save()
+    item = restore_item_from_docs(user, "allergies", "lactose")
+    assert item is not None and item["type"] == "intolerance"

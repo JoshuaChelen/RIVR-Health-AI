@@ -237,7 +237,8 @@ def restore_item_from_docs(user, profile_field: str, key: str) -> dict | None:
             if profile_field == "allergies":
                 return {"id": new_id, "allergen": (f.get("substance") or "").strip(),
                         "reaction": (f.get("reaction") or "").strip(),
-                        "severity": pl.map_severity(f.get("severity", ""))}
+                        "severity": pl.map_severity(f.get("severity", "")),
+                        "type": f.get("type") if f.get("type") in ("allergy", "intolerance") else "allergy"}
             if profile_field == "medications":
                 return {"id": new_id, "name": (f.get("name") or "").strip(),
                         "dose": (f.get("dose") or "").strip(), "frequency": (f.get("frequency") or "").strip()}

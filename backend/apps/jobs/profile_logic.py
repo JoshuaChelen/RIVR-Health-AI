@@ -663,7 +663,7 @@ def extract_backfill_candidates(doc_facts_list: List[Dict[str, Any]]) -> Backfil
                     "allergen": substance,
                     "reaction": trimmed(a.get("reaction", "")) or "",
                     "severity": map_severity(a.get("severity", "")),
-                    "type": a.get("type") or "allergy",
+                    "type": a.get("type") if a.get("type") in ("allergy", "intolerance") else "allergy",
                 }
             )
 

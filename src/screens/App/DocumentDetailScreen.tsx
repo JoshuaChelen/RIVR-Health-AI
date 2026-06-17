@@ -106,7 +106,9 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
   function openEdit(c: Contribution) {
     const src = c.current ?? c.fact ?? {};
     const init: Record<string, string> = {};
-    for (const f of EDITABLE[c.field] ?? []) init[f.key] = String(src[f.key] ?? "");
+    // Option fields default to their first option (not "") so a never-set field
+    // like allergy `type` isn't submitted empty (backend rejects an empty type).
+    for (const f of EDITABLE[c.field] ?? []) init[f.key] = String(src[f.key] ?? (f.options ? f.options[0] : ""));
     setEditValues(init);
     setEditing(c);
   }

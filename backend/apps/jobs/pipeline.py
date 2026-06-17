@@ -203,9 +203,13 @@ def merge_card_with_profile(card: dict, manual_ctx: dict, raw_profile: dict | No
             for a in manual_ctx["allergies"]
         ]
     elif isinstance(raw_allergies, list) and not has_manual_items("allergies"):
-        # user has no manual allergies (empty or only AI items the model already saw)
-        if len(raw_allergies) == 0:
-            merged["allergies"] = []
+        # No manual allergies — rebuild the card line from the profile's allergies
+        # (AI-backfilled) so intolerances are labeled too (empty list -> []).
+        merged["allergies"] = [
+            (a.get("allergen") or "") + (" (intolerance)" if a.get("type") == "intolerance" else "")
+            for a in raw_allergies
+            if isinstance(a, dict) and (a.get("allergen") or "").strip()
+        ]
 
     raw_meds = raw_profile.get("medications")
     if manual_ctx.get("medications"):

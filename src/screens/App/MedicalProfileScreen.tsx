@@ -170,7 +170,9 @@ function AiItemControls({ itemId, field, item, reviewStatus, onReviewed }: {
 
   function openEdit() {
     const init: Record<string, string> = {};
-    for (const f of AI_EDITABLE[field] ?? []) init[f.key] = String(item[f.key] ?? "");
+    // Option fields default to their first option (not "") so allergy `type` isn't
+    // submitted empty when untouched (the backend rejects an empty type).
+    for (const f of AI_EDITABLE[field] ?? []) init[f.key] = String(item[f.key] ?? (f.options ? f.options[0] : ""));
     setEditValues(init);
     setEditing(true);
   }
