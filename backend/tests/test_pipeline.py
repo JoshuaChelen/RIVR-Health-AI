@@ -475,3 +475,21 @@ def test_pipeline_reindex_failure_is_non_fatal(user, mock_ai, monkeypatch):
     job.refresh_from_db()
     assert job.status == AiJob.Status.SUCCEEDED  # reindex failure must not fail the job
     assert job.events.filter(level="warn").exists()
+
+
+def test_detached_docs_excluded_from_digest_query(db):
+    """The digest must only union ACTIVE processed docs (detached_at IS NULL)."""
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+    from apps.documents.models import Document
+
+    u = get_user_model().objects.create_user(email="dig@example.com", password="Str0ngPass!23")
+    active = Document.objects.create(user=u, source_type="pdf", status="processed",
+                                     summary_path="documents/x/processed/a/summary.json")
+    Document.objects.create(user=u, source_type="pdf", status="processed",
+                            summary_path="documents/x/processed/b/summary.json",
+                            detached_at=timezone.now())
+    ids = list(Document.objects.filter(
+        user=u, status=Document.Status.PROCESSED, summary_path__gt="", detached_at__isnull=True
+    ).exclude(source_type=Document.SourceType.MANUAL_INPUT).values_list("id", flat=True))
+    assert ids == [active.id]

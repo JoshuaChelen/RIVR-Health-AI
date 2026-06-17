@@ -298,7 +298,8 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
     # All docs that make up the digest. The job's own new docs are not yet marked
     # PROCESSED here (that happens after the eval), so union them in explicitly.
     digest_processed_ids = [str(i) for i in Document.objects.filter(
-        user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt=""
+        user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt="",
+        detached_at__isnull=True,
     ).exclude(source_type=Document.SourceType.MANUAL_INPUT).values_list("id", flat=True)]
     current_doc_ids = sorted(set(digest_processed_ids) | {str(i) for i in limited_doc_ids})
 
@@ -317,7 +318,8 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
     else:
         historical = []
         for d in Document.objects.filter(
-            user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt=""
+            user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt="",
+            detached_at__isnull=True,
         ).exclude(source_type=Document.SourceType.MANUAL_INPUT).exclude(id__in=limited_doc_ids).order_by("created_at"):
             data = _read_json(d.summary_path)
             if data:
