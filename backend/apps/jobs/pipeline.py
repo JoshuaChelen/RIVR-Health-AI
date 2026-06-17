@@ -525,7 +525,10 @@ def run_job(job_id) -> None:
     except CancellationError:
         _cancel(job)
     except Exception as exc:
-        _fail(job, str(exc))
+        # job.error is returned via the API — keep it generic (raw exceptions can carry
+        # file paths / extracted PII). Full detail goes to the server-side event log.
+        _log(job, "error", "Processing failed", {"detail": str(exc)[:1000]})
+        _fail(job, "Something went wrong while processing this. Please try again.")
         raise
 
 

@@ -21,10 +21,16 @@ class AvatarView(APIView):
         upload = request.FILES.get("image") or request.FILES.get("file")
         if upload is None:
             return Response({"detail": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
+        if not (upload.content_type or "").lower().startswith("image/"):
+            return Response({"detail": "Please upload an image file."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            processed = storage.process_avatar(upload)  # re-encodes; raises on a non-image
+        except Exception:
+            return Response({"detail": "That image could not be processed."}, status=status.HTTP_400_BAD_REQUEST)
         profile = UserProfile.for_user(request.user)
         key = storage.avatar_key(request.user.id)
         storage.delete(profile.avatar_path)
-        saved = storage.save(key, storage.process_avatar(upload))
+        saved = storage.save(key, processed)
         profile.avatar_path = saved
         profile.save(update_fields=["avatar_path", "updated_at"])
         return Response(

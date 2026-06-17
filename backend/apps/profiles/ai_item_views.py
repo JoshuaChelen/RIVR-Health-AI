@@ -140,7 +140,8 @@ class AiItemSourcesView(_ItemBase):
         key = cfg.profile_key(item)
         sources = []
         docs = (Document.objects.filter(user=request.user, status=Document.Status.PROCESSED,
-                detached_at__isnull=True).exclude(source_type=Document.SourceType.MANUAL_INPUT))
+                detached_at__isnull=True).exclude(source_type=Document.SourceType.MANUAL_INPUT)
+                .order_by("-created_at")[:provenance.DOC_SCAN_CAP])
         for d in docs:
             summary = provenance.read_summary(d.summary_path)
             if not summary:

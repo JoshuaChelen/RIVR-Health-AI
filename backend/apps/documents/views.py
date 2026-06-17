@@ -48,6 +48,13 @@ class DocumentViewSet(OwnedModelViewSet):
         upload = request.FILES.get("file")
         if upload is None:
             return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        # Only the document kinds we can actually process (PDFs, images for OCR, audio
+        # for transcription). content_type is client-supplied so this isn't a security
+        # boundary, but it rejects obviously-wrong uploads (executables, archives, html).
+        ct = (upload.content_type or "").lower()
+        if not ct.startswith(("application/pdf", "image/", "audio/")):
+            return Response({"detail": "Unsupported file type. Upload a PDF, image, or audio file."},
+                            status=status.HTTP_400_BAD_REQUEST)
         source_type = request.data.get("source_type", Document.SourceType.FILE)
         kind = storage.document_kind(upload.content_type, source_type)
         key = storage.document_key(request.user.id, upload.name, kind)

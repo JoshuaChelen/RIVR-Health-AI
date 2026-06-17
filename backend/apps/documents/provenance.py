@@ -51,6 +51,11 @@ FIELD_MAP: list[_FieldCfg] = [
 ]
 
 
+# Cap how many of a user's processed docs we scan (each scan reads a summary.json
+# from object storage). Generous for real users; prevents pathological cost/latency.
+DOC_SCAN_CAP = 200
+
+
 def read_summary(summary_path: str) -> dict | None:
     if not summary_path:
         return None
@@ -146,7 +151,8 @@ def _active_other_summaries(user, exclude_doc_id) -> list[dict]:
           .filter(user=user, status=Document.Status.PROCESSED, detached_at__isnull=True)
           .exclude(source_type=Document.SourceType.MANUAL_INPUT)
           .exclude(id=exclude_doc_id)
-          .values_list("summary_path", flat=True))
+          .order_by("-created_at")
+          .values_list("summary_path", flat=True)[:DOC_SCAN_CAP])
     out = []
     for path in qs:
         data = read_summary(path)
@@ -190,7 +196,8 @@ def delete_timeline_for_item(user, profile_field: str, item: dict) -> int:
     doc_ids = []
     for d in (Document.objects
               .filter(user=user, status=Document.Status.PROCESSED, detached_at__isnull=True)
-              .exclude(source_type=Document.SourceType.MANUAL_INPUT)):
+              .exclude(source_type=Document.SourceType.MANUAL_INPUT)
+              .order_by("-created_at")[:DOC_SCAN_CAP]):
         summary = read_summary(d.summary_path)
         if not summary:
             continue
@@ -226,7 +233,7 @@ def restore_item_from_docs(user, profile_field: str, key: str) -> dict | None:
         return None
     for d in (Document.objects
               .filter(user=user, status=Document.Status.PROCESSED, detached_at__isnull=True)
-              .exclude(source_type=Document.SourceType.MANUAL_INPUT).order_by("-created_at")):
+              .exclude(source_type=Document.SourceType.MANUAL_INPUT).order_by("-created_at")[:DOC_SCAN_CAP]):
         summary = read_summary(d.summary_path)
         if not summary:
             continue

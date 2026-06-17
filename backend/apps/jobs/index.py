@@ -70,6 +70,7 @@ def search(user, query: str, k: int = 12) -> list[Embedding]:
     # the user); keep document-less rows (e.g. timeline) and active-document rows.
     return list(
         Embedding.objects.filter(user=user)
+        .select_related("document")  # avoid N+1 when callers read hit.document.title
         .filter(Q(document__isnull=True) | Q(document__detached_at__isnull=True))
         .order_by(CosineDistance("vector", qvec[0]))[:k]
     )
