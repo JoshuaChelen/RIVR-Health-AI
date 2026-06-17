@@ -13,6 +13,7 @@ from datetime import date, datetime, timezone
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.utils import timezone as djtz
 
 from apps.documents.models import Document
@@ -24,6 +25,12 @@ from . import ai_client, citations, extraction, index, profile_logic
 from .models import AiJob, AiJobEvent
 
 class CancellationError(Exception):
+    pass
+
+
+class TransientError(Exception):
+    """A retryable failure (e.g. couldn't read storage). The task layer retries these;
+    non-transient errors (validation, bugs) are NOT retried so they fail fast."""
     pass
 
 
@@ -355,7 +362,7 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
         if reads_failed:
             # Couldn't read existing document summaries — treat as transient and raise so
             # the task retries, rather than wrongly clearing a still-valid profile.
-            raise RuntimeError("Could not read processed document summaries (transient).")
+            raise TransientError("Could not read processed document summaries (transient).")
         existing_hp = HealthProfile.objects.filter(user_id=user_id).first()
         if existing_hp is not None:
             # The user removed all their data via review actions (reject/detach). Clear
@@ -390,81 +397,87 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
     merged_card = merge_card_with_profile(evaluation["three_by_five_card"], manual_ctx, raw_profile or None)
 
     eval_result = {**evaluation, "three_by_five_card": merged_card}
-    eval_row = HealthEvaluation.objects.create(
-        user_id=user_id, score=evaluation["score_0_to_100"], result=eval_result
-    )
-    _write_json(_evaluation_key(user_id), eval_result)
-
     _check_cancelled(job)
     _set_stage(job, "saving_profile")
-    processed_ids = [str(i) for i in Document.objects.filter(
-        user_id=user_id, status=Document.Status.PROCESSED
-    ).values_list("id", flat=True)]
-    all_ids = sorted(set(processed_ids + [str(i) for i in limited_doc_ids] + [str(i) for i in manual_doc_ids]))
-    manual_sig = json.dumps({
-        "allergies": (raw_profile or {}).get("allergies"),
-        "medications": (raw_profile or {}).get("medications"),
-        "medical_history": (raw_profile or {}).get("medical_history"),
-    }, sort_keys=True, default=str)
+    # Finalize atomically: the evaluation row, health profile, backfill, document
+    # status, and job success commit together — a partial failure rolls back so a
+    # retry can't leave an orphaned HealthEvaluation or an inconsistent profile.
+    with transaction.atomic():
+        eval_row = HealthEvaluation.objects.create(
+            user_id=user_id, score=evaluation["score_0_to_100"], result=eval_result
+        )
+        processed_ids = [str(i) for i in Document.objects.filter(
+            user_id=user_id, status=Document.Status.PROCESSED
+        ).values_list("id", flat=True)]
+        all_ids = sorted(set(processed_ids + [str(i) for i in limited_doc_ids] + [str(i) for i in manual_doc_ids]))
+        manual_sig = json.dumps({
+            "allergies": (raw_profile or {}).get("allergies"),
+            "medications": (raw_profile or {}).get("medications"),
+            "medical_history": (raw_profile or {}).get("medical_history"),
+        }, sort_keys=True, default=str)
 
-    summary_json = {k: evaluation[k] for k in (
-        "overview", "highlights", "risk_flags", "missing_info",
-        "suggested_next_steps", "recommendations", "full_summary_markdown", "disclaimer",
-    )}
-    sources = {
-        "job_type": job.job_type,
-        "document_ids": all_ids,
-        "apple_health": apple_health,
-        "manual_profile": {
-            "has_data": bool(raw_profile),
-            "has_clinical_data": bool(manual_ctx.get("_has_clinical_data")),
-            "signature": manual_sig,
-        },
-        "evaluation_storage_path": _evaluation_key(user_id),
-        "evaluation_id": str(eval_row.id),
-    }
-    HealthProfile.objects.update_or_create(
-        user_id=user_id,
-        defaults={
-            "score": evaluation["score_0_to_100"], "score_label": evaluation["score_label"],
-            "summary_json": summary_json, "card_json": merged_card, "sources": sources, "version": "profile_v2",
-            # store {} when the raw-list fallback ran, so the next eval rebuilds
-            "facts_digest": digest if isinstance(digest, dict) else {},
-            "digest_meta": digest_meta if isinstance(digest, dict) else {},
-        },
-    )
+        summary_json = {k: evaluation[k] for k in (
+            "overview", "highlights", "risk_flags", "missing_info",
+            "suggested_next_steps", "recommendations", "full_summary_markdown", "disclaimer",
+        )}
+        sources = {
+            "job_type": job.job_type,
+            "document_ids": all_ids,
+            "apple_health": apple_health,
+            "manual_profile": {
+                "has_data": bool(raw_profile),
+                "has_clinical_data": bool(manual_ctx.get("_has_clinical_data")),
+                "signature": manual_sig,
+            },
+            "evaluation_storage_path": _evaluation_key(user_id),
+            "evaluation_id": str(eval_row.id),
+        }
+        HealthProfile.objects.update_or_create(
+            user_id=user_id,
+            defaults={
+                "score": evaluation["score_0_to_100"], "score_label": evaluation["score_label"],
+                "summary_json": summary_json, "card_json": merged_card, "sources": sources, "version": "profile_v2",
+                # store {} when the raw-list fallback ran, so the next eval rebuilds
+                "facts_digest": digest if isinstance(digest, dict) else {},
+                "digest_meta": digest_meta if isinstance(digest, dict) else {},
+            },
+        )
 
-    # Non-fatal AI backfill (only when new docs were just processed).
-    if doc_facts and profile is not None:
-        _set_stage(job, "ai_backfill")
-        try:
-            candidates = profile_logic.extract_backfill_candidates(doc_facts)
-            result = profile_logic.compute_backfill_patch(
-                raw_profile, candidates, {"job_id": str(job.id), "evaluation_id": str(eval_row.id)}
-            )
-            if result:
-                for field, value in result["patch"].items():
-                    setattr(profile, field, value)
-                profile.save()
-                HealthProfile.objects.filter(user_id=user_id).update(updated_at=djtz.now())
-                _log(job, "info", "AI backfill applied", result["summary"])
-            else:
-                _log(job, "info", "AI backfill: no new items to add")
-        except Exception as exc:  # non-fatal
-            _log(job, "warn", f"AI backfill failed: {exc}")
+        # Non-fatal AI backfill (only when new docs were just processed).
+        if doc_facts and profile is not None:
+            _set_stage(job, "ai_backfill")
+            try:
+                candidates = profile_logic.extract_backfill_candidates(doc_facts)
+                result = profile_logic.compute_backfill_patch(
+                    raw_profile, candidates, {"job_id": str(job.id), "evaluation_id": str(eval_row.id)}
+                )
+                if result:
+                    for field, value in result["patch"].items():
+                        setattr(profile, field, value)
+                    profile.save()
+                    HealthProfile.objects.filter(user_id=user_id).update(updated_at=djtz.now())
+                    _log(job, "info", "AI backfill applied", result["summary"])
+                else:
+                    _log(job, "info", "AI backfill: no new items to add")
+            except Exception as exc:  # non-fatal
+                _log(job, "warn", f"AI backfill failed: {exc}")
 
-    all_job_doc_ids = list(limited_doc_ids) + list(manual_doc_ids)
-    if all_job_doc_ids:
-        Document.objects.filter(
-            user_id=user_id, id__in=all_job_doc_ids, status=Document.Status.PROCESSING
-        ).update(status=Document.Status.PROCESSED)
+        all_job_doc_ids = list(limited_doc_ids) + list(manual_doc_ids)
+        if all_job_doc_ids:
+            Document.objects.filter(
+                user_id=user_id, id__in=all_job_doc_ids, status=Document.Status.PROCESSING
+            ).update(status=Document.Status.PROCESSED)
 
-    job.status = AiJob.Status.SUCCEEDED
-    job.error = ""
-    job.result = {"health_profile_updated": True, "evaluation_id": str(eval_row.id)}
-    job.locked_at = None
-    job.locked_by = ""
-    job.save(update_fields=["status", "error", "result", "locked_at", "locked_by", "updated_at"])
+        job.status = AiJob.Status.SUCCEEDED
+        job.error = ""
+        job.result = {"health_profile_updated": True, "evaluation_id": str(eval_row.id)}
+        job.locked_at = None
+        job.locked_by = ""
+        job.save(update_fields=["status", "error", "result", "locked_at", "locked_by", "updated_at"])
+
+    # Storage write is outside the DB transaction (object storage isn't transactional);
+    # the DB row is the source of truth and is written above.
+    _write_json(_evaluation_key(user_id), eval_result)
 
 
 # ── entry points ──────────────────────────────────────────────────────────────
