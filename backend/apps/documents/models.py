@@ -36,6 +36,7 @@ class Document(BaseModel):
     sha256 = models.CharField(max_length=64, blank=True, default="")
     processing_error = models.TextField(blank=True, default="")
     processed_at = models.DateTimeField(null=True, blank=True)
+    detached_at = models.DateTimeField(null=True, blank=True)
     content_json = models.JSONField(null=True, blank=True)
 
     class Meta:

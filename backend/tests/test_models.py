@@ -90,3 +90,11 @@ def test_delete_user_cascades(user):
     assert Document.objects.filter(user_id=uid).count() == 0
     assert HealthProfile.objects.filter(user_id=uid).count() == 0
     assert AiJob.objects.filter(user_id=uid).count() == 0
+
+
+def test_document_detached_at_defaults_none(db):
+    from django.contrib.auth import get_user_model
+    from apps.documents.models import Document
+    u = get_user_model().objects.create_user(email="det@example.com", password="Str0ngPass!23")
+    d = Document.objects.create(user=u, source_type="file")
+    assert d.detached_at is None
