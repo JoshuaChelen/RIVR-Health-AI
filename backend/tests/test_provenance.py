@@ -98,3 +98,61 @@ def test_manual_item_shows_as_present_manual(user):
     c = provenance.build_analysis(user, doc)["contributions"][0]
     assert c["origin"] == "manual"
     assert c["state"] == "present"
+
+
+def test_detach_removes_unique_keeps_shared(user):
+    # docA contributes Metformin (unique) + Aspirin (shared with docB).
+    docA = Document.objects.create(user=user, source_type="pdf", status="processed")
+    docA.summary_path = _write_summary(user.id, docA.id,
+        {"medications": [{"name": "Metformin"}, {"name": "Aspirin"}]})
+    docA.save()
+    docB = Document.objects.create(user=user, source_type="pdf", status="processed")
+    docB.summary_path = _write_summary(user.id, docB.id, {"medications": [{"name": "Aspirin"}]})
+    docB.save()
+
+    profile = UserProfile.for_user(user)
+    profile.medications = [
+        {"id": "ai_met", "name": "Metformin"},
+        {"id": "ai_asp", "name": "Aspirin"},
+    ]
+    profile.ai_backfill_meta = {"fields": {"medications": {"source": "ai", "job_id": "j",
+        "added_keys": ["metformin", "aspirin"], "current_item_ids": ["ai_met", "ai_asp"]}},
+        "last_backfill_at": ""}
+    profile.save()
+
+    summary = provenance.detach_document(user, docA)
+    profile.refresh_from_db()
+    names = [m["name"] for m in profile.medications]
+    assert names == ["Aspirin"]                      # Metformin removed, Aspirin kept (shared)
+    assert summary["removed"]["medications"] == 1
+    assert summary["kept_shared"]["medications"] == 1
+    docA.refresh_from_db()
+    assert docA.detached_at is not None
+    # Detach is reversible: the removed key must NOT linger in added_keys (else it
+    # would be treated as suppressed and never come back on re-run).
+    assert "metformin" not in profile.ai_backfill_meta["fields"]["medications"]["added_keys"]
+
+
+def test_detach_protects_manual_item(user):
+    doc = Document.objects.create(user=user, source_type="pdf", status="processed")
+    doc.summary_path = _write_summary(user.id, doc.id, {"allergies": [{"substance": "Latex"}]})
+    doc.save()
+    profile = UserProfile.for_user(user)
+    profile.allergies = [{"id": "manual-1", "allergen": "Latex"}]  # manual, never touched
+    profile.save()
+    summary = provenance.detach_document(user, doc)
+    profile.refresh_from_db()
+    assert len(profile.allergies) == 1                # manual item untouched
+    assert summary["removed"].get("allergies", 0) == 0
+
+
+def test_detach_deletes_document_ai_timeline_events(user):
+    from apps.timeline.models import TimelineEvent
+    doc = Document.objects.create(user=user, source_type="pdf", status="processed")
+    doc.summary_path = _write_summary(user.id, doc.id, {})
+    doc.save()
+    TimelineEvent.objects.create(user=user, document=doc, source="document_ai", title="X")
+    TimelineEvent.objects.create(user=user, document=doc, source="manual", title="keep")
+    provenance.detach_document(user, doc)
+    assert TimelineEvent.objects.filter(document=doc, source="document_ai").count() == 0
+    assert TimelineEvent.objects.filter(document=doc, source="manual").count() == 1

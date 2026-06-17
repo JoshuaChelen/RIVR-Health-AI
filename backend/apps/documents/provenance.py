@@ -125,3 +125,98 @@ def build_analysis(user, document) -> dict:
         "timeline_events": summary.get("timeline_events", []),
         "contributions": compute_contributions(profile, summary),
     }
+
+
+from django.db import transaction
+from django.utils import timezone as djtz
+
+
+def _active_other_summaries(user, exclude_doc_id) -> list[dict]:
+    """Summaries of the user's other ACTIVE processed docs (not detached, not manual)."""
+    from .models import Document
+    qs = (Document.objects
+          .filter(user=user, status=Document.Status.PROCESSED, detached_at__isnull=True)
+          .exclude(source_type=Document.SourceType.MANUAL_INPUT)
+          .exclude(id=exclude_doc_id)
+          .values_list("summary_path", flat=True))
+    out = []
+    for path in qs:
+        data = read_summary(path)
+        if data:
+            out.append(data)
+    return out
+
+
+def documents_sharing_key(profile: UserProfile, other_summaries: list[dict],
+                          cfg: _FieldCfg, key: str) -> bool:
+    """True if `key` is also backed by a manual profile item or another active doc."""
+    for it in (getattr(profile, cfg.profile_field) or []):
+        if isinstance(it, dict) and not pl.is_ai_backfilled(it.get("id")) and cfg.profile_key(it) == key:
+            return True
+    for summary in other_summaries:
+        facts = (summary.get("key_facts", {}) or {}).get(cfg.doc_field) or []
+        for fact in facts:
+            if isinstance(fact, dict) and cfg.doc_key(fact) == key:
+                return True
+    return False
+
+
+@transaction.atomic
+def detach_document(user, document) -> dict:
+    """Remove this document's UNIQUE ai contributions; keep shared/manual ones.
+
+    Reversible: removed keys are stripped from ai_backfill_meta.added_keys so a
+    later re-run restores them. Sets detached_at and deletes the doc's
+    document_ai timeline events. The file/summary are retained.
+    """
+    from apps.timeline.models import TimelineEvent
+
+    profile = UserProfile.for_user(user)
+    summary = read_summary(document.summary_path) or {}
+    key_facts = summary.get("key_facts", {}) or {}
+    other = _active_other_summaries(user, document.id)
+    meta = profile.ai_backfill_meta or {"fields": {}, "last_backfill_at": ""}
+    fields_meta = meta.get("fields", {})
+
+    removed: dict[str, int] = {}
+    kept_shared: dict[str, int] = {}
+    changed_fields: list[str] = []
+
+    for cfg in FIELD_MAP:
+        doc_keys = {cfg.doc_key(f) for f in (key_facts.get(cfg.doc_field) or [])
+                    if isinstance(f, dict) and cfg.doc_key(f)}
+        if not doc_keys:
+            continue
+        arr = getattr(profile, cfg.profile_field) or []
+        kept_items, removed_keys = [], set()
+        for it in arr:
+            if not isinstance(it, dict):
+                kept_items.append(it); continue
+            k = cfg.profile_key(it)
+            if pl.is_ai_backfilled(it.get("id")) and k in doc_keys:
+                if documents_sharing_key(profile, other, cfg, k):
+                    kept_items.append(it)
+                    kept_shared[cfg.profile_field] = kept_shared.get(cfg.profile_field, 0) + 1
+                else:
+                    removed_keys.add(k)
+                    removed[cfg.profile_field] = removed.get(cfg.profile_field, 0) + 1
+            else:
+                kept_items.append(it)
+        if removed_keys:
+            setattr(profile, cfg.profile_field, kept_items)
+            changed_fields.append(cfg.profile_field)
+            fm = fields_meta.get(cfg.profile_field)
+            if fm:
+                fm["added_keys"] = [x for x in fm.get("added_keys", []) if x not in removed_keys]
+                kept_ids = {it.get("id") for it in kept_items}
+                fm["current_item_ids"] = [i for i in fm.get("current_item_ids", []) if i in kept_ids]
+
+    if changed_fields:
+        profile.ai_backfill_meta = meta
+        profile.save(update_fields=[*changed_fields, "ai_backfill_meta", "updated_at"])
+
+    TimelineEvent.objects.filter(user=user, document_id=document.id, source="document_ai").delete()
+    document.detached_at = djtz.now()
+    document.save(update_fields=["detached_at", "updated_at"])
+
+    return {"removed": removed, "kept_shared": kept_shared}
