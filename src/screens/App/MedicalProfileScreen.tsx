@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -15,7 +16,10 @@ import type { AppStackParamList } from "../../navigation/appTypes";
 import { getProfile, upsertProfile, manualProfileSignature, type UserProfile } from "../../lib/profile";
 import { upsertManualInputDocument } from "../../lib/documents";
 import { getCurrentUserId } from "../../lib/auth";
-import { listDocuments, enqueueDocumentProcessing } from "../../lib/api/data";
+import {
+  listDocuments, enqueueDocumentProcessing,
+  confirmAiItem, rejectAiItem, getAiItemSources,
+} from "../../lib/api/data";
 import {
   makeId, safeList, joinParts,
   type AllergyItem, type MedicationItem, type MedHistoryItem,
@@ -68,6 +72,16 @@ const useSubStyles = createStyles((c) => StyleSheet.create({
   // ── AddButton ──
   abBtn: { paddingVertical: spacing.xs, paddingHorizontal: 2, alignSelf: "flex-start" },
   abText: { fontSize: typescale.size.sm, fontWeight: typescale.weight.semibold as any, color: c.teal },
+  // ── AiItemControls ──
+  aiMeta: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: 2 },
+  aiChip: { backgroundColor: c.tealSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  aiChipText: { fontSize: typescale.size.xs, fontWeight: typescale.weight.semibold as any, color: c.teal },
+  aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.teal },
+  aiActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs, flexWrap: "wrap" },
+  aiAction: { backgroundColor: c.tealSoft, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  aiActionText: { fontSize: typescale.size.xs, fontWeight: typescale.weight.semibold as any, color: c.teal },
+  aiReject: { backgroundColor: c.dangerSoft },
+  aiRejectText: { color: c.danger },
 }));
 
 function ItemRow({ primary, secondary, onDelete }: {
@@ -86,6 +100,73 @@ function ItemRow({ primary, secondary, onDelete }: {
           <Ionicons name="close" size={12} color={colors.danger} />
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+// AI badge + inline review actions for an ai_-id profile item. `reviewStatus`
+// is the server-owned per-item state; when unset the item still needs review.
+function AiItemControls({ itemId, reviewStatus, onReviewed }: {
+  itemId: string;
+  reviewStatus?: string;
+  onReviewed: () => void;
+}) {
+  const s = useSubStyles();
+  const [busy, setBusy] = useState(false);
+
+  async function onConfirm() {
+    setBusy(true);
+    try {
+      await confirmAiItem(itemId);
+      onReviewed();
+    } catch (e) {
+      captureException(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onReject() {
+    setBusy(true);
+    try {
+      await rejectAiItem(itemId);
+      onReviewed();
+    } catch (e) {
+      captureException(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSource() {
+    try {
+      const { sources } = await getAiItemSources(itemId);
+      const titles = sources.map((src) => src.title).join(", ");
+      Alert.alert("Source documents", titles || "No source documents found.");
+    } catch (e) {
+      captureException(e);
+    }
+  }
+
+  return (
+    <View>
+      <View style={s.aiMeta}>
+        <View style={s.aiChip}>
+          <AppText style={s.aiChipText}>AI</AppText>
+        </View>
+        {!reviewStatus ? <View style={s.aiDot} /> : null}
+      </View>
+      <View style={s.aiActions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Confirm AI item" disabled={busy} onPress={onConfirm} style={({ pressed }) => [s.aiAction, pressed && { opacity: 0.6 }]}>
+          <AppText style={s.aiActionText}>Confirm</AppText>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Reject AI item" disabled={busy} onPress={onReject} style={({ pressed }) => [s.aiAction, s.aiReject, pressed && { opacity: 0.6 }]}>
+          <AppText style={[s.aiActionText, s.aiRejectText]}>Reject</AppText>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Show source documents" onPress={onSource} style={({ pressed }) => [s.aiAction, pressed && { opacity: 0.6 }]}>
+          <AppText style={s.aiActionText}>Source</AppText>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -154,6 +235,16 @@ export function MedicalProfileScreen({ navigation }: Props) {
   const f = (key: string) => addForm[key] ?? "";
 
   // ── Load ──────────────────────────────────────────────────────────────────
+  const loadProfile = useCallback(async () => {
+    try {
+      const userId = await getCurrentUserId();
+      const p = await getProfile(userId);
+      setProfile(p);
+    } catch (e) {
+      captureException(e);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -535,12 +626,18 @@ useEffect(() => {
             ) : (
               safeList<AllergyItem>(profile?.allergies).length === 0
                 ? <EmptyHint text="No allergies recorded." />
-                : safeList<AllergyItem>(profile?.allergies).map((item, i) => (
-                  <View key={item.id}>
-                    {i > 0 && <ListDivider />}
-                    <ItemRow primary={item.allergen} secondary={joinParts(item.reaction, item.severity)} />
-                  </View>
-                ))
+                : safeList<AllergyItem>(profile?.allergies).map((item, i) => {
+                  const isAi = typeof item.id === "string" && item.id.startsWith("ai_");
+                  return (
+                    <View key={item.id}>
+                      {i > 0 && <ListDivider />}
+                      <ItemRow primary={item.allergen} secondary={joinParts(item.reaction, item.severity)} />
+                      {isAi ? (
+                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                      ) : null}
+                    </View>
+                  );
+                })
             )}
           </SectionCard>
 
@@ -588,12 +685,18 @@ useEffect(() => {
             ) : (
               safeList<MedicationItem>(profile?.medications).length === 0
                 ? <EmptyHint text="No medications recorded." />
-                : safeList<MedicationItem>(profile?.medications).map((item, i) => (
-                  <View key={item.id}>
-                    {i > 0 && <ListDivider />}
-                    <ItemRow primary={item.name} secondary={joinParts(item.dose, item.frequency)} />
-                  </View>
-                ))
+                : safeList<MedicationItem>(profile?.medications).map((item, i) => {
+                  const isAi = typeof item.id === "string" && item.id.startsWith("ai_");
+                  return (
+                    <View key={item.id}>
+                      {i > 0 && <ListDivider />}
+                      <ItemRow primary={item.name} secondary={joinParts(item.dose, item.frequency)} />
+                      {isAi ? (
+                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                      ) : null}
+                    </View>
+                  );
+                })
             )}
           </SectionCard>
 
@@ -641,12 +744,18 @@ useEffect(() => {
             ) : (
               safeList<MedHistoryItem>(profile?.medical_history).length === 0
                 ? <EmptyHint text="No medical history recorded." />
-                : safeList<MedHistoryItem>(profile?.medical_history).map((item, i) => (
-                  <View key={item.id}>
-                    {i > 0 && <ListDivider />}
-                    <ItemRow primary={item.condition} secondary={joinParts(item.year ? `Diagnosed ${item.year}` : null, item.notes)} />
-                  </View>
-                ))
+                : safeList<MedHistoryItem>(profile?.medical_history).map((item, i) => {
+                  const isAi = typeof item.id === "string" && item.id.startsWith("ai_");
+                  return (
+                    <View key={item.id}>
+                      {i > 0 && <ListDivider />}
+                      <ItemRow primary={item.condition} secondary={joinParts(item.year ? `Diagnosed ${item.year}` : null, item.notes)} />
+                      {isAi ? (
+                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                      ) : null}
+                    </View>
+                  );
+                })
             )}
           </SectionCard>
 
@@ -694,12 +803,18 @@ useEffect(() => {
             ) : (
               safeList<SurgeryItem>(profile?.surgical_history).length === 0
                 ? <EmptyHint text="No surgical history recorded." />
-                : safeList<SurgeryItem>(profile?.surgical_history).map((item, i) => (
-                  <View key={item.id}>
-                    {i > 0 && <ListDivider />}
-                    <ItemRow primary={item.procedure} secondary={joinParts(item.year, item.notes)} />
-                  </View>
-                ))
+                : safeList<SurgeryItem>(profile?.surgical_history).map((item, i) => {
+                  const isAi = typeof item.id === "string" && item.id.startsWith("ai_");
+                  return (
+                    <View key={item.id}>
+                      {i > 0 && <ListDivider />}
+                      <ItemRow primary={item.procedure} secondary={joinParts(item.year, item.notes)} />
+                      {isAi ? (
+                        <AiItemControls itemId={item.id} reviewStatus={(item as any).review_status} onReviewed={loadProfile} />
+                      ) : null}
+                    </View>
+                  );
+                })
             )}
           </SectionCard>
 
