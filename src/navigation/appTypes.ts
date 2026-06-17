@@ -3,6 +3,7 @@ export type AppStackParamList = {
   Home: undefined;
   AskAI: undefined;
   Details: { id: string };
+  DocumentDetail: { id: string; title?: string };
   ManageDocuments: undefined;
   Share: undefined;
   Timeline: undefined;

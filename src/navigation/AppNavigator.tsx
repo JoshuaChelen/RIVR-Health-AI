@@ -11,6 +11,7 @@ import { StoryScreen } from "../screens/App/StoryScreen";
 import { ShareScreen } from "../screens/App/ShareScreen";
 import { TimelineScreen } from "../screens/App/TimelineScreen";
 import { ManageDocumentsScreen } from "../screens/App/ManageDocumentsScreen";
+import { DocumentDetailScreen } from "../screens/App/DocumentDetailScreen";
 import { TimelineEventDetailsScreen } from "../screens/App/TimelineEventDetailsScreen";
 import { PreVisitNoteScreen } from "../screens/App/PreVisitNoteScreen";
 import HealthSummaryScreen from "../screens/App/HealthSummaryScreen";
@@ -85,6 +86,11 @@ export function AppNavigator() {
         name="ManageDocuments"
         component={ManageDocumentsScreen}
         options={{ title: "Documents" }}
+      />
+      <Stack.Screen
+        name="DocumentDetail"
+        component={DocumentDetailScreen}
+        options={{ title: "Document" }}
       />
       <Stack.Screen
         name="Share"
