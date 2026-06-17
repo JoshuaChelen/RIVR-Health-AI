@@ -59,6 +59,23 @@ def test_eval_clears_stale_healthprofile_when_no_data(user):
     assert job.status == AiJob.Status.SUCCEEDED
 
 
+# ── S1b: a transient summary-read failure must NOT clear a valid profile ────────
+def test_eval_does_not_clear_on_transient_read_failure(user):
+    from apps.jobs import pipeline
+    HealthProfile.objects.create(
+        user=user, score=70, score_label="Fair",
+        card_json={"major_conditions": ["Cancer"], "current_meds": [], "allergies": []},
+        summary_json={"full_summary_markdown": "Has cancer."}, facts_digest={"conditions": [{"name": "Cancer"}]})
+    # Active processed doc whose summary CANNOT be read (points at a missing object).
+    Document.objects.create(user=user, source_type="pdf", status="processed",
+                            summary_path=f"documents/{user.id}/processed/missing/summary.json")
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROFILE_EVALUATION, document_ids=[])
+    with pytest.raises(Exception):
+        pipeline.run_job(job.id)  # raises -> task retries; must NOT clear
+    hp = HealthProfile.objects.get(user=user)
+    assert hp.card_json.get("major_conditions") == ["Cancer"]  # preserved, not nuked
+
+
 # ── S2: profile_evaluation task retries transient failures ──────────────────────
 def test_profile_evaluation_task_has_retry():
     from apps.jobs.tasks import profile_evaluation_task
@@ -119,6 +136,32 @@ def test_confirm_all_marks_unreviewed(client, user):
     p.refresh_from_db()
     assert p.medications[0]["review_status"] == "confirmed"
     assert p.medical_history[0]["review_status"] == "confirmed"
+
+
+# ── R1b: un-reject when no active doc has the fact keeps it suppressed ──────────
+def test_unreject_without_source_keeps_suppressed(client, user):
+    p = UserProfile.for_user(user)
+    p.medications = []  # rejected; nothing in any active doc reports it
+    p.ai_backfill_meta = {"fields": {"medications": {"added_keys": ["metformin"],
+        "current_item_ids": []}}, "last_backfill_at": ""}
+    p.save()
+    resp = client.post("/api/profile/ai-items/unreject",
+                       {"field": "medications", "key": "metformin"}, format="json")
+    assert resp.status_code == 200
+    assert resp.json()["restored"] is False
+    p.refresh_from_db()
+    assert p.medications == []
+    # Must stay suppressed (added_keys intact) since we couldn't restore it.
+    assert "metformin" in p.ai_backfill_meta["fields"]["medications"]["added_keys"]
+
+
+# ── R3b: reject drops the id from current_item_ids but keeps the suppression key ─
+def test_reject_cleans_current_item_ids(client, user, med):
+    assert client.post("/api/profile/ai-items/ai_m1/reject").status_code == 200
+    med.refresh_from_db()
+    fm = med.ai_backfill_meta["fields"]["medications"]
+    assert "ai_m1" not in fm["current_item_ids"]
+    assert "metformin" in fm["added_keys"]   # still suppressed
 
 
 # ── P1: timeline match respects word boundaries (no substring false-match) ──────

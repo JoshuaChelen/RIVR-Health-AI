@@ -49,3 +49,6 @@ yarn-error.*
 # editor / local agent config
 .vscode/
 .claude/
+
+# local dev launcher artifacts
+.dev/

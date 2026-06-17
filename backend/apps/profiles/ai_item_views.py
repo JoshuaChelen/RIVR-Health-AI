@@ -81,7 +81,15 @@ class AiItemRejectView(_ItemBase):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         arr = getattr(profile, field)
         rejected = arr.pop(idx)  # leave added_keys intact -> suppression prevents resurfacing
-        profile.save(update_fields=[field, "updated_at"])
+        # Drop the rejected id from current_item_ids bookkeeping (keep added_keys).
+        meta = profile.ai_backfill_meta or {}
+        fm = (meta.get("fields") or {}).get(field)
+        if fm and item_id in (fm.get("current_item_ids") or []):
+            fm["current_item_ids"] = [i for i in fm["current_item_ids"] if i != item_id]
+            profile.ai_backfill_meta = meta
+            profile.save(update_fields=[field, "ai_backfill_meta", "updated_at"])
+        else:
+            profile.save(update_fields=[field, "updated_at"])
         # Remove the matching timeline event(s) and regenerate the derived health
         # profile (3x5 card, summary, score) so the rejection shows up everywhere.
         from apps.documents.provenance import delete_timeline_for_item
@@ -158,7 +166,6 @@ class AiItemUnrejectView(APIView):
         profile = UserProfile.for_user(request.user)
         meta = profile.ai_backfill_meta or {"fields": {}, "last_backfill_at": ""}
         fm = meta.setdefault("fields", {}).setdefault(field, {"added_keys": [], "current_item_ids": []})
-        fm["added_keys"] = [k for k in fm.get("added_keys", []) if k != key]  # un-suppress
 
         from apps.documents.provenance import restore_item_from_docs
         item = restore_item_from_docs(request.user, field, key)
@@ -167,10 +174,18 @@ class AiItemUnrejectView(APIView):
             arr = getattr(profile, field) or []
             arr.append(item)
             setattr(profile, field, arr)
-            fm.setdefault("current_item_ids", []).append(item["id"])
+            # Only un-suppress once we've actually restored it; otherwise leave the key
+            # suppressed so it can't silently resurface from a future re-process.
+            fm["added_keys"] = [k for k in fm.get("added_keys", []) if k != key]
+            # Rebuild current_item_ids from the live array (no stale ids).
+            fm["current_item_ids"] = [
+                it["id"] for it in arr
+                if isinstance(it, dict) and pl.is_ai_backfilled(it.get("id"))
+            ]
             restored = True
 
         profile.ai_backfill_meta = meta
         profile.save(update_fields=[field, "ai_backfill_meta", "updated_at"])
-        _propagate_review_change(request.user, "unreject")
+        if restored:
+            _propagate_review_change(request.user, "unreject")
         return Response({"field": field, "key": key, "restored": restored})

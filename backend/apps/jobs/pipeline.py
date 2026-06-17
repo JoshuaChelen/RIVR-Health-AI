@@ -313,17 +313,23 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
         and stored_meta.get("suppression_sig") == sup_sig
     )
 
+    reads_failed = False
     if can_reuse:
         digest = stored_digest
     else:
         historical = []
+        docs_seen = 0
         for d in Document.objects.filter(
             user_id=user_id, status=Document.Status.PROCESSED, summary_path__gt="",
             detached_at__isnull=True,
         ).exclude(source_type=Document.SourceType.MANUAL_INPUT).exclude(id__in=limited_doc_ids).order_by("created_at"):
+            docs_seen += 1
             data = _read_json(d.summary_path)
             if data:
                 historical.append(data)
+        # There WERE active processed docs but none could be read -> transient/storage
+        # failure, NOT genuine emptiness. Must not let it nuke a valid profile below.
+        reads_failed = docs_seen > 0 and not historical
         all_doc_facts = profile_logic.filter_doc_facts_by_suppression(historical + doc_facts, suppressed)
         try:
             digest = profile_logic.build_facts_digest(all_doc_facts, suppressed)
@@ -334,6 +340,10 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
     digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now()}
 
     if not has_any_evaluatable_data(digest, apple_health, manual_ctx, backfill_ctx):
+        if reads_failed:
+            # Couldn't read existing document summaries — treat as transient and raise so
+            # the task retries, rather than wrongly clearing a still-valid profile.
+            raise RuntimeError("Could not read processed document summaries (transient).")
         existing_hp = HealthProfile.objects.filter(user_id=user_id).first()
         if existing_hp is not None:
             # The user removed all their data via review actions (reject/detach). Clear

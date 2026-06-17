@@ -110,6 +110,7 @@ class DocumentViewSet(OwnedModelViewSet):
         profile = UserProfile.for_user(request.user)
         now = djtz.now().isoformat()
         changed = []
+        confirmed = 0
         for field in ("allergies", "medications", "medical_history", "surgical_history"):
             arr = getattr(profile, field) or []
             touched = False
@@ -117,13 +118,14 @@ class DocumentViewSet(OwnedModelViewSet):
                 if isinstance(it, dict) and it.get("id") in ids:
                     it["review_status"] = "confirmed"
                     it["reviewed_at"] = now
+                    confirmed += 1
                     touched = True
             if touched:
                 changed.append(field)
         if changed:
             profile.save(update_fields=[*changed, "updated_at"])
         # Confirm does not change derived data, so no re-eval needed.
-        return Response({"confirmed": len(ids)})
+        return Response({"confirmed": confirmed})
 
     @action(detail=True, methods=["post"])
     def reprocess(self, request, pk=None):

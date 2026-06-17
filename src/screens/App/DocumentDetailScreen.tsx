@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, ScrollView, Pressable, ActivityIndicator, Linking, Alert, StyleSheet, TextInput } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AppStackParamList } from "../../navigation/appTypes";
@@ -58,9 +58,12 @@ export function DocumentDetailScreen({ route, navigation }: Props) {
 
   // A data-changing review action kicks off a background re-eval of the summary +
   // emergency card. Flag it briefly so the user knows the rest of their data is catching up.
+  const updatingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (updatingTimer.current) clearTimeout(updatingTimer.current); }, []);
   function flagUpdating() {
     setUpdating(true);
-    setTimeout(() => setUpdating(false), 6000);
+    if (updatingTimer.current) clearTimeout(updatingTimer.current);
+    updatingTimer.current = setTimeout(() => setUpdating(false), 6000);
   }
 
   useEffect(() => { load(); }, [load]);
