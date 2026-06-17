@@ -185,3 +185,14 @@ def test_profile_patch_can_still_drop_ai_item(user, client_for):
     assert resp.status_code == 200
     p.refresh_from_db()
     assert p.medications == []
+
+
+def test_profile_exposes_ai_review_counts(user, client_for):
+    from apps.profiles.models import UserProfile
+    p = UserProfile.for_user(user)
+    p.medications = [{"id": "ai_m1", "name": "A"}, {"id": "ai_m2", "name": "B", "review_status": "confirmed"}]
+    p.allergies = [{"id": "manual-1", "allergen": "Nuts"}]
+    p.save()
+    body = client_for(user).get("/api/profile").json()
+    assert body["ai_review"]["total"] == 2       # 2 AI items
+    assert body["ai_review"]["unreviewed"] == 1  # m1 unreviewed, m2 confirmed
