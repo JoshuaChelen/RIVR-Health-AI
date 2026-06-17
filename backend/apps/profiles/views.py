@@ -15,8 +15,36 @@ class MyProfileView(RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
+    AI_FIELDS = ["allergies", "medications", "medical_history", "surgical_history"]
+    PRESERVE = ("review_status", "reviewed_at", "ai_original")
+
     def get_object(self) -> UserProfile:
         return UserProfile.for_user(self.request.user)
+
+    def perform_update(self, serializer):
+        from apps.jobs.profile_logic import is_ai_backfilled
+        instance = serializer.instance
+        before = {
+            f: {it.get("id"): it for it in (getattr(instance, f) or [])
+                if isinstance(it, dict) and is_ai_backfilled(it.get("id"))}
+            for f in self.AI_FIELDS
+        }
+        obj = serializer.save()
+        changed = []
+        for f in self.AI_FIELDS:
+            arr = getattr(obj, f) or []
+            touched = False
+            for it in arr:
+                if isinstance(it, dict) and is_ai_backfilled(it.get("id")):
+                    prev = before[f].get(it.get("id"))
+                    if prev:
+                        for k in self.PRESERVE:
+                            if k in prev and k not in it:
+                                it[k] = prev[k]; touched = True
+            if touched:
+                changed.append(f)
+        if changed:
+            obj.save(update_fields=[*changed, "updated_at"])
 
 
 class _HealthLinkBase(APIView):

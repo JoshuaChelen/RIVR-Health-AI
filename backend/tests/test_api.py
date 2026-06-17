@@ -155,3 +155,33 @@ def test_ai_jobs_filters_and_cancel(user, client_for):
 def test_ai_jobs_owner_scoped(user, other, client_for):
     AiJob.objects.create(user=other, job_type="process_documents")
     assert client_for(user).get("/api/ai-jobs/").json()["count"] == 0
+
+
+def test_profile_patch_preserves_ai_review_metadata(user, client_for):
+    """A whole-profile PATCH that omits server-owned review fields must not wipe them."""
+    from apps.profiles.models import UserProfile
+    p = UserProfile.for_user(user)
+    p.medications = [{"id": "ai_m1", "name": "Metformin", "dose": "500mg",
+                      "review_status": "confirmed", "reviewed_at": "2026-06-17T00:00:00Z"}]
+    p.save()
+    c = client_for(user)
+    # Client round-trips arrays WITHOUT the review fields (as today's UI would).
+    resp = c.patch("/api/profile",
+                   {"medications": [{"id": "ai_m1", "name": "Metformin", "dose": "500mg"}]},
+                   format="json")
+    assert resp.status_code == 200
+    p.refresh_from_db()
+    assert p.medications[0]["review_status"] == "confirmed"
+    assert p.medications[0]["reviewed_at"] == "2026-06-17T00:00:00Z"
+
+
+def test_profile_patch_can_still_drop_ai_item(user, client_for):
+    from apps.profiles.models import UserProfile
+    p = UserProfile.for_user(user)
+    p.medications = [{"id": "ai_m1", "name": "Metformin", "review_status": "confirmed"}]
+    p.save()
+    c = client_for(user)
+    resp = c.patch("/api/profile", {"medications": []}, format="json")
+    assert resp.status_code == 200
+    p.refresh_from_db()
+    assert p.medications == []
