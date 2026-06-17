@@ -41,6 +41,22 @@ def create_share(user, share_types: list[str], pin: str | None = None) -> tuple[
     return token, package
 
 
+def revoke_active_shares(user) -> int:
+    """Revoke the user's active (non-expired, non-revoked) shares.
+
+    Called when a review action (reject/edit/detach) changes the health record, so a
+    link shared earlier can't keep exposing now-removed/changed data (the share PDFs
+    are point-in-time snapshots). The user re-shares to send the corrected record.
+    """
+    active = list(SharePackage.objects.filter(
+        owner=user, revoked=False, expires_at__gt=timezone.now()))
+    for pkg in active:
+        _delete_artifacts(pkg)
+        pkg.revoked = True
+        pkg.save(update_fields=["revoked"])
+    return len(active)
+
+
 def _delete_artifacts(package: SharePackage) -> None:
     for key in (package.payload_json or {}).get("pdfs", {}).values():
         storage.delete(key)

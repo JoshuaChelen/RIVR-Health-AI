@@ -8,6 +8,7 @@ per-item state we read is `review_status` / `ai_original` on ai_-id items.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Callable
 
 from django.core.files.storage import default_storage
@@ -197,14 +198,54 @@ def delete_timeline_for_item(user, profile_field: str, item: dict) -> int:
     if not doc_ids:
         return 0
 
+    # Word-boundary match so a short key can't false-match a larger word
+    # (e.g. "flu" must not match "influenza").
+    pat = re.compile(r"\b" + re.escape(key) + r"\b")
     ids = [
         ev.id for ev in TimelineEvent.objects.filter(
             user=user, document_id__in=doc_ids, source="document_ai")
-        if key in pl.norm(ev.title or "") or key in pl.norm(ev.summary or "")
+        if pat.search(pl.norm(ev.title or "")) or pat.search(pl.norm(ev.summary or ""))
     ]
     if ids:
         TimelineEvent.objects.filter(id__in=ids).delete()
     return len(ids)
+
+
+def restore_item_from_docs(user, profile_field: str, key: str) -> dict | None:
+    """Rebuild a profile item dict for `key` from the latest active document facts.
+
+    Used by un-reject: after un-suppressing a key, reconstruct the item from a
+    document that still reports it. Returns None if no active doc contains it.
+    """
+    from .models import Document
+
+    cfg = next((c for c in FIELD_MAP if c.profile_field == profile_field), None)
+    if cfg is None or not key:
+        return None
+    for d in (Document.objects
+              .filter(user=user, status=Document.Status.PROCESSED, detached_at__isnull=True)
+              .exclude(source_type=Document.SourceType.MANUAL_INPUT).order_by("-created_at")):
+        summary = read_summary(d.summary_path)
+        if not summary:
+            continue
+        for f in (summary.get("key_facts", {}) or {}).get(cfg.doc_field) or []:
+            if not isinstance(f, dict) or cfg.doc_key(f) != key:
+                continue
+            new_id = pl.ai_id()
+            if profile_field == "allergies":
+                return {"id": new_id, "allergen": (f.get("substance") or "").strip(),
+                        "reaction": (f.get("reaction") or "").strip(),
+                        "severity": pl.map_severity(f.get("severity", ""))}
+            if profile_field == "medications":
+                return {"id": new_id, "name": (f.get("name") or "").strip(),
+                        "dose": (f.get("dose") or "").strip(), "frequency": (f.get("frequency") or "").strip()}
+            if profile_field == "medical_history":
+                notes = ". ".join(n for n in [(f.get("status") or "").strip(), (f.get("notes") or "").strip()] if n)
+                return {"id": new_id, "condition": (f.get("name") or "").strip(), "year": "", "notes": notes}
+            if profile_field == "surgical_history":
+                return {"id": new_id, "procedure": (f.get("name") or "").strip(),
+                        "year": (f.get("when") or "").strip(), "notes": (f.get("notes") or "").strip()}
+    return None
 
 
 @transaction.atomic

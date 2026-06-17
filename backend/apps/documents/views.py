@@ -87,10 +87,43 @@ class DocumentViewSet(OwnedModelViewSet):
         from .provenance import detach_document
         result = detach_document(request.user, doc)
         # Regenerate the derived health profile (card/summary/score) without the
-        # detached document's contributions.
+        # detached document's contributions, and revoke now-stale shares.
         from apps.jobs.services import trigger_profile_evaluation
+        from apps.shares.services import revoke_active_shares
         trigger_profile_evaluation(request.user)
+        revoke_active_shares(request.user)
         return Response(result)
+
+    @action(detail=True, methods=["post"], url_path="confirm-all")
+    def confirm_all(self, request, pk=None):
+        doc = self.get_object()
+        if doc.source_type == Document.SourceType.MANUAL_INPUT or not doc.summary_path:
+            return Response({"detail": "No findings to confirm."}, status=status.HTTP_400_BAD_REQUEST)
+        from .provenance import build_analysis
+        from apps.profiles.models import UserProfile
+        ids = {
+            c["profile_item_id"] for c in build_analysis(request.user, doc)["contributions"]
+            if c.get("origin") == "ai" and c.get("state") == "unreviewed" and c.get("profile_item_id")
+        }
+        if not ids:
+            return Response({"confirmed": 0})
+        profile = UserProfile.for_user(request.user)
+        now = djtz.now().isoformat()
+        changed = []
+        for field in ("allergies", "medications", "medical_history", "surgical_history"):
+            arr = getattr(profile, field) or []
+            touched = False
+            for it in arr:
+                if isinstance(it, dict) and it.get("id") in ids:
+                    it["review_status"] = "confirmed"
+                    it["reviewed_at"] = now
+                    touched = True
+            if touched:
+                changed.append(field)
+        if changed:
+            profile.save(update_fields=[*changed, "updated_at"])
+        # Confirm does not change derived data, so no re-eval needed.
+        return Response({"confirmed": len(ids)})
 
     @action(detail=True, methods=["post"])
     def reprocess(self, request, pk=None):

@@ -334,6 +334,27 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
     digest_meta = {"doc_ids": current_doc_ids, "suppression_sig": sup_sig, "built_at": _now()}
 
     if not has_any_evaluatable_data(digest, apple_health, manual_ctx, backfill_ctx):
+        existing_hp = HealthProfile.objects.filter(user_id=user_id).first()
+        if existing_hp is not None:
+            # The user removed all their data via review actions (reject/detach). Clear
+            # the derived card/summary/score so nothing stale (e.g. a rejected condition)
+            # keeps showing on the emergency card. An empty profile is a valid state here.
+            empty_card = {
+                "blood_type": None, "major_conditions": [], "major_surgeries": [],
+                "current_meds": [], "allergies": [], "implants_devices": [],
+                "anticoagulants": [], "anesthesia_notes": [],
+                "emergency_contact": {"name": None, "phone": None}, "one_line_summary": "",
+            }
+            HealthProfile.objects.filter(user_id=user_id).update(
+                score=0, score_label="", summary_json={}, card_json=empty_card,
+                facts_digest={}, digest_meta={}, updated_at=djtz.now())
+            job.status = AiJob.Status.SUCCEEDED
+            job.error = ""
+            job.result = {"health_profile_cleared": True}
+            job.locked_at = None
+            job.locked_by = ""
+            job.save(update_fields=["status", "error", "result", "locked_at", "locked_by", "updated_at"])
+            return
         _fail(job, "No evaluatable data found. Complete at least your basic profile or upload a document.")
         return
 

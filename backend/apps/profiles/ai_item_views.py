@@ -3,6 +3,8 @@
 Items are addressed by their unique ai_ id; the server locates the item across
 the four backfilled array fields. All actions are owner-scoped via the JWT user.
 """
+import logging
+
 from django.utils import timezone as djtz
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -13,7 +15,20 @@ from apps.jobs import profile_logic as pl
 
 from .models import UserProfile
 
+logger = logging.getLogger(__name__)
+
 AI_FIELDS = ["allergies", "medications", "medical_history", "surgical_history"]
+
+
+def _propagate_review_change(user, action: str) -> None:
+    """After a data-changing review action (reject/edit/un-reject/detach): regenerate
+    the derived health profile and revoke now-stale shares. Observable for cost/volume."""
+    from apps.jobs.services import trigger_profile_evaluation
+    from apps.shares.services import revoke_active_shares
+
+    trigger_profile_evaluation(user)
+    revoked = revoke_active_shares(user)
+    logger.info("review_change action=%s user=%s shares_revoked=%s", action, user.id, revoked)
 
 # Detail (non-key) fields editable per array field. The first tuple element is
 # the normalized-key field, which may NOT be edited here.
@@ -70,9 +85,8 @@ class AiItemRejectView(_ItemBase):
         # Remove the matching timeline event(s) and regenerate the derived health
         # profile (3x5 card, summary, score) so the rejection shows up everywhere.
         from apps.documents.provenance import delete_timeline_for_item
-        from apps.jobs.services import trigger_profile_evaluation
         delete_timeline_for_item(request.user, field, rejected)
-        trigger_profile_evaluation(request.user)
+        _propagate_review_change(request.user, "reject")
         return Response({"id": item_id, "rejected": True})
 
 
@@ -100,8 +114,7 @@ class AiItemEditView(_ItemBase):
         profile.save(update_fields=[field, "updated_at"])
         # Regenerate the derived health profile so the corrected value (e.g. dose)
         # shows on the 3x5 card / summary.
-        from apps.jobs.services import trigger_profile_evaluation
-        trigger_profile_evaluation(request.user)
+        _propagate_review_change(request.user, "edit")
         return Response(item)
 
 
@@ -125,3 +138,39 @@ class AiItemSourcesView(_ItemBase):
             if any(isinstance(f, dict) and cfg.doc_key(f) == key for f in facts):
                 sources.append({"document_id": str(d.id), "title": d.title})
         return Response({"sources": sources})
+
+
+class AiItemUnrejectView(APIView):
+    """Undo a rejection: un-suppress the key and restore the item from document facts.
+
+    Body: {field, key}. The key is what compute_suppressed_keys tracks (added_keys
+    minus current array). After un-suppressing, the item is rebuilt from the latest
+    active document that still reports it.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        field = request.data.get("field")
+        key = request.data.get("key")
+        if field not in AI_FIELDS or not key:
+            return Response({"detail": "field and key are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        profile = UserProfile.for_user(request.user)
+        meta = profile.ai_backfill_meta or {"fields": {}, "last_backfill_at": ""}
+        fm = meta.setdefault("fields", {}).setdefault(field, {"added_keys": [], "current_item_ids": []})
+        fm["added_keys"] = [k for k in fm.get("added_keys", []) if k != key]  # un-suppress
+
+        from apps.documents.provenance import restore_item_from_docs
+        item = restore_item_from_docs(request.user, field, key)
+        restored = False
+        if item is not None:
+            arr = getattr(profile, field) or []
+            arr.append(item)
+            setattr(profile, field, arr)
+            fm.setdefault("current_item_ids", []).append(item["id"])
+            restored = True
+
+        profile.ai_backfill_meta = meta
+        profile.save(update_fields=[field, "ai_backfill_meta", "updated_at"])
+        _propagate_review_change(request.user, "unreject")
+        return Response({"field": field, "key": key, "restored": restored})
