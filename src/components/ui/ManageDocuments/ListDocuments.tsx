@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { AppStackParamList } from "../../../navigation/appTypes";
 import { useSession } from "../../../context/SessionContext";
 import { listDocuments, listJobs } from "../../../lib/api/data";
 import { deleteDocument, cancelProcessing } from "../../../lib/documents";
@@ -29,6 +32,7 @@ type DocRow = {
   processing_error: string | null;
   pdf_path: string | null;
   source_type: string | null;
+  detached_at: string | null;
 };
 
 type DocAnim = {
@@ -505,7 +509,9 @@ export function ListDocuments({
 }) {
   const { listStyles } = useStyles();
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [docs, setDocs] = useState<DocRow[]>([]);
+  const [records, setRecords] = useState<DocRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | { mode: "delete" | "cancel"; doc: DocRow }>(null);
@@ -619,6 +625,8 @@ export function ListDocuments({
         setDocs((prev) => [...prev, ...rows]);
       } else {
         setDocs(rows);
+        const rec = await listDocuments(`?status=processed&offset=0&limit=50&ordering=-created_at`);
+        setRecords(((rec.results ?? []) as DocRow[]).filter((d) => d.source_type !== "manual_input"));
       }
     } catch (e: any) {
       setError(e?.message ?? "Failed to load documents.");
@@ -871,6 +879,23 @@ export function ListDocuments({
                 <ActivityIndicator color={colors.teal} size="small" />
               </View>
             ) : null}
+            {records.length > 0 ? (
+              <View style={{ gap: spacing.xs, marginTop: spacing.md }}>
+                <SectionHeader label="Your records" />
+                {records.map((d) => (
+                  <Pressable key={`rec-${d.id}`} onPress={() => navigation.navigate("DocumentDetail", { id: d.id, title: d.title ?? undefined })}>
+                    <View style={cardStylesRecord(colors)}>
+                      <AppText style={{ color: colors.text, fontWeight: typescale.weight.semibold }} numberOfLines={1}>
+                        {d.title ?? "(untitled)"}
+                      </AppText>
+                      <AppText style={{ color: colors.muted, fontSize: typescale.size.xs }}>
+                        {new Date(d.created_at).toLocaleDateString()} · {d.detached_at ? "Results removed" : "Reviewed in analysis"}
+                      </AppText>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
             {footer ? (
               <View style={{ marginTop: spacing.sm }}>{footer}</View>
             ) : null}
@@ -907,6 +932,11 @@ export function ListDocuments({
       />
     </View>
   );
+}
+
+function cardStylesRecord(c: any) {
+  return { backgroundColor: c.surface, borderRadius: radius.md, borderWidth: 1, borderColor: c.border,
+           padding: spacing.md, gap: 3 } as const;
 }
 
 const useStyles = createStyles((c) => ({
