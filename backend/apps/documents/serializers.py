@@ -7,4 +7,4 @@ class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         exclude = ["user"]
-        read_only_fields = ["id", "created_at", "updated_at", "processed_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "processed_at", "detached_at"]

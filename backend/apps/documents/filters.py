@@ -12,6 +12,7 @@ class DocumentFilter(filters.FilterSet):
     has_processed_at = filters.BooleanFilter(
         field_name="processed_at", lookup_expr="isnull", exclude=True
     )
+    detached = filters.BooleanFilter(field_name="detached_at", lookup_expr="isnull", exclude=True)
 
     class Meta:
         model = Document
