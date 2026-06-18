@@ -133,3 +133,13 @@ class PasswordChangeView(APIView):
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save(update_fields=["password"])
         return Response({"detail": "Password changed."})
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.email_verified_at is not None:
+            return Response({"detail": "Email already verified."})
+        send_verification_email(request.user)
+        return Response({"detail": "Verification email sent."})
