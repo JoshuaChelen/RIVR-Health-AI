@@ -136,9 +136,9 @@ def generate_data_export_task(export_job_id: str) -> None:
         content_file = ContentFile(buf.read(), name=f"{export_job_id}.zip")
         obj_storage.save(key, content_file)
 
-        # 24 hours = 86400 seconds
-        signed = obj_storage.signed_url(key, expire=86400)
-        expires_at = timezone.now() + timedelta(hours=24)
+        # Short-lived URL (1 hour) for the full-PHI ZIP — minimise exposure.
+        signed = obj_storage.signed_url(key, expire=3600)
+        expires_at = timezone.now() + timedelta(hours=1)
 
         job.status = DataExportJob.Status.COMPLETED
         job.export_url = signed or ""
@@ -150,3 +150,33 @@ def generate_data_export_task(export_job_id: str) -> None:
         job.status = DataExportJob.Status.FAILED
         job.error_message = str(exc)[:500]
         job.save()
+
+
+@shared_task(name="apps.accounts.export_tasks.cleanup_expired_exports_task")
+def cleanup_expired_exports_task() -> int:
+    """Delete export ZIPs whose signed URL has expired (orphaned PHI cleanup).
+
+    Mirrors the share-artifact cleanup (Phase 4): removes the storage object and
+    nulls the stored URL so the now-dead link is not served. The key is
+    deterministic (exports/{user_id}/{job_id}.zip), matching how it was saved.
+    """
+    from apps.accounts.models import DataExportJob
+    from apps.common import storage as obj_storage
+
+    now = timezone.now()
+    expired = DataExportJob.objects.filter(
+        status=DataExportJob.Status.COMPLETED,
+        url_expires_at__lt=now,
+        export_url__gt="",
+    )
+    cleaned = 0
+    for job in expired:
+        key = f"exports/{job.user_id}/{job.id}.zip"
+        try:
+            obj_storage.delete(key)
+        except Exception:  # noqa: BLE001 — best-effort, never block on storage
+            pass
+        job.export_url = ""
+        job.save(update_fields=["export_url"])
+        cleaned += 1
+    return cleaned

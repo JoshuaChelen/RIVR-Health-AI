@@ -238,6 +238,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.jobs.tasks.purge_expired_soft_deletes_task",
         "schedule": 86400.0,  # every 24 hours
     },
+    "cleanup-expired-exports": {
+        "task": "apps.accounts.export_tasks.cleanup_expired_exports_task",
+        "schedule": 3600.0,  # every 1 hour
+    },
 }
 
 # --- Email (Mailpit locally) --------------------------------------------------

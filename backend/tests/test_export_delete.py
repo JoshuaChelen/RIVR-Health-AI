@@ -204,3 +204,95 @@ def test_deletion_confirm_wrong_token_returns_400(db, api_client, user):
         format="json",
     )
     assert resp.status_code == 400
+
+
+def test_deletion_confirm_logged_to_audit(db, api_client):
+    """The actual soft-delete execution (not just the request) is audited."""
+    from datetime import timedelta
+
+    from django.contrib.auth import get_user_model
+    from apps.accounts.models import AccountDeletionRequest
+    from apps.audit.models import AuditLog
+
+    User = get_user_model()
+    u = User.objects.create_user(
+        email="confirmaudit@example.com", password="pass", email_verified_at=timezone.now()
+    )
+    uid = u.id
+    api_client.force_authenticate(user=u)
+
+    r = api_client.post("/api/auth/me/delete/request")
+    token = r.data["confirmation_token"]
+    AccountDeletionRequest.objects.filter(user=u).update(
+        can_confirm_at=timezone.now() - timedelta(seconds=1)
+    )
+
+    # Audit entries with a live user FK before confirm (request-time entry).
+    before = AuditLog.objects.filter(
+        resource_id=str(uid), action=AuditLog.Action.DELETE
+    ).count()
+
+    resp = api_client.post(
+        "/api/auth/me/delete/confirm",
+        {"confirmation_token": token},
+        format="json",
+    )
+    assert resp.status_code == 200
+
+    # A second DELETE audit entry was written for the execution itself.
+    after = AuditLog.objects.filter(
+        resource_id=str(uid), action=AuditLog.Action.DELETE
+    ).count()
+    assert after == before + 1
+
+
+# ── Export TTL + cleanup ────────────────────────────────────────────────────
+
+
+def test_export_url_ttl_is_one_hour(db, api_client, user):
+    from datetime import timedelta
+
+    from apps.accounts.models import DataExportJob
+
+    api_client.force_authenticate(user=user)
+    r = api_client.post("/api/auth/me/export/request")
+    job = DataExportJob.objects.get(id=r.data["export_id"])
+    assert job.url_expires_at is not None
+    ttl = job.url_expires_at - job.completed_at
+    # ~1 hour, allow a small window for execution time.
+    assert timedelta(minutes=55) <= ttl <= timedelta(minutes=65)
+
+
+def test_cleanup_expired_exports_deletes_expired(db, user):
+    from datetime import timedelta
+
+    from apps.accounts.export_tasks import cleanup_expired_exports_task
+    from apps.accounts.models import DataExportJob
+
+    job = DataExportJob.objects.create(
+        user=user,
+        status=DataExportJob.Status.COMPLETED,
+        export_url="https://example.com/exports/old.zip",
+        url_expires_at=timezone.now() - timedelta(hours=1),
+    )
+    cleaned = cleanup_expired_exports_task()
+    assert cleaned >= 1
+    job.refresh_from_db()
+    assert job.export_url == ""
+
+
+def test_cleanup_expired_exports_leaves_fresh(db, user):
+    from datetime import timedelta
+
+    from apps.accounts.export_tasks import cleanup_expired_exports_task
+    from apps.accounts.models import DataExportJob
+
+    job = DataExportJob.objects.create(
+        user=user,
+        status=DataExportJob.Status.COMPLETED,
+        export_url="https://example.com/exports/fresh.zip",
+        url_expires_at=timezone.now() + timedelta(hours=1),
+    )
+    cleanup_expired_exports_task()
+    job.refresh_from_db()
+    assert job.export_url == "https://example.com/exports/fresh.zip"
