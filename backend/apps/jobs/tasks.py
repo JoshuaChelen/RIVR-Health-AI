@@ -57,6 +57,7 @@ def purge_expired_soft_deletes_task() -> dict:
 
     from apps.accounts.models import User
     from apps.documents.models import Document
+    from apps.health.models import HealthEvaluation, HealthProfile
     from apps.jobs.models import AiJob
     from apps.profiles.models import UserProfile
     from apps.timeline.models import TimelineEvent
@@ -73,9 +74,17 @@ def purge_expired_soft_deletes_task() -> dict:
     n, _ = TimelineEvent.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
     counts["timeline_events"] = n
 
+    n, _ = HealthEvaluation.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["health_evaluations"] = n
+
+    n, _ = HealthProfile.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["health_profiles"] = n
+
     n, _ = AiJob.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
     counts["ai_jobs"] = n
 
+    # Users last: by now their PHI rows are gone, and BackfillAuditLog/AuditLog FKs
+    # are SET_NULL so the user hard-delete is not blocked by ProtectedError.
     n, _ = User.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
     counts["users"] = n
 

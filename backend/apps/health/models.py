@@ -1,9 +1,9 @@
 from django.db import models
 
-from apps.common.models import BaseModel, TimeStampedModel
+from apps.common.models import BaseModel, SoftDeleteModel, TimeStampedModel
 
 
-class HealthProfile(TimeStampedModel):
+class HealthProfile(SoftDeleteModel, TimeStampedModel):
     """Latest health score + summary (replaces health_profiles).
 
     The user is the primary key (one current profile per user); the worker
@@ -32,7 +32,7 @@ class HealthProfile(TimeStampedModel):
         return f"HealthProfile<{self.user_id}> {self.score}"
 
 
-class HealthEvaluation(BaseModel):
+class HealthEvaluation(SoftDeleteModel, BaseModel):
     """Append-only log of every evaluation result (replaces health_evaluations)."""
 
     user = models.ForeignKey(
