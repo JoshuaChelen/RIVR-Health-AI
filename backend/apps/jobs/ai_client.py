@@ -690,7 +690,12 @@ def transcribe_audio(buf: bytes, mime: str | None) -> str:
             transcription = client.audio.transcriptions.create(
                 file=fh, model=settings.AI_MODEL_TRANSCRIBE
             )
-        return getattr(transcription, "text", "") or ""
+        text = getattr(transcription, "text", "") or ""
+        # Bound unbounded Whisper output before it feeds extraction (cost/DoS).
+        cap = getattr(settings, "AI_TRANSCRIBE_MAX_CHARS", 50000)
+        if cap and len(text) > cap:
+            text = text[:cap]
+        return text
     finally:
         try:
             os.unlink(tmp.name)

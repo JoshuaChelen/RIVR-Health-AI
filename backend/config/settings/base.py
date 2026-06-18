@@ -234,6 +234,9 @@ AI_EXTRACT_MAX_TOKENS = env.int("AI_EXTRACT_MAX_TOKENS", default=8000)
 AI_EVAL_MAX_TOKENS = env.int("AI_EVAL_MAX_TOKENS", default=12000)
 AI_QA_MAX_TOKENS = env.int("AI_QA_MAX_TOKENS", default=2000)
 AI_OCR_MAX_TOKENS = env.int("AI_OCR_MAX_TOKENS", default=6000)
+# Whisper transcript output is unbounded and feeds extraction; truncate very long
+# transcripts (generous — a long voice note is well under this) to bound cost.
+AI_TRANSCRIBE_MAX_CHARS = env.int("AI_TRANSCRIBE_MAX_CHARS", default=50000)
 
 # --- Embeddings (Q&A vectorizing) --------------------------------------------
 EMBEDDING_BASE_URL = env("EMBEDDING_BASE_URL", default=OPENAI_BASE_URL)

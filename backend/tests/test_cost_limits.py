@@ -57,3 +57,28 @@ def test_defaults_are_generous():
     assert dj.AI_EVAL_MAX_TOKENS >= 8000
     assert dj.AI_QA_MAX_TOKENS >= 1500
     assert dj.AI_OCR_MAX_TOKENS >= 3000
+
+
+def test_transcription_truncated_to_cap(settings):
+    """Whisper output over the cap is truncated before it feeds extraction (#5)."""
+    settings.AI_TRANSCRIBE_MAX_CHARS = 100
+
+    class _Tx:
+        text = "word " * 1000  # ~5000 chars
+
+    with patch("apps.jobs.ai_client._client") as mock_client:
+        mock_client.return_value.audio.transcriptions.create.return_value = _Tx()
+        out = ai_client.transcribe_audio(b"fake-audio-bytes", "audio/m4a")
+    assert len(out) == 100
+
+
+def test_transcription_short_unchanged(settings):
+    settings.AI_TRANSCRIBE_MAX_CHARS = 50000
+
+    class _Tx:
+        text = "Patient reports mild headache for 3 days."
+
+    with patch("apps.jobs.ai_client._client") as mock_client:
+        mock_client.return_value.audio.transcriptions.create.return_value = _Tx()
+        out = ai_client.transcribe_audio(b"fake-audio-bytes", "audio/m4a")
+    assert out == "Patient reports mild headache for 3 days."
