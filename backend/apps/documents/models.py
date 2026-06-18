@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Q, UniqueConstraint
 
 from apps.common.models import BaseModel
+from apps.jobs.error_sanitizer import sanitize_log_message
 
 
 class Document(BaseModel):
@@ -53,3 +54,10 @@ class Document(BaseModel):
 
     def __str__(self) -> str:
         return self.title or f"Document<{self.id}>"
+
+    def save(self, *args, **kwargs):
+        # Sanitize processing_error before persisting to prevent PHI/secret leakage
+        # in case raw exception text is assigned to this field.
+        if self.processing_error:
+            self.processing_error = sanitize_log_message(self.processing_error)
+        super().save(*args, **kwargs)

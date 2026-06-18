@@ -53,7 +53,10 @@ def _set_stage(job: AiJob, stage: str, progress: dict | None = None) -> None:
 
 
 def _log(job: AiJob, level: str, message: str, data: dict | None = None) -> None:
-    AiJobEvent.objects.create(job=job, level=level, message=message, data=data)
+    from .error_sanitizer import sanitize_log_message, sanitize_response_detail
+    safe_message = sanitize_log_message(message)
+    safe_data = sanitize_response_detail(data) if data else data
+    AiJobEvent.objects.create(job=job, level=level, message=safe_message, data=safe_data)
 
 
 def _check_cancelled(job: AiJob) -> None:
@@ -143,7 +146,8 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
                 try:
                     ocr = ai_client.ocr_images(page.images)
                 except Exception as exc:  # non-fatal: keep the text layer
-                    _log(job, "warn", f"OCR failed on page {n}: {exc}")
+                    from .error_sanitizer import sanitize_log_message
+                    _log(job, "warn", f"OCR failed on page {n}: {sanitize_log_message(str(exc))}")
                 if ocr:
                     parts.append(f"[IMAGE OCR — page {n}]\n{ocr}")
         raw_text = "\n\n".join(parts)
@@ -195,7 +199,8 @@ def _process_one_document(job: AiJob, doc: Document, idx: int, total: int) -> di
     try:
         index.reindex_document(doc, text=text)
     except Exception as exc:  # non-fatal: the search index is best-effort
-        _log(job, "warn", f"Embedding reindex failed for {doc.id}: {exc}")
+        from .error_sanitizer import sanitize_log_message
+        _log(job, "warn", f"Embedding reindex failed for {doc.id}: {sanitize_log_message(str(exc))}")
     _set_stage(job, "document_done", {"total": total, "done": idx + 1, "currentDocId": str(doc.id)})
     return facts
 
@@ -551,10 +556,10 @@ def run_job(job_id) -> None:
     except Exception as exc:
         # job.error is returned via the API — keep it generic (raw exceptions can carry
         # file paths / extracted PII). Full detail goes to the server-side event log,
-        # with any leaked credentials redacted first.
-        from .error_sanitizer import sanitize_error_message
+        # with any leaked credentials and PHI redacted first.
+        from .error_sanitizer import sanitize_log_message
 
-        _log(job, "error", "Processing failed", {"detail": sanitize_error_message(str(exc))[:1000]})
+        _log(job, "error", "Processing failed", {"detail": sanitize_log_message(str(exc))})
         _fail(job, "Something went wrong while processing this. Please try again.")
         raise
 
