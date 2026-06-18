@@ -1,0 +1,69 @@
+name: Dependency Audit
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    # Run weekly on Monday at 08:00 UTC to catch new CVEs between PRs.
+    - cron: "0 8 * * 1"
+
+jobs:
+  pip-audit:
+    name: Python (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit Python dependencies
+        # --severity HIGH exits non-zero only for HIGH/CRITICAL advisories.
+        # Lower severities (LOW/MEDIUM) are reported but do not fail the job.
+        run: pip-audit -r backend/requirements.txt --severity HIGH
+
+  npm-audit-root:
+    name: Node (root package.json)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install root dependencies
+        run: npm install --ignore-scripts
+        working-directory: .
+
+      - name: Audit root npm dependencies
+        # --audit-level=high exits non-zero only for HIGH/CRITICAL advisories.
+        run: npm audit --audit-level=high
+        working-directory: .
+
+  npm-audit-web:
+    name: Node (web/package.json)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install web dependencies
+        run: npm install --ignore-scripts
+        working-directory: web
+
+      - name: Audit web npm dependencies
+        run: npm audit --audit-level=high
+        working-directory: web
