@@ -42,19 +42,24 @@ def _suppression(user):
 
 # Phrases that signal an attempt to override the assistant's instructions. A turn
 # is dropped only when it carries 2+ of these, so ordinary medical language (a lone
-# "ignore", "rules", etc.) is never discarded.
+# "ignore", "rules", etc.) is never discarded. Stored in normalized form (alnum +
+# single spaces) so they match the bypass-resistant normalized content.
 _HISTORY_INJECTION_KEYWORDS = (
     "ignore previous", "ignore all", "ignore safety", "disregard previous",
     "disregard all", "override", "new instructions", "new rules", "new prompt",
     "previous instructions", "forget previous", "forget everything",
-    "stop following", "don't follow", "do not follow", "system prompt",
+    "stop following", "do not follow", "dont follow", "system prompt",
     "you are now", "act as", "jailbreak",
 )
 
 
 def _has_history_injection(content: str) -> bool:
-    low = content.lower()
-    return sum(1 for kw in _HISTORY_INJECTION_KEYWORDS if kw in low) >= 2
+    # Normalize first so "ignore/previous", "ignore  previous", soft-hyphen, and
+    # zero-width separators can't slip a phrase past substring matching.
+    from apps.jobs.output_validator import normalize_for_phrase_match
+
+    norm = " " + normalize_for_phrase_match(content) + " "
+    return sum(1 for kw in _HISTORY_INJECTION_KEYWORDS if f" {kw} " in norm) >= 2
 
 
 def _sanitize_history(raw) -> list[dict]:

@@ -54,20 +54,45 @@ _HTML_PATTERNS = (
 )
 
 # Prompt-injection phrases. A field is rejected only with 2+ matches, so a lone
-# everyday word ("ignore", "rules") in a clinical note never trips it.
+# everyday word ("ignore", "rules") in a clinical note never trips it. Stored in
+# normalized form (alnum + single spaces) to match normalize_for_phrase_match.
 _INJECTION_PHRASES = (
     "ignore previous", "ignore all", "ignore the above", "disregard previous",
     "disregard all", "override", "new instructions", "new rules", "new prompt",
     "previous instructions", "system prompt", "output the", "reveal the",
     "you are now", "act as", "forget everything", "jailbreak", "do not follow",
-    "don't follow", "stop following",
+    "dont follow", "stop following",
 )
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_NON_ALNUM_RUN = re.compile(r"[^a-z0-9]+")
+
+
+def normalize_for_phrase_match(text: str) -> str:
+    """Collapse every run of non-alphanumeric characters (whitespace, punctuation,
+    soft hyphens, slashes, repeated spaces, zero-width chars) into a single space.
+
+    This defeats trivial bypasses of substring phrase matching: "ignore/previous",
+    "ignore  previous", "ignore­previous" all normalize to "ignore previous".
+    The phrase list itself is space-separated, so matching on this normalized form
+    is equivalent to flexible-separator word-boundary matching.
+    """
+    return _NON_ALNUM_RUN.sub(" ", (text or "").lower()).strip()
+
+
+def count_injection_phrases(text: str) -> int:
+    """Number of distinct injection phrases present in `text` (bypass-resistant)."""
+    norm = " " + normalize_for_phrase_match(text) + " "
+    return sum(1 for p in _INJECTION_PHRASES if f" {p} " in norm)
 
 
 def _check_value(field: str, value: Any) -> str:
-    """Validate one string field; return it unchanged when clean."""
+    """Validate one string field; return it unchanged when clean.
+
+    Shared content gate used by the AI-backfill validator AND the manual
+    profile / ai-item edit paths (same calibrated rules), so legit clinical
+    values like "500 mg" or "hives & itching" always pass.
+    """
     if value is None:
         return ""
     if not isinstance(value, str):
@@ -80,8 +105,7 @@ def _check_value(field: str, value: Any) -> str:
     for pat in _HTML_PATTERNS:
         if pat.search(value):
             raise OutputValidationError(f"{field}: HTML/script markup not allowed")
-    low = value.lower()
-    if sum(1 for p in _INJECTION_PHRASES if p in low) >= 2:
+    if count_injection_phrases(value) >= 2:
         raise OutputValidationError(f"{field}: prompt-injection pattern detected")
     return value
 
