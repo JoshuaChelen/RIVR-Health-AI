@@ -30,6 +30,20 @@ def test_export_request_creates_data_export_job(db, api_client, user):
     assert DataExportJob.objects.filter(user=user).exists()
 
 
+def test_export_requires_email_verification(db, api_client):
+    """An unverified user cannot pull a PHI export — gate consistent with other PHI reads."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    unverified = User.objects.create_user(email="unverified-export@example.com", password="pass")
+    assert unverified.email_verified_at is None
+    api_client.force_authenticate(user=unverified)
+    assert api_client.post("/api/auth/me/export/request").status_code == 403
+    assert api_client.get(
+        "/api/auth/me/export/status/00000000-0000-0000-0000-000000000000"
+    ).status_code == 403
+
+
 def test_export_task_runs_eagerly_and_completes(db, api_client, user):
     """With CELERY_TASK_ALWAYS_EAGER=True the task runs inline; job completes."""
     from apps.accounts.models import DataExportJob

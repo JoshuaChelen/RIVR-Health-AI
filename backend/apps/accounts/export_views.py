@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.audit.models import AuditLog
+from apps.common.permissions import IsEmailVerified
 
 from .models import AccountDeletionRequest, DataExportJob
 
@@ -21,7 +22,7 @@ class DataExportRequestView(APIView):
     the signed URL asynchronously.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def post(self, request):
         user = request.user
@@ -65,7 +66,7 @@ class DataExportRequestView(APIView):
 class DataExportStatusView(APIView):
     """GET: check status of a data export job."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def get(self, request, export_id):
         user = request.user
