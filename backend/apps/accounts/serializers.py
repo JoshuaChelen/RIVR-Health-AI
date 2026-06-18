@@ -65,3 +65,4 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
+    access = serializers.CharField(required=False)

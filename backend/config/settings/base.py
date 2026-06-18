@@ -135,7 +135,7 @@ if AWS_ACCESS_KEY_ID:
 # --- DRF ----------------------------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.common.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -171,6 +171,10 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+# Django's default_token_generator respects this setting.  Pin to 1 hour so
+# password-reset links can't be replayed days later.
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=3600)  # 1 hour
 
 # --- Upload size limits (DoS prevention) ----------------------------------------
 FILE_UPLOAD_MAX_MEMORY_SIZE = env.int(

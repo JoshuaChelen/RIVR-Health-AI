@@ -127,14 +127,19 @@ class QAView(APIView):
         question = (request.data.get("question") or "").strip()
         if not question:
             return Response({"detail": "question required"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(question) > MAX_QUESTION:
+            return Response(
+                {"detail": f"Question too long (max {MAX_QUESTION} characters)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if not settings.OPENAI_API_KEY:
             return Response({"detail": "AI search is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         history = _sanitize_history(request.data.get("history"))
         prior_question = next(
             (t["content"] for t in reversed(history) if t["role"] == "user"), ""
         )
-        context, _sources = build_qa_context(request.user, question[:MAX_QUESTION], prior_question)
+        context, _sources = build_qa_context(request.user, question, prior_question)
         result = ai_client.answer_health_question(
-            question[:MAX_QUESTION], context, history=history
+            question, context, history=history
         )
         return Response(result.model_dump())

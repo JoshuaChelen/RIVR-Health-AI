@@ -1,11 +1,15 @@
+import hashlib
+
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.exceptions import APIException
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .emails import send_password_reset_email, send_verification_email
@@ -23,6 +27,14 @@ from .tokens import read_email_verify_token, read_password_reset
 from apps.common.throttles import LoginThrottle, PasswordResetThrottle, RegisterThrottle
 
 User = get_user_model()
+
+_LOGIN_MAX_FAILURES = 5
+_LOGIN_LOCKOUT_DURATION = 60 * 15  # 15 min
+
+
+def _login_cache_keys(email: str) -> tuple[str, str]:
+    h = hashlib.sha256(email.encode()).hexdigest()
+    return f"login_lock:{h}", f"login_fail:{h}"
 
 
 def _tokens_for(user) -> dict:
@@ -50,6 +62,32 @@ class LoginView(TokenObtainPairView):
     throttle_classes = [LoginThrottle]
     serializer_class = LoginSerializer
 
+    def post(self, request, *args, **kwargs):
+        email = (request.data.get("email") or "").strip().lower()
+        lock_key, fail_key = _login_cache_keys(email)
+
+        if cache.get(lock_key):
+            return Response(
+                {"detail": "Account temporarily locked. Try again later."},
+                status=status.HTTP_423_LOCKED,
+            )
+
+        try:
+            response = super().post(request, *args, **kwargs)
+        except APIException:
+            failures = cache.get(fail_key, 0) + 1
+            if failures >= _LOGIN_MAX_FAILURES:
+                cache.set(lock_key, True, _LOGIN_LOCKOUT_DURATION)
+                cache.delete(fail_key)
+            else:
+                cache.set(fail_key, failures, _LOGIN_LOCKOUT_DURATION)
+            raise
+
+        # Success — clear lockout state.
+        cache.delete(lock_key)
+        cache.delete(fail_key)
+        return response
+
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
@@ -68,6 +106,20 @@ class LogoutView(APIView):
             RefreshToken(serializer.validated_data["refresh"]).blacklist()
         except TokenError:
             return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Denylist the access token by JTI so it can't be used after logout.
+        access_raw = serializer.validated_data.get("access")
+        if access_raw:
+            try:
+                access = AccessToken(access_raw)
+                jti = access["jti"]
+                exp = access["exp"]
+                ttl = max(0, exp - int(timezone.now().timestamp()))
+                if ttl > 0:
+                    cache.set(f"jwt_denylist:{jti}", True, ttl)
+            except TokenError:
+                pass  # Don't fail logout if access token is invalid
+
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
@@ -118,7 +170,8 @@ class PasswordResetView(APIView):
                 {"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST
             )
         user.set_password(serializer.validated_data["password"])
-        user.save(update_fields=["password"])
+        user.password_reset_token_used_at = timezone.now()
+        user.save(update_fields=["password", "password_reset_token_used_at"])
         return Response({"detail": "Password updated."})
 
 
