@@ -20,6 +20,11 @@ class PHIAccessControlMixin:
             return qs
         return qs.none()
 
+    def has_view_permission(self, request, obj=None):
+        # Blocks the change/detail page for non-clinician staff (the empty
+        # queryset alone hides the list but not direct-URL object access).
+        return self._has_phi_access(request)
+
     def has_add_permission(self, request):
         return self._has_phi_access(request)
 

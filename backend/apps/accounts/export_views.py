@@ -188,6 +188,20 @@ class AccountDeletionConfirmView(APIView):
         deletion_req.confirmed_at = timezone.now()
         deletion_req.save(update_fields=["confirmed_at"])
 
+        # Audit the actual execution (the request was logged separately at
+        # request time; this records the irreversible soft-delete itself).
+        audit_ctx = getattr(request, "audit_context", {})
+        AuditLog.objects.create(
+            user=user,
+            user_email_snapshot=user.email,
+            resource_type="user",
+            resource_id=str(user.id),
+            action=AuditLog.Action.DELETE,
+            ip_address=audit_ctx.get("ip_address"),
+            user_agent=audit_ctx.get("user_agent", ""),
+            status_code=200,
+        )
+
         # Reuse same cleanup logic as DeleteAccountView
         from apps.common import storage as obj_storage
         from apps.documents.models import Document

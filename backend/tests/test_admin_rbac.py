@@ -90,3 +90,25 @@ def test_ai_job_event_admin_readonly(db):
     assert admin.has_add_permission(request) is False
     assert admin.has_change_permission(request) is False
     assert admin.has_delete_permission(request) is False
+
+
+def test_support_cannot_view_profile_detail(db):
+    support = _make_user("support_view@example.com")
+    support.is_staff = True
+    support.save()
+    group, _ = Group.objects.get_or_create(name="support")
+    support.groups.add(group)
+
+    admin = _profile_admin()
+    assert admin.has_view_permission(_request_for(support)) is False
+
+
+def test_clinician_can_view_profile_detail(db):
+    clinician = _make_user("clinician_view@example.com")
+    clinician.is_staff = True
+    clinician.save()
+    group, _ = Group.objects.get_or_create(name="clinician")
+    clinician.groups.add(group)
+
+    admin = _profile_admin()
+    assert admin.has_view_permission(_request_for(clinician)) is True
