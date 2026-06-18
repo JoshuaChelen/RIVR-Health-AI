@@ -25,7 +25,8 @@ def test_get_client_ip_uses_remote_addr_when_no_trusted_proxies():
 
 
 def test_get_client_ip_extracts_xff_when_proxy_trusted():
-    req = FakeRequest("10.0.0.1", xff="203.0.113.1, 10.0.0.1")
+    # Caddy appends the real client as the rightmost XFF entry.
+    req = FakeRequest("10.0.0.1", xff="1.1.1.1, 203.0.113.1")
     with override_settings(TRUSTED_PROXIES=["10.0.0.1"]):
         assert get_client_ip(req) == "203.0.113.1"
 
@@ -53,7 +54,9 @@ def test_resolve_logs_client_ip_from_x_forwarded_for():
         response = client.post(
             "/api/shares/resolve",
             {"token": token},
-            HTTP_X_FORWARDED_FOR="203.0.113.1, 127.0.0.1",
+            # Caddy appends the real client as the rightmost XFF entry; the
+            # leftmost "1.1.1.1" is attacker-supplied and must be ignored.
+            HTTP_X_FORWARDED_FOR="1.1.1.1, 203.0.113.1",
             REMOTE_ADDR="127.0.0.1",
         )
     assert response.status_code == 200

@@ -19,6 +19,12 @@ api.rivrhealth.com, 87.99.138.168.sslip.io {
 
 	# Everything else → Django (gunicorn).
 	handle {
-		reverse_proxy web:8000
+		reverse_proxy web:8000 {
+			# Overwrite (not append) X-Forwarded-For with the real client IP
+			# so the header can't carry attacker-supplied entries. The app's
+			# get_client_ip / DRF NUM_PROXIES read this for lockout, throttle
+			# and audit-log IPs.
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 }

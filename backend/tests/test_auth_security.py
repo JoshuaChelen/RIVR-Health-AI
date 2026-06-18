@@ -197,25 +197,30 @@ class TestLoginLockout:
         assert r_victim.status_code == 200
 
     def test_lockout_uses_x_forwarded_for(self, make_user, api_client):
-        """Behind Caddy (trusted proxy), the lockout key uses the XFF client IP."""
+        """Behind Caddy (trusted proxy), the lockout key uses the XFF client IP.
+
+        Caddy appends the real client as the RIGHTMOST XFF entry, so the
+        client IP is the last one. The leftmost entry is attacker-supplied.
+        """
         make_user(email="xff@example.com")
-        # Same REMOTE_ADDR (the proxy), but different XFF client IPs → separate counters.
+        # Same REMOTE_ADDR (the proxy), but different real client IPs (rightmost).
         with override_settings(TRUSTED_PROXIES=["10.0.0.1"]):
             for _ in range(5):
                 api_client.post(
                     LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
-                    REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
+                    REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="1.1.1.1, 198.51.100.7",
                 )
-            # Locked for the XFF client 198.51.100.7.
+            # Locked for the real (rightmost) client 198.51.100.7.
             r_locked = api_client.post(
                 LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
-                REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
+                REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="1.1.1.1, 198.51.100.7",
             )
             assert r_locked.status_code == 423
-            # A different XFF client through the same proxy is NOT locked.
+            # A different real client through the same proxy is NOT locked,
+            # even if it forges the same leftmost entry as the locked client.
             r_other = api_client.post(
                 LOGIN, {"email": "xff@example.com", "password": PW}, format="json",
-                REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.250, 10.0.0.1",
+                REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="1.1.1.1, 198.51.100.250",
             )
             assert r_other.status_code == 200
 
