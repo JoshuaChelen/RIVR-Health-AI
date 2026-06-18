@@ -26,6 +26,7 @@ def _minimal_prod_env(**overrides) -> dict:
         "DATABASE_URL", "DJANGO_DEBUG", "DJANGO_SETTINGS_MODULE",
         "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND",
         "AWS_S3_ENDPOINT_URL", "AWS_S3_PUBLIC_ENDPOINT_URL",
+        "FIELD_ENCRYPTION_KEY",
     ):
         env.pop(key, None)
     # Sane valid prod baseline
@@ -35,6 +36,9 @@ def _minimal_prod_env(**overrides) -> dict:
     env["DJANGO_ALLOWED_HOSTS"] = "api.example.com"
     env["DATABASE_URL"] = "postgres://user:pass@localhost/db?sslmode=require"
     env["CORS_ALLOW_ALL_ORIGINS"] = "false"
+    # A real, valid Fernet key so prod.py's field-encryption validation passes
+    # for tests targeting the other prod validations.
+    env["FIELD_ENCRYPTION_KEY"] = "Hh3y0p3F0t8wXp4nGq2QbVr9Yd1mZc6sJ7kLwTxNuE0="
     env.update(overrides)
     return env
 
