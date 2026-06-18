@@ -150,6 +150,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
     "DEFAULT_THROTTLE_RATES": {
         "share_resolve": "30/min",
+        "share_create": "10/min",
         "register": "5/h",
         "login": "10/min",
         "upload": "30/h",
@@ -208,6 +209,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.jobs.tasks.recover_stale_jobs_task",
         "schedule": 300.0,  # every 5 minutes
     },
+    "cleanup-expired-shares": {
+        "task": "apps.shares.tasks.cleanup_expired_shares_task",
+        "schedule": 3600.0,  # every 1 hour
+    },
 }
 
 # --- Email (Mailpit locally) --------------------------------------------------
@@ -256,6 +261,12 @@ SHARE_PUBLIC_URL = env("SHARE_PUBLIC_URL", default="http://localhost:3000/share"
 SHARE_EXPIRES_MINUTES = env.int("SHARE_EXPIRES_MINUTES", default=1)
 SHARE_MAX_VIEWS = env.int("SHARE_MAX_VIEWS", default=2)
 SHARE_MAX_PIN_ATTEMPTS = env.int("SHARE_MAX_PIN_ATTEMPTS", default=5)
+SHARE_CLEANUP_GRACE_HOURS = env.int("SHARE_CLEANUP_GRACE_HOURS", default=1)
+
+# Trusted reverse-proxy IPs for X-Forwarded-For extraction.
+# In production behind Caddy, set this to the Caddy container / VPS-internal IP.
+# Empty list = no proxies trusted (REMOTE_ADDR is used directly).
+TRUSTED_PROXIES = env.list("TRUSTED_PROXIES", default=[])
 
 # --- Cache (required for DRF throttling) ----------------------------------------
 CACHES = {
