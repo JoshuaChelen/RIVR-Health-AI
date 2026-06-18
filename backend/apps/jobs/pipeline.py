@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import date, datetime, timezone
 
 from django.core.files.base import ContentFile
@@ -23,6 +24,9 @@ from apps.timeline.models import TimelineEvent
 
 from . import ai_client, citations, extraction, index, output_validator, profile_logic
 from .models import AiJob, AiJobEvent
+
+logger = logging.getLogger(__name__)
+
 
 class CancellationError(Exception):
     pass
@@ -454,7 +458,17 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
                 # medical record. A malicious/garbled document that produced unsafe
                 # values (control chars, HTML, injection text, oversized fields) is
                 # rejected here, so the backfill is skipped rather than poisoned.
-                candidates = output_validator.validate_backfill_candidates(candidates)
+                try:
+                    candidates = output_validator.validate_backfill_candidates(candidates)
+                except output_validator.OutputValidationError as ve:
+                    # Distinguish the SECURITY-rejection case so poisoning attempts are
+                    # observable. The exception message is "field: reason" only — it never
+                    # contains the offending value/payload, so this is PII-safe.
+                    _log(job, "warn", "AI backfill REJECTED by output validator (possible poisoning attempt)",
+                         {"reason": str(ve)})
+                    logger.warning("ai_backfill_rejected user=%s job=%s reason=%s",
+                                   user_id, job.id, str(ve))
+                    raise
                 result = profile_logic.compute_backfill_patch(
                     raw_profile, candidates, {"job_id": str(job.id), "evaluation_id": str(eval_row.id)}
                 )
@@ -466,8 +480,11 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
                     _log(job, "info", "AI backfill applied", result["summary"])
                 else:
                     _log(job, "info", "AI backfill: no new items to add")
+            except output_validator.OutputValidationError:
+                pass  # already logged distinctly above; skip backfill, keep job green
             except Exception as exc:  # non-fatal
-                _log(job, "warn", f"AI backfill failed: {exc}")
+                from .error_sanitizer import sanitize_error_message
+                _log(job, "warn", f"AI backfill failed: {sanitize_error_message(str(exc))}")
 
         all_job_doc_ids = list(limited_doc_ids) + list(manual_doc_ids)
         if all_job_doc_ids:

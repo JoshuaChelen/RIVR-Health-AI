@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.documents.models import Document
 from apps.health.models import HealthEvaluation, HealthProfile
-from apps.jobs import ai_client, extraction, pipeline
+from apps.jobs import ai_client, extraction, pipeline, profile_logic
 from apps.jobs.models import AiJob
 from apps.jobs.schemas import DocumentFacts, HealthEvaluation as HEval
 from apps.profiles.models import UserProfile
@@ -126,6 +126,36 @@ def test_malicious_document_does_not_poison_profile(user, mock_ai, monkeypatch):
     prof = UserProfile.objects.get(user=user)
     assert (prof.allergies or []) == []
     assert not (prof.ai_backfill_meta or {}).get("fields")
+    # Fix #6: the rejection is logged distinctly (observable poisoning attempt),
+    # with a PII-safe field:reason — not the offending payload.
+    from apps.jobs.models import AiJobEvent
+    rejected = AiJobEvent.objects.filter(job=job, message__icontains="REJECTED by output validator")
+    assert rejected.exists()
+    ev = rejected.first()
+    import json as _json
+    assert "markup" in (ev.data or {}).get("reason", "")
+    assert "<script>" not in _json.dumps(ev.data or {})  # payload never logged
+
+
+def test_backfill_only_writes_four_field_types(user, mock_ai, monkeypatch):
+    """Fix #7 (verify-then-act): extract_backfill_candidates -> compute_backfill_patch
+    only ever mutates allergies/medications/medical_history/surgical_history. So
+    family_history/hospitalizations/social_history are NOT a backfill injection path
+    and need no backfill-side validation (manual edits ARE content-checked, Fix #4)."""
+    cands = profile_logic.extract_backfill_candidates([{
+        "key_facts": {"blood_type": None,
+                      "allergies": [{"substance": "Penicillin", "severity": "high"}],
+                      "medications": [{"name": "Metformin"}],
+                      "conditions": [{"name": "Diabetes"}],
+                      "surgeries_procedures": [{"name": "Appendectomy"}],
+                      "implants_devices": [], "key_labs_vitals": [], "extra_notes": []},
+    }])
+    assert set(cands.keys()) == {"allergies", "medications", "medical_history", "surgical_history"}
+    patch = profile_logic.compute_backfill_patch({}, cands, {"job_id": "j", "evaluation_id": "e"})
+    written = set(patch["patch"].keys()) - {"ai_backfill_meta"}
+    assert written <= {"allergies", "medications", "medical_history", "surgical_history"}
+    assert "family_history" not in written and "hospitalizations" not in written
+    assert "social_history" not in written
 
 
 def test_clean_document_still_backfills_profile(user, mock_ai, monkeypatch):
