@@ -71,3 +71,36 @@ def test_consent_withdraw_invalid_type(db, api_client):
     api_client.force_authenticate(user=u)
     resp = api_client.post("/api/auth/consent/withdraw", {"consent_type": "nonexistent"}, format="json")
     assert resp.status_code == 400
+
+
+def test_consent_record_immutable_on_update(user):
+    from django.core.exceptions import PermissionDenied
+    from apps.accounts.models import ConsentRecord
+    rec = ConsentRecord.objects.create(
+        user=user, consent_type="marketing", accepted_at=timezone.now()
+    )
+    rec.withdrawn_at = timezone.now()
+    with pytest.raises(PermissionDenied):
+        rec.save()
+
+
+def test_consent_record_instance_delete_raises(user):
+    from django.core.exceptions import PermissionDenied
+    from apps.accounts.models import ConsentRecord
+    rec = ConsentRecord.objects.create(
+        user=user, consent_type="marketing", accepted_at=timezone.now()
+    )
+    with pytest.raises(PermissionDenied):
+        rec.delete()
+
+
+def test_consent_record_queryset_delete_raises(user):
+    from django.core.exceptions import PermissionDenied
+    from apps.accounts.models import ConsentRecord
+    ConsentRecord.objects.create(
+        user=user, consent_type="marketing", accepted_at=timezone.now()
+    )
+    with pytest.raises(PermissionDenied):
+        ConsentRecord.objects.filter(user=user, consent_type="marketing").delete()
+    # The records must survive the failed bulk delete.
+    assert ConsentRecord.objects.filter(user=user, consent_type="marketing").exists()

@@ -1,9 +1,11 @@
 import uuid
-from datetime import timedelta
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.utils import timezone
+
+from apps.common.models import AppendOnlyManager
 
 from .managers import AllUsersManager, UserManager
 
@@ -73,12 +75,24 @@ class ConsentRecord(models.Model):
     user_agent = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
+    objects = AppendOnlyManager()
+
     class Meta:
         db_table = "consent_records"
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["user", "consent_type", "-created_at"]),
         ]
+
+    def save(self, *args, **kwargs):
+        # Append-only: existing records are immutable. Withdrawal creates a NEW
+        # row, so create() must still work (a fresh instance is _state.adding).
+        if not self._state.adding:
+            raise PermissionDenied("ConsentRecord entries are immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionDenied("ConsentRecord entries cannot be deleted.")
 
     def __str__(self) -> str:
         status = "accepted" if self.accepted_at else "withdrawn"
