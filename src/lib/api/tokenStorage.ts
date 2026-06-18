@@ -41,18 +41,20 @@ export async function initTokenStorage(): Promise<void> {
   try {
     const oldAccess = await AsyncStorage.getItem(ACCESS_KEY);
     const oldRefresh = await AsyncStorage.getItem(REFRESH_KEY);
+    // Write into SecureStore FIRST. If either write throws, the catch below
+    // keeps the AsyncStorage tokens and does NOT set the migration flag, so the
+    // migration retries on the next launch — the user is never logged out.
     if (oldAccess) await SecureStore.setItemAsync(ACCESS_KEY, oldAccess);
     if (oldRefresh) await SecureStore.setItemAsync(REFRESH_KEY, oldRefresh);
+
+    // SecureStore writes succeeded — now it's safe to drop the plaintext copies
+    // and mark the migration complete.
+    await AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY]);
+    await AsyncStorage.setItem(MIGRATION_DONE_KEY, "1");
   } catch (e) {
-    // Migration failure is non-fatal — the user may need to re-login.
-    console.warn("[TokenStorage] Migration failed:", e);
-  } finally {
-    try {
-      await AsyncStorage.setItem(MIGRATION_DONE_KEY, "1");
-      await AsyncStorage.multiRemove([ACCESS_KEY, REFRESH_KEY]);
-    } catch (e) {
-      console.warn("[TokenStorage] Cleanup after migration failed:", e);
-    }
+    // Migration failed: AsyncStorage tokens are retained and the flag is unset,
+    // so the next launch retries. The user stays logged in.
+    console.warn("[TokenStorage] Migration failed, will retry next launch:", e);
   }
 }
 

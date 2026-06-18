@@ -23,6 +23,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 
+import * as SecureStore from "expo-secure-store";
 import {
   clearTokens,
   getAccessToken,
@@ -31,9 +32,15 @@ import {
   setTokens,
 } from "./tokenStorage";
 
+const setItemAsyncMock = vi.mocked(SecureStore.setItemAsync);
+
 beforeEach(() => {
   for (const k of Object.keys(secureStore)) delete secureStore[k];
   for (const k of Object.keys(asyncStore)) delete asyncStore[k];
+  // Reset the SecureStore write mock to its default (succeeding) behaviour so a
+  // mockRejectedValueOnce from a previous test doesn't leak.
+  setItemAsyncMock.mockReset();
+  setItemAsyncMock.mockImplementation(async (k: string, v: string) => { secureStore[k] = v; });
 });
 
 describe("tokenStorage (native)", () => {
@@ -78,5 +85,22 @@ describe("tokenStorage (native)", () => {
 
     // Must not have touched the value.
     expect(secureStore["rivr.access"]).toBe("existing_in_secure");
+  });
+
+  it("keeps AsyncStorage tokens and does NOT set the flag when SecureStore write fails", async () => {
+    // Pre-migration state with tokens to migrate.
+    asyncStore["rivr.access"] = "old_access";
+    asyncStore["rivr.refresh"] = "old_refresh";
+
+    // SecureStore write throws — simulates Keychain/Keystore failure.
+    setItemAsyncMock.mockRejectedValue(new Error("keychain unavailable"));
+
+    await initTokenStorage();
+
+    // The user must NOT be logged out: AsyncStorage tokens are retained...
+    expect(asyncStore["rivr.access"]).toBe("old_access");
+    expect(asyncStore["rivr.refresh"]).toBe("old_refresh");
+    // ...and the migration flag is NOT set, so it retries next launch.
+    expect(asyncStore["rivr.storage_migrated_v1"]).toBeUndefined();
   });
 });
