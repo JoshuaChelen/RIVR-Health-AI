@@ -1,7 +1,9 @@
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.common.models import BaseModel
+from apps.jobs.error_sanitizer import validate_timeline_event_data
 
 
 class TimelineEvent(BaseModel):
@@ -40,6 +42,13 @@ class TimelineEvent(BaseModel):
             models.Index(fields=["user", "source"]),
             models.Index(fields=["user", "included_in_previsit"]),
         ]
+
+    def clean(self):
+        """Validate data dict to prevent PHI storage in unstructured JSON."""
+        try:
+            validate_timeline_event_data(self.data)
+        except ValueError as exc:
+            raise ValidationError({"data": str(exc)})
 
     def __str__(self) -> str:
         return self.title
