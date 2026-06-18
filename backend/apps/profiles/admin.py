@@ -1,10 +1,12 @@
 from django.contrib import admin
 
+from apps.common.admin import PHIAccessControlMixin
+
 from .models import UserProfile
 
 
 @admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
+class UserProfileAdmin(PHIAccessControlMixin, admin.ModelAdmin):
     # first_name/last_name removed from list_display and search_fields to prevent
     # bulk PHI enumeration. Names are accessible in the detail view via readonly_fields.
     list_display = ["user", "onboarding_completed_at"]

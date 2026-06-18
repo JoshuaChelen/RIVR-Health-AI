@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from apps.common.admin import ReadOnlyMixin
 from apps.jobs.error_sanitizer import sanitize_log_message
 
 from .models import AiJob, AiJobEvent
@@ -14,7 +15,7 @@ class AiJobAdmin(admin.ModelAdmin):
 
 
 @admin.register(AiJobEvent)
-class AiJobEventAdmin(admin.ModelAdmin):
+class AiJobEventAdmin(ReadOnlyMixin, admin.ModelAdmin):
     # message is NOT in list_display — it may contain exception text with PHI.
     # Access it via the detail view (readonly_fields) where it is sanitized.
     list_display = ["id", "job", "level", "at"]
