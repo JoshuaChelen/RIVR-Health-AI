@@ -1,5 +1,8 @@
 from rest_framework import serializers
 
+from apps.jobs import output_validator
+from apps.jobs.error_sanitizer import validate_timeline_event_data
+
 from .models import TimelineEvent
 
 
@@ -44,4 +47,21 @@ class TimelineEventSerializer(serializers.ModelSerializer):
     def validate_tags(self, value):
         if isinstance(value, list) and len(value) > 20:
             raise serializers.ValidationError("tags cannot exceed 20 items.")
+        return value
+
+    def validate_data(self, value):
+        # DRF doesn't call Model.clean() on save(), so the model-level guard never
+        # runs for API writes. Enforce the same structural rules here, plus per-value
+        # content validation (control chars / HTML markup) via the shared validator.
+        try:
+            validate_timeline_event_data(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
+        if isinstance(value, dict):
+            for key, v in value.items():
+                if isinstance(v, str):
+                    try:
+                        output_validator.validate_text_value(f"data.{key}", v)
+                    except output_validator.OutputValidationError as exc:
+                        raise serializers.ValidationError(str(exc))
         return value
