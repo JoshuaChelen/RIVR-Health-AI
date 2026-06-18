@@ -1,5 +1,5 @@
 import logging
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -39,7 +39,7 @@ def _safe_send(subject: str, message: str, recipient: str) -> None:
 
 
 def send_verification_email(user) -> None:
-    token = make_email_verify_token(user)
+    token = quote(make_email_verify_token(user), safe="")
     link = f"{_get_safe_frontend_url()}/verify-email?token={token}"
     _safe_send(
         "Verify your RIVR email",
@@ -50,7 +50,7 @@ def send_verification_email(user) -> None:
 
 def send_password_reset_email(user) -> None:
     uid, token = make_password_reset_tokens(user)
-    link = f"{_get_safe_frontend_url()}/reset-password?uid={uid}&token={token}"
+    link = f"{_get_safe_frontend_url()}/reset-password?uid={quote(uid, safe='')}&token={quote(token, safe='')}"
     _safe_send(
         "Reset your RIVR password",
         f"Reset your password:\n{link}\n\nIf you didn't request this, ignore this email.\n",
