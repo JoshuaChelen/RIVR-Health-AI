@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import include, path
@@ -11,10 +12,7 @@ def healthz(_request: HttpRequest) -> JsonResponse:
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
     path("healthz", healthz, name="healthz"),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("api/auth/", include("apps.accounts.urls")),
     path("api/", include("apps.profiles.urls")),
     path("api/", include("apps.documents.urls")),
@@ -24,3 +22,12 @@ urlpatterns = [
     path("api/", include("apps.shares.urls")),
     path("api/account", DeleteAccountView.as_view(), name="delete-account"),
 ]
+
+# Gate Django admin and API documentation behind DEBUG flag.
+# In production (DEBUG=False), these routes are not registered and return 404.
+if settings.DEBUG:
+    urlpatterns += [
+        path("admin/", admin.site.urls),
+        path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+        path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
+    ]
