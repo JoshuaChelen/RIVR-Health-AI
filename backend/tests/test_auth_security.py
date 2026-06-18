@@ -2,6 +2,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.test import override_settings
 from django.utils import timezone
 
 User = get_user_model()
@@ -196,26 +197,27 @@ class TestLoginLockout:
         assert r_victim.status_code == 200
 
     def test_lockout_uses_x_forwarded_for(self, make_user, api_client):
-        """Behind Caddy, the client IP is the first X-Forwarded-For entry."""
+        """Behind Caddy (trusted proxy), the lockout key uses the XFF client IP."""
         make_user(email="xff@example.com")
         # Same REMOTE_ADDR (the proxy), but different XFF client IPs → separate counters.
-        for _ in range(5):
-            api_client.post(
+        with override_settings(TRUSTED_PROXIES=["10.0.0.1"]):
+            for _ in range(5):
+                api_client.post(
+                    LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
+                    REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
+                )
+            # Locked for the XFF client 198.51.100.7.
+            r_locked = api_client.post(
                 LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
                 REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
             )
-        # Locked for the XFF client 198.51.100.7.
-        r_locked = api_client.post(
-            LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
-            REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
-        )
-        assert r_locked.status_code == 423
-        # A different XFF client through the same proxy is NOT locked.
-        r_other = api_client.post(
-            LOGIN, {"email": "xff@example.com", "password": PW}, format="json",
-            REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.250, 10.0.0.1",
-        )
-        assert r_other.status_code == 200
+            assert r_locked.status_code == 423
+            # A different XFF client through the same proxy is NOT locked.
+            r_other = api_client.post(
+                LOGIN, {"email": "xff@example.com", "password": PW}, format="json",
+                REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.250, 10.0.0.1",
+            )
+            assert r_other.status_code == 200
 
 
 # ── Task 5: CONSTANT-TIME VERIFY ─────────────────────────────────────────────

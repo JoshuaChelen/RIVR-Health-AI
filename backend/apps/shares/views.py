@@ -4,25 +4,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.ip import get_client_ip
 from apps.common.permissions import IsEmailVerified
 
 from .services import create_share, resolve_share
-
-
-def get_client_ip(request) -> str:
-    """Extract client IP, respecting TRUSTED_PROXIES.
-
-    If REMOTE_ADDR is a trusted proxy, read the leftmost IP from
-    X-Forwarded-For (set by the proxy). Otherwise fall back to REMOTE_ADDR.
-    This prevents arbitrary spoofing from untrusted sources.
-    """
-    remote_addr = request.META.get("REMOTE_ADDR", "0.0.0.0")
-    trusted_proxies = getattr(settings, "TRUSTED_PROXIES", [])
-    if remote_addr in trusted_proxies:
-        xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
-        if xff:
-            return xff.split(",")[0].strip()
-    return remote_addr
 
 
 class CreateShareView(APIView):

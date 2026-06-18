@@ -24,22 +24,13 @@ from .serializers import (
     UserSerializer,
 )
 from .tokens import read_email_verify_token, read_password_reset
+from apps.common.ip import get_client_ip
 from apps.common.throttles import LoginThrottle, PasswordResetThrottle, RegisterThrottle
 
 User = get_user_model()
 
 _LOGIN_MAX_FAILURES = 5
 _LOGIN_LOCKOUT_DURATION = 60 * 15  # 15 min
-
-
-def _client_ip(request) -> str:
-    # Behind Caddy: prefer the first X-Forwarded-For entry, else REMOTE_ADDR.
-    # XFF can be spoofed, but that only lets an attacker avoid their OWN
-    # lockout — it can't lock the victim, which is the goal of IP-scoping.
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "") or ""
 
 
 def _login_cache_keys(email: str, client_ip: str) -> tuple[str, str]:
@@ -74,7 +65,7 @@ class LoginView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         email = (request.data.get("email") or "").strip().lower()
-        lock_key, fail_key = _login_cache_keys(email, _client_ip(request))
+        lock_key, fail_key = _login_cache_keys(email, get_client_ip(request))
 
         if cache.get(lock_key):
             return Response(

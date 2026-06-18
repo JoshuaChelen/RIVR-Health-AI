@@ -22,6 +22,7 @@ CACHES = {  # noqa: F405
 
 REST_FRAMEWORK = {  # noqa: F405
     **REST_FRAMEWORK,  # noqa: F405
+    "NUM_PROXIES": 0,
     "DEFAULT_THROTTLE_RATES": {
         "share_resolve": "10000/min",
         "share_create": "10000/min",

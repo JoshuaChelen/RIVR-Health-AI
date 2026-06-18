@@ -4,9 +4,9 @@ from django.test import override_settings
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.common.ip import get_client_ip
 from apps.shares.models import ShareAccessLog
 from apps.shares.services import create_share
-from apps.shares.views import get_client_ip
 
 
 # --- Unit tests for get_client_ip ---

@@ -134,6 +134,7 @@ if AWS_ACCESS_KEY_ID:
 
 # --- DRF ----------------------------------------------------------------------
 REST_FRAMEWORK = {
+    "NUM_PROXIES": env.int("DJANGO_NUM_PROXIES", default=1),
     "EXCEPTION_HANDLER": "apps.common.exception_handler.custom_exception_handler",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "apps.common.authentication.JWTAuthentication",
