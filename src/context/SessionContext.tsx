@@ -3,7 +3,9 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { clearTokens, getAccessToken, setUnauthorizedHandler } from "../lib/api/client";
 import * as apiAuth from "../lib/api/auth";
 import type { ApiUser } from "../lib/api/auth";
+import { refreshManager } from "../lib/api/refreshManager";
 import { setCurrentUserId } from "../lib/auth";
+import { clearAvatarCache } from "../lib/avatar";
 import { setUser as setSentryUser } from "../lib/sentry";
 
 interface SessionValue {
@@ -70,6 +72,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await apiAuth.logout();
+    refreshManager.reset();
+    await clearAvatarCache();
     setUser(null);
     applyUser(null);
   }, []);
