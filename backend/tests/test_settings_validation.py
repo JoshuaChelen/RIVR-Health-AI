@@ -82,8 +82,9 @@ class TestSecretKeyValidation:
         env["DATABASE_URL"] = "postgres://user:pass@localhost/db?sslmode=require"
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
+        # Access settings.DEBUG to trigger lazy settings import
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -103,7 +104,7 @@ class TestSecretKeyValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -123,7 +124,7 @@ class TestSecretKeyValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -147,7 +148,7 @@ class TestAllowedHostsValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -167,7 +168,7 @@ class TestAllowedHostsValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -192,7 +193,7 @@ class TestCORSValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -216,7 +217,7 @@ class TestDatabaseSSLValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -235,7 +236,7 @@ class TestDatabaseSSLValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -253,7 +254,7 @@ class TestDatabaseSSLValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,
@@ -271,7 +272,7 @@ class TestDatabaseSSLValidation:
         env["DJANGO_READ_DOT_ENV_FILE"] = "false"
 
         result = subprocess.run(
-            [sys.executable, "-c", "from django.conf import settings"],
+            [sys.executable, "-c", "from django.conf import settings; _ = settings.DEBUG"],
             env=env,
             cwd="/Users/darwashi/Downloads/rivr/RIVR-Health-AI/backend",
             capture_output=True,

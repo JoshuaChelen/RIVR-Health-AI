@@ -6,9 +6,28 @@ security-sensitive values come from the environment (see deploy ``.env.prod``):
 ``CORS_*``. Runs behind Caddy, which terminates TLS and proxies plain HTTP to
 gunicorn.
 """
+import os
+import re
+
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *  # noqa: F401,F403
 
 DEBUG = False
+
+# --- Fail-closed SECRET_KEY validation ----------------------------------------
+_dev_insecure_key = "dev-insecure-change-me-0123456789-abcdefghijklmnopqrstuvwxyz"
+if SECRET_KEY == _dev_insecure_key:  # noqa: F405
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY is set to the insecure hardcoded default. "
+        "Production must have a real SECRET_KEY in environment. "
+        "Generate: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
+    )
+if not SECRET_KEY or len(SECRET_KEY) < 50:  # noqa: F405
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY missing or too short (must be >= 50 chars). "
+        "Set a strong random key in environment; never rely on defaults in production."
+    )
 
 # Caddy terminates TLS and forwards the original scheme in this header, so
 # Django treats proxied requests as secure (correct request.is_secure(),
