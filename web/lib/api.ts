@@ -1,4 +1,11 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { enforceHttps } from "./security";
+
+// Validate the API base URL at module load time.
+const BASE = (() => {
+  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  enforceHttps(url, process.env.NODE_ENV === "development");
+  return url;
+})();
 
 class ApiError extends Error {
   status: number;

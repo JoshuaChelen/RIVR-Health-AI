@@ -4,17 +4,24 @@ import { Suspense, useEffect, useState } from "react";
 
 import { Card, CtaLink, ErrorText } from "@/components/ui";
 import { api } from "@/lib/api";
+import { validateUrlToken } from "@/lib/security";
 
 function Verify() {
   const token = useSearchParams().get("token") ?? "";
   const [state, setState] = useState<"working" | "ok" | "error">("working");
+  const tokenValid = validateUrlToken(token);
+
   useEffect(() => {
-    if (!token) {
+    if (!tokenValid) {
       setState("error");
       return;
     }
-    api.post("/api/auth/verify-email", { token }).then(() => setState("ok")).catch(() => setState("error"));
-  }, [token]);
+    api
+      .post("/api/auth/verify-email", { token })
+      .then(() => setState("ok"))
+      .catch(() => setState("error"));
+  }, [token, tokenValid]);
+
   return (
     <Card>
       <div className="space-y-3 text-center text-sm">
@@ -25,7 +32,9 @@ function Verify() {
             <CtaLink href="rivrhealth://auth/confirmed">Open RIVR Health</CtaLink>
           </div>
         )}
-        {state === "error" && <ErrorText>This verification link is invalid or expired.</ErrorText>}
+        {state === "error" && (
+          <ErrorText>This verification link is invalid or expired.</ErrorText>
+        )}
       </div>
     </Card>
   );
