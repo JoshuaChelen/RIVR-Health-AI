@@ -32,6 +32,10 @@ function ShareView() {
         body: JSON.stringify({ token, pin: pin || undefined }),
       });
       setResult(await res.json());
+    } catch {
+      // Network error — allow the user to retry (e.g. PIN entry) instead of
+      // permanently disabling the button.
+      setSubmitted(false);
     } finally {
       setBusy(false);
     }
