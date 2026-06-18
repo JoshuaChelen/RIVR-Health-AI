@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .permissions import IsOwner
+from .permissions import IsEmailVerified, IsOwner
 
 
 class OwnedModelViewSet(viewsets.ModelViewSet):
@@ -12,7 +12,7 @@ class OwnedModelViewSet(viewsets.ModelViewSet):
     """
 
     owner_field = "user"
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated, IsOwner, IsEmailVerified]
 
     def get_queryset(self):
         return super().get_queryset().filter(**{self.owner_field: self.request.user})

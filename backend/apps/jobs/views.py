@@ -2,6 +2,8 @@ from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+
+from apps.common.permissions import IsEmailVerified
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,7 +38,7 @@ class AiJobViewSet(ReadOnlyOwnedViewSet):
 
 
 class EnqueueView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def post(self, request):
         job_type = request.data.get("jobType") or request.data.get("job_type")

@@ -1,6 +1,8 @@
 from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+
+from apps.common.permissions import IsEmailVerified
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,7 +10,7 @@ from .services import create_share, resolve_share
 
 
 class CreateShareView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def post(self, request):
         share_types = request.data.get("shareTypes") or request.data.get("share_types") or []

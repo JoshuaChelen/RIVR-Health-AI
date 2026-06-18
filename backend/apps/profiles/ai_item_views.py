@@ -8,6 +8,8 @@ import logging
 from django.utils import timezone as djtz
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+
+from apps.common.permissions import IsEmailVerified
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -52,7 +54,7 @@ def _find(profile, item_id):
 
 
 class _ItemBase(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def get_profile_and_item(self, request, item_id):
         if not pl.is_ai_backfilled(item_id):
@@ -172,7 +174,7 @@ class AiItemUnrejectView(APIView):
     minus current array). After un-suppressing, the item is rebuilt from the latest
     active document that still reports it.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def post(self, request):
         field = request.data.get("field")

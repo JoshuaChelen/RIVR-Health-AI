@@ -2,6 +2,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
+
+from apps.common.permissions import IsEmailVerified
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,7 +15,7 @@ class MyProfileView(RetrieveUpdateAPIView):
     """GET/PUT/PATCH the current user's profile (auto-created on first access)."""
 
     serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     AI_FIELDS = ["allergies", "medications", "medical_history", "surgical_history"]
     PRESERVE = ("review_status", "reviewed_at", "ai_original")
@@ -48,7 +50,7 @@ class MyProfileView(RetrieveUpdateAPIView):
 
 
 class _HealthLinkBase(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
     linked = True
 
     def post(self, request):

@@ -1,6 +1,8 @@
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
+
+from apps.common.permissions import IsEmailVerified
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,7 +12,7 @@ from .models import UserProfile
 
 
 class AvatarView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
     parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):

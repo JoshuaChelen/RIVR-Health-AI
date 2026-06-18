@@ -2,6 +2,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 
+from apps.common.permissions import IsEmailVerified
+
 from apps.common.viewsets import ReadOnlyOwnedViewSet
 
 from .models import HealthEvaluation, HealthProfile
@@ -12,7 +14,7 @@ class MyHealthProfileView(RetrieveAPIView):
     """The current user's latest health profile (written by the worker)."""
 
     serializer_class = HealthProfileSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
 
     def get_object(self) -> HealthProfile:
         return get_object_or_404(HealthProfile, user=self.request.user)

@@ -4,6 +4,8 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+
+from apps.common.permissions import IsEmailVerified
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -118,7 +120,7 @@ def build_qa_context(user, question: str, prior_question: str = ""):
 
 
 class QAView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEmailVerified]
     throttle_classes = [QAThrottle]
 
     def post(self, request):
