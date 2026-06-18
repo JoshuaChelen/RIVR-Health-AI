@@ -165,6 +165,17 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+# --- Upload size limits (DoS prevention) ----------------------------------------
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int(
+    "FILE_UPLOAD_MAX_MEMORY_SIZE",
+    default=50 * 1024 * 1024,  # 50MB
+)
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int(
+    "DATA_UPLOAD_MAX_MEMORY_SIZE",
+    default=10 * 1024 * 1024,  # 10MB — Apple Health bulk timeline JSON fits within this
+)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = env.int("DATA_UPLOAD_MAX_NUMBER_FIELDS", default=1000)
+
 # --- Session/CSRF Cookie Security ------------------------------------------------
 # All environments get strict cookie security defaults; prod already sets SECURE.
 SESSION_COOKIE_HTTPONLY = True
