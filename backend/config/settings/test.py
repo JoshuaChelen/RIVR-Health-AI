@@ -3,6 +3,10 @@ from .base import *  # noqa: F401,F403
 # Tests run against Postgres (ArrayField is Postgres-only) but optimise the
 # rest of the stack for speed and isolation.
 DEBUG = False
+
+# Fixed Fernet key for field-level encryption so encrypted-field tests are
+# deterministic (independent of any dev/.env key). Test-only; never used in prod.
+FIELD_ENCRYPTION_KEY = ["jNz7_R4l2_EdZYOx9sMLjEz8qdhvn0gw3YSRTPvqc2g="]
 CELERY_TASK_ALWAYS_EAGER = True
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

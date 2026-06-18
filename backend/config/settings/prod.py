@@ -29,6 +29,31 @@ if not SECRET_KEY or len(SECRET_KEY) < 50:  # noqa: F405
         "Set a strong random key in environment; never rely on defaults in production."
     )
 
+# --- Fail-closed FIELD_ENCRYPTION_KEY validation -------------------------------
+# The seven UserProfile identifier fields are encrypted at rest with this key.
+# Reject the insecure dev/CI default, an empty key, or anything cryptography
+# can't parse as a Fernet key — production must boot with a real key from env.
+# (base.py's _dev_insecure_field_key isn't star-imported — underscore name —
+# so the insecure default value is repeated here, mirroring _dev_insecure_key.)
+_dev_insecure_field_key = "c2fNUbFUXwFYVDqKHRgFOysUwAYMBtDaRW0pF5ehoE8="
+if (
+    not FIELD_ENCRYPTION_KEY  # noqa: F405
+    or _dev_insecure_field_key in set(FIELD_ENCRYPTION_KEY)  # noqa: F405
+):
+    raise ImproperlyConfigured(
+        "FIELD_ENCRYPTION_KEY is missing or set to the insecure hardcoded default. "
+        "Production must have a real Fernet key in environment. Generate: "
+        "python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+    )
+try:
+    from cryptography.fernet import Fernet, MultiFernet
+
+    MultiFernet([Fernet(k) for k in FIELD_ENCRYPTION_KEY])  # noqa: F405
+except Exception as exc:  # noqa: BLE001 - re-raised as config error below
+    raise ImproperlyConfigured(
+        f"FIELD_ENCRYPTION_KEY is not a valid Fernet key (or list of keys): {exc}"
+    )
+
 # --- Fail-closed ALLOWED_HOSTS validation --------------------------------------
 # Reject empty or any list containing the wildcard (e.g. ["*", "api.example.com"]).
 if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:  # noqa: F405

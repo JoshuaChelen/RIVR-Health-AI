@@ -25,6 +25,22 @@ SECRET_KEY = env(
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*"])
 
+# --- Field-level encryption (direct-identifier PII) ---------------------------
+# Fernet key (urlsafe-base64) used by apps.common.encryption to encrypt the
+# seven UserProfile identifier fields at rest. The default below is an insecure
+# dev/CI key, mirroring SECRET_KEY: prod.py fails closed if it's still in use.
+# Generate a real key with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# A single key encrypts and decrypts; supply a comma-separated list (newest
+# first) to rotate (MultiFernet) — see backend/docs/COMPLIANCE.md.
+# Valid Fernet key, but a public/insecure default — prod.py rejects this exact
+# value so production cannot boot without a real key from the environment.
+_dev_insecure_field_key = "c2fNUbFUXwFYVDqKHRgFOysUwAYMBtDaRW0pF5ehoE8="
+FIELD_ENCRYPTION_KEY = env.list(
+    "FIELD_ENCRYPTION_KEY",
+    default=[_dev_insecure_field_key],
+)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
