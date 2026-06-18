@@ -29,6 +29,14 @@ if not SECRET_KEY or len(SECRET_KEY) < 50:  # noqa: F405
         "Set a strong random key in environment; never rely on defaults in production."
     )
 
+# --- Fail-closed ALLOWED_HOSTS validation --------------------------------------
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ["*"]:  # noqa: F405
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS must be explicitly set in production and "
+        "must not be wildcard. Set DJANGO_ALLOWED_HOSTS=api.example.com,www.example.com "
+        "in environment, or it defaults to unsafe ['*']."
+    )
+
 # Caddy terminates TLS and forwards the original scheme in this header, so
 # Django treats proxied requests as secure (correct request.is_secure(),
 # cookies, CSRF). We do NOT enable SECURE_SSL_REDIRECT — Caddy already serves
