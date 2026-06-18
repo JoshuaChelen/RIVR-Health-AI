@@ -23,7 +23,8 @@ class TimelineEventSerializer(serializers.ModelSerializer):
     def validate_title(self, value):
         if not value:
             return value
-        if any(c in value for c in ('<', '>', '&')):
+        # & is normal text ("Asthma & allergies"); only <, > are HTML-injection vectors.
+        if any(c in value for c in ('<', '>')):
             raise serializers.ValidationError("Title cannot contain HTML characters.")
         control_chars = [chr(i) for i in range(0, 32) if i not in (9, 10, 13)]
         if any(c in value for c in control_chars):
@@ -33,7 +34,7 @@ class TimelineEventSerializer(serializers.ModelSerializer):
     def validate_summary(self, value):
         if not value:
             return value
-        if any(c in value for c in ('<', '>', '&')):
+        if any(c in value for c in ('<', '>')):
             raise serializers.ValidationError("Summary cannot contain HTML characters.")
         control_chars = [chr(i) for i in range(0, 32) if i not in (9, 10, 13)]
         if any(c in value for c in control_chars):

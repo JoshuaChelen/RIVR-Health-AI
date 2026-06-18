@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.throttles import QAThrottle
 from apps.documents.models import Document
 from apps.jobs import ai_client, index, profile_logic
 from apps.profiles.models import UserProfile
@@ -118,6 +119,7 @@ def build_qa_context(user, question: str, prior_question: str = ""):
 
 class QAView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [QAThrottle]
 
     def post(self, request):
         question = (request.data.get("question") or "").strip()

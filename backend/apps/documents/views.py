@@ -6,6 +6,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.common import storage
+from apps.common.throttles import UploadThrottle
 from apps.common.viewsets import OwnedModelViewSet
 
 from .filters import DocumentFilter
@@ -43,7 +44,8 @@ class DocumentViewSet(OwnedModelViewSet):
             pass
         super().perform_destroy(instance)
 
-    @action(detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser],
+            throttle_classes=[UploadThrottle])
     def upload(self, request):
         upload = request.FILES.get("file")
         if upload is None:

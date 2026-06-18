@@ -68,6 +68,19 @@ class TestDocumentUploadValidation:
         resp = auth_client.post("/api/documents/upload/", {"file": f, "source_type": "file"}, format="multipart")
         assert resp.status_code == 201
 
+    def test_riff_avi_rejected_as_audio(self):
+        from apps.documents.validation import validate_file_magic_bytes
+        # RIFF container carrying AVI video — must NOT pass the audio allow-list.
+        avi = io.BytesIO(b"RIFF" + b"\x00\x00\x00\x00" + b"AVI " + b"LIST")
+        ok, _ = validate_file_magic_bytes(avi)
+        assert ok is False
+
+    def test_riff_wave_accepted_as_audio(self):
+        from apps.documents.validation import validate_file_magic_bytes
+        wav = io.BytesIO(b"RIFF" + b"\x24\x00\x00\x00" + b"WAVE" + b"fmt ")
+        ok, _ = validate_file_magic_bytes(wav)
+        assert ok is True
+
 
 # ── Task 4: Profile field bounds ──────────────────────────────────────────────
 
@@ -94,6 +107,12 @@ class TestProfileFieldBounds:
         with pytest.raises(ValidationError):
             profile.full_clean()
 
+    def test_array_item_size_cap(self, auth_client):
+        # A single giant array item must be rejected (one item can't bloat a row).
+        big_item = [{"name": "Penicillin", "notes": "x" * 6000}]
+        resp = auth_client.patch("/api/profile", {"allergies": big_item}, format="json")
+        assert resp.status_code == 400
+
 
 # ── Task 5: HTML/control-char validation ─────────────────────────────────────
 
@@ -103,9 +122,18 @@ class TestTextValidation:
         resp = auth_client.patch("/api/profile", {"current_symptoms": "<script>alert(1)</script>"}, format="json")
         assert resp.status_code == 400
 
-    def test_profile_current_symptoms_rejects_ampersand(self, auth_client):
-        resp = auth_client.patch("/api/profile", {"current_symptoms": "a & b"}, format="json")
-        assert resp.status_code == 400
+    def test_profile_current_symptoms_accepts_ampersand(self, auth_client):
+        # & is legitimate medical text ("Ear, Nose & Throat") — not an HTML vector.
+        resp = auth_client.patch("/api/profile", {"current_symptoms": "Ear, Nose & Throat issues"}, format="json")
+        assert resp.status_code == 200
+
+    def test_timeline_title_accepts_ampersand(self, auth_client):
+        resp = auth_client.post(
+            "/api/timeline-events/",
+            {"title": "Asthma & allergies review", "occurred_at": "2024-01-01"},
+            format="json",
+        )
+        assert resp.status_code == 201
 
     def test_timeline_title_rejects_control_chars(self, auth_client):
         resp = auth_client.post(
@@ -139,8 +167,8 @@ TIGHT_RATES = {
     "login": "3/min",
     "password_reset": "3/min",
     "share_resolve": "1000/min",
-    "upload": "1000/min",
-    "qa_calls": "1000/min",
+    "upload": "3/min",
+    "qa_calls": "3/min",
 }
 
 
@@ -206,6 +234,43 @@ class TestAuthThrottles:
                     assert resp.status_code == 200, f"req {i}: {resp.status_code}"
                 else:
                     assert resp.status_code == 429, f"req {i} should be throttled: {resp.status_code}"
+
+    def test_upload_throttled(self):
+        # UploadThrottle is per-user; isolate with a dedicated user + cache clear.
+        from django.core.cache import cache
+        from unittest.mock import patch
+        from rest_framework.throttling import SimpleRateThrottle
+        cache.clear()
+        u = User.objects.create_user(email='throttle_upload@ex.com', password=PW)
+        with patch.object(SimpleRateThrottle, 'THROTTLE_RATES', TIGHT_RATES):
+            client = APIClient()
+            client.force_authenticate(user=u)
+            for i in range(4):
+                f = SimpleUploadedFile(f"doc{i}.pdf", b"%PDF-1.4\nhello", content_type="application/pdf")
+                resp = client.post("/api/documents/upload/", {"file": f, "source_type": "file"}, format="multipart")
+                if i < 3:
+                    assert resp.status_code == 201, f"req {i}: {resp.status_code}"
+                else:
+                    assert resp.status_code == 429, f"req {i} should be throttled: {resp.status_code}"
+
+    def test_qa_throttled(self):
+        # QAThrottle is per-user; runs before the view body so it 429s even with
+        # no OPENAI key (un-throttled requests would otherwise return 503).
+        from django.core.cache import cache
+        from unittest.mock import patch
+        from rest_framework.throttling import SimpleRateThrottle
+        cache.clear()
+        u = User.objects.create_user(email='throttle_qa@ex.com', password=PW)
+        with patch.object(SimpleRateThrottle, 'THROTTLE_RATES', TIGHT_RATES):
+            client = APIClient()
+            client.force_authenticate(user=u)
+            statuses = []
+            for i in range(4):
+                resp = client.post('/api/qa', {'question': 'how am I?'}, format='json')
+                statuses.append(resp.status_code)
+            # First 3 reach the view (503 — AI not configured), 4th is throttled.
+            assert statuses[:3] == [503, 503, 503], statuses
+            assert statuses[3] == 429, statuses
 
 
 # ── Task 8: Timeline limits ───────────────────────────────────────────────────

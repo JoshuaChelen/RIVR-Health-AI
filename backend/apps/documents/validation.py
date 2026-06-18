@@ -1,6 +1,8 @@
 """File validation utilities for document uploads."""
 
-# Magic bytes for accepted document types
+# Magic bytes for accepted document types. RIFF is handled separately because
+# the RIFF container also carries AVI video (and other types), so a plain RIFF
+# prefix match would admit video — see validate_file_magic_bytes.
 MAGIC_SIGNATURES = [
     (b'%PDF', 'application/pdf'),
     (b'\xff\xd8\xff', 'image/jpeg'),
@@ -10,7 +12,6 @@ MAGIC_SIGNATURES = [
     (b'\xff\xfb', 'audio/mpeg'),
     (b'\xff\xf3', 'audio/mpeg'),
     (b'\xff\xf2', 'audio/mpeg'),
-    (b'RIFF', 'audio/wav'),
     (b'OggS', 'audio/ogg'),
     (b'fLaC', 'audio/flac'),
 ]
@@ -44,5 +45,12 @@ def validate_file_magic_bytes(file_obj):
     for magic, _ in MAGIC_SIGNATURES:
         if header[:len(magic)] == magic:
             return True, ""
+
+    # RIFF container: only WAV audio is accepted. The form-type tag at bytes
+    # 8-11 distinguishes WAV from AVI video and other RIFF payloads.
+    if header[:4] == b'RIFF':
+        if header[8:12] == b'WAVE':
+            return True, ""
+        return False, "File type not supported. Upload a PDF, image, or audio file."
 
     return False, "File type not supported. Upload a PDF, image, or audio file."
