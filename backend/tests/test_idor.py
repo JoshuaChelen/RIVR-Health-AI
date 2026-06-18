@@ -54,6 +54,11 @@ def health_eval_a(user_a):
 
 
 @pytest.fixture
+def health_profile_a(user_a):
+    return HealthProfile.objects.create(user=user_a, score=90, score_label="Excellent")
+
+
+@pytest.fixture
 def client_b(api_client, user_b):
     api_client.force_authenticate(user=user_b)
     return api_client
@@ -148,6 +153,51 @@ def test_user_b_health_evaluation_list_does_not_include_user_a(client_b, health_
     assert resp.status_code == status.HTTP_200_OK
     ids = [r["id"] for r in resp.json().get("results", [])]
     assert str(health_eval_a.id) not in ids
+
+
+# ── Health Profile (the "my" endpoint must be self-scoped) ────────────────────
+
+def test_user_b_health_profile_returns_own_not_user_a(client_b, user_b, health_profile_a):
+    """user B (no profile) gets 404 — never user A's profile via /api/health-profile."""
+    resp = client_b.get("/api/health-profile")
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_user_b_health_profile_is_isolated(client_b, user_b, health_profile_a):
+    """When user B has their own profile, they see THEIRS, not user A's score."""
+    HealthProfile.objects.create(user=user_b, score=10, score_label="Poor")
+    resp = client_b.get("/api/health-profile")
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.json()["score"] == 10  # user B's score, not user A's 90
+
+
+def test_user_a_health_profile_returns_own(client_a, health_profile_a):
+    resp = client_a.get("/api/health-profile")
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.json()["score"] == 90
+
+
+# ── Shares (token-based; no cross-user enumeration, owner always stamped) ──────
+
+def test_share_create_stamps_authenticated_user_as_owner(client_b, user_a, user_b):
+    """A share is always owned by the caller — user B can't create a share for user A."""
+    from apps.shares.models import SharePackage
+    resp = client_b.post("/api/shares", {"shareTypes": ["full_summary"]}, format="json")
+    assert resp.status_code == status.HTTP_201_CREATED
+    pkg = SharePackage.objects.get(id=resp.json()["packageId"])
+    assert pkg.owner_id == user_b.id
+    assert pkg.owner_id != user_a.id
+
+
+def test_share_create_requires_authentication(api_client):
+    resp = api_client.post("/api/shares", {"shareTypes": ["full_summary"]}, format="json")
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_user_b_cannot_resolve_share_without_token(client_b):
+    """No endpoint exposes another user's SharePackage by id; resolve needs the token."""
+    resp = client_b.post("/api/shares/resolve", {}, format="json")
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
 
 # ── Unauthenticated ───────────────────────────────────────────────────────────

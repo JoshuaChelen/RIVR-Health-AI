@@ -78,3 +78,63 @@ def test_accepts_non_string_values_in_data(user):
     event.full_clean()
     event.save()
     assert event.pk is not None
+
+
+# ── API-level validation (DRF doesn't call Model.clean(); serializer must) ─────
+
+@pytest.fixture
+def api(api_client, user):
+    api_client.force_authenticate(user=user)
+    return api_client
+
+
+@pytest.mark.django_db
+def test_api_post_rejects_markup_in_data(api):
+    resp = api.post(
+        "/api/timeline-events/",
+        {"title": "Visit", "source": "manual", "data": {"note": "<script>alert(1)</script>"}},
+        format="json",
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+def test_api_post_rejects_control_chars_in_data(api):
+    resp = api.post(
+        "/api/timeline-events/",
+        {"title": "Visit", "source": "manual", "data": {"note": "bad\x00value"}},
+        format="json",
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+def test_api_post_rejects_raw_extracted_text_key(api):
+    resp = api.post(
+        "/api/timeline-events/",
+        {"title": "Visit", "source": "manual", "data": {"raw_extracted_text": "patient data"}},
+        format="json",
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+def test_api_post_accepts_legit_structured_data(api):
+    resp = api.post(
+        "/api/timeline-events/",
+        {"title": "Visit", "source": "manual",
+         "data": {"summary": "Routine checkup", "provider": "Dr Smith"}},
+        format="json",
+    )
+    assert resp.status_code == 201
+
+
+@pytest.mark.django_db
+def test_api_patch_rejects_markup_in_data(api, user):
+    event = TimelineEvent.objects.create(user=user, title="Visit", source="manual", data={})
+    resp = api.patch(
+        f"/api/timeline-events/{event.id}/",
+        {"data": {"note": "<img src=x onerror=alert(1)>"}},
+        format="json",
+    )
+    assert resp.status_code == 400

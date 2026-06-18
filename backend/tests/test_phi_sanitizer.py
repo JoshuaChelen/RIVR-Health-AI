@@ -45,10 +45,35 @@ def test_mrn_redacted():
     assert "[MRN]" in out
 
 
+@pytest.mark.parametrize("phone", [
+    "555-123-4567",
+    "(555) 123-4567",
+    "+1 555-123-4567",
+    "555.123.4567",
+])
+def test_phone_redacted(phone):
+    out = sanitize_log_message(f"Call patient at {phone} for results")
+    assert phone not in out
+    assert "[PHONE]" in out
+
+
+def test_plain_integer_not_treated_as_phone():
+    # Bare numbers (counts, ids) must not be redacted as phone numbers
+    msg = "Processed 1234567 records in batch"
+    out = sanitize_log_message(msg)
+    assert "1234567" in out
+
+
 def test_max_length_enforced():
     long_msg = "x" * 1000
     out = sanitize_log_message(long_msg, max_length=500)
     assert len(out) <= 500
+
+
+def test_max_length_none_no_truncation():
+    long_msg = "y" * 1000
+    out = sanitize_log_message(long_msg, max_length=None)
+    assert len(out) == 1000
 
 
 def test_secrets_still_redacted_by_sanitize_log_message():

@@ -77,3 +77,14 @@ def test_exception_handler_is_wired_in_settings():
     from django.conf import settings
     handler = settings.REST_FRAMEWORK.get("EXCEPTION_HANDLER")
     assert handler == "apps.common.exception_handler.custom_exception_handler"
+
+
+def test_handler_does_not_truncate_client_message():
+    """Validation messages returned to clients must not be cut at 500 chars."""
+    from rest_framework.exceptions import APIException
+    long_msg = "This field is invalid because " + ("reason " * 120)  # > 500 chars
+    exc = APIException(long_msg)
+    response = custom_exception_handler(exc, _ctx())
+    assert response is not None
+    detail_str = str(response.data.get("detail", ""))
+    assert len(detail_str) > 500
