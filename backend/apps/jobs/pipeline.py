@@ -483,6 +483,16 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
                     profile.save()
                     HealthProfile.objects.filter(user_id=user_id).update(updated_at=djtz.now())
                     _log(job, "info", "AI backfill applied", result["summary"])
+                    # Audit each backfilled field
+                    from .backfill_audit import log_backfill
+                    for field, value in result["patch"].items():
+                        log_backfill(
+                            user=profile.user,
+                            field_name=field,
+                            new_value=value,
+                            source="ai_extraction",
+                            evaluation_id=str(eval_row.id),
+                        )
                 else:
                     _log(job, "info", "AI backfill: no new items to add")
             except output_validator.OutputValidationError:
