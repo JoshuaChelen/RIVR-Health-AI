@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
@@ -41,3 +42,105 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.deleted_at = timezone.now()
         self.deletion_reason = reason
         self.save(update_fields=["deleted_at", "deletion_reason"])
+
+
+class ConsentRecord(models.Model):
+    """Immutable consent snapshot for GDPR/CCPA.
+
+    Never mutate — withdrawal = new row with withdrawn_at set.
+    """
+
+    class ConsentType(models.TextChoices):
+        PRIVACY_POLICY = "privacy_policy", "Privacy Policy"
+        TERMS_OF_SERVICE = "terms_of_service", "Terms of Service"
+        MARKETING = "marketing", "Marketing Communications"
+        DATA_PROCESSING_OPENAI = "data_processing_openai", "OpenAI Data Processing"
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="consent_records",
+    )
+    consent_type = models.CharField(max_length=32, choices=ConsentType.choices)
+    version_date = models.CharField(
+        max_length=10,
+        default="2024-01-01",
+        help_text="YYYY-MM-DD policy version",
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.CharField(max_length=45, blank=True, default="")
+    user_agent = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "consent_records"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "consent_type", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        status = "accepted" if self.accepted_at else "withdrawn"
+        return f"{self.user_id} {self.consent_type} {status}"
+
+
+class DataExportJob(models.Model):
+    """Tracks async user-data export requests + signed-URL result."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="export_jobs",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    export_url = models.URLField(blank=True, default="")
+    url_expires_at = models.DateTimeField(null=True, blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "data_export_jobs"
+        ordering = ["-requested_at"]
+        indexes = [
+            models.Index(fields=["user", "-requested_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Export<{self.id}> {self.status}"
+
+
+class AccountDeletionRequest(models.Model):
+    """Tracks a deletion request + 7-day cooldown before confirmation.
+
+    Confirmation calls the existing User.soft_delete() flow — this model
+    only adds the request/cooldown gate on top of it.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="deletion_request",
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    can_confirm_at = models.DateTimeField()
+    confirmation_token = models.CharField(max_length=64, default="")
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "account_deletion_requests"
+
+    def __str__(self) -> str:
+        return f"DeletionRequest<{self.user_id}>"
