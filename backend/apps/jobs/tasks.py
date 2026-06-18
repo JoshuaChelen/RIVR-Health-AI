@@ -37,3 +37,12 @@ def profile_evaluation_task(self, job_id: str) -> None:
 @shared_task(name="apps.jobs.tasks.recover_stale_jobs_task")
 def recover_stale_jobs_task() -> int:
     return pipeline.recover_stale_jobs()
+
+
+@shared_task(name="apps.shares.tasks.cleanup_expired_shares_task")
+def cleanup_expired_shares_task() -> int:
+    """Hourly task: delete orphaned PHI PDFs for expired share packages."""
+    from django.conf import settings as djsettings
+    from apps.shares.cleanup import cleanup_expired_shares
+    grace = getattr(djsettings, "SHARE_CLEANUP_GRACE_HOURS", 1)
+    return cleanup_expired_shares(grace_period_hours=grace)
