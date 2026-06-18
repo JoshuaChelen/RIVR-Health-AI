@@ -44,10 +44,61 @@ _UNTRUSTED_NOTE = (
 )
 
 
+def _sanitize_for_prompt(value: str | None) -> str:
+    """Sanitize a metadata string (document id/title) for safe prompt inclusion.
+
+    Drops control characters and non-ASCII (defeats unicode-homoglyph delimiter
+    spoofing, e.g. U+2039/U+203A), turns newlines/tabs into spaces (so a title
+    cannot inject its own lines), and defangs literal delimiter runs so a title
+    can't masquerade as the structural <<<DOCUMENT>>> markers. Legitimate ASCII
+    medical text and punctuation are preserved verbatim.
+    """
+    if not value:
+        return ""
+    out_chars: list[str] = []
+    for char in str(value).strip():
+        code = ord(char)
+        if code < 32 or code == 127:  # control chars
+            continue
+        if code > 127:  # non-ASCII / homoglyphs
+            continue
+        if char in ("\n", "\r", "\t"):  # would break delimiter structure
+            out_chars.append(" ")
+            continue
+        out_chars.append(char)
+    return _defang_delimiters("".join(out_chars)).strip()
+
+
+def _defang_delimiters(text: str) -> str:
+    """Neutralize any literal angle-bracket delimiter runs inside untrusted text.
+
+    Inserts a thin separator into runs of 3+ ``<`` or ``>`` so an embedded
+    ``<<<END DOCUMENT>>>`` can never recur as a standalone structural marker and
+    break out of the wrapper. The words are preserved (just the bracket run is
+    broken), so the model still reads them as harmless data. Normal medical
+    comparison operators (``<5``, ``>120``) use single/double brackets and are
+    untouched.
+    """
+    if not text:
+        return text
+    import re as _re
+
+    return _re.sub(r"(<{3,}|>{3,})", lambda m: m.group(0)[0] + "​" + m.group(0)[1:], text)
+
+
 def _wrap_untrusted(document_id: str, title: str | None, text: str) -> str:
+    """Structurally isolate untrusted document content.
+
+    Metadata (id/title) is sanitized; the body is preserved as data but has any
+    embedded delimiter runs defanged so the trailing ``<<<END DOCUMENT>>>`` is the
+    only genuine structural end marker.
+    """
+    safe_id = _sanitize_for_prompt(document_id)
+    safe_title = _sanitize_for_prompt(title)
+    safe_text = _defang_delimiters(text or "")
     return (
-        f"Document ID: {document_id}\nTitle: {title or ''}\n\n"
-        f"<<<DOCUMENT>>>\n{text}\n<<<END DOCUMENT>>>"
+        f"Document ID: {safe_id}\nTitle: {safe_title}\n\n"
+        f"<<<DOCUMENT>>>\n{safe_text}\n<<<END DOCUMENT>>>"
     )
 
 
