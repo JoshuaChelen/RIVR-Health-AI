@@ -58,6 +58,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_BROWSER_XSS_FILTER = True
 
 # Self-hosted MinIO behind the internal docker hostname (minio:9000) yields
 # signed URLs that devices/simulators can't reach. We rewrite the host via
@@ -77,6 +78,16 @@ CSRF_TRUSTED_ORIGINS = env.list(  # noqa: F405
     default=["https://api.rivrhealth.com"],
 )
 
+# Validate CSRF_TRUSTED_ORIGINS entries use secure scheme
+for _origin in CSRF_TRUSTED_ORIGINS:
+    if not _origin.startswith("https://"):
+        import warnings
+        warnings.warn(
+            f"CSRF_TRUSTED_ORIGIN {_origin} should use https scheme. "
+            "Non-HTTPS origins may be vulnerable to protocol-downgrade attacks.",
+            category=RuntimeWarning,
+        )
+
 # CORS: fail closed in production. base.py defaults CORS_ALLOW_ALL_ORIGINS to
 # True (dev-friendly); pin a secure default here so a missing env var doesn't
 # silently open the API to every origin. The mobile app is native (no CORS), so
@@ -87,6 +98,30 @@ CORS_ALLOWED_ORIGINS = env.list(  # noqa: F405
     "CORS_ALLOWED_ORIGINS",
     default=["https://api.rivrhealth.com", "https://rivrhealth.com"],
 )
+
+# --- Fail-closed CORS validation -----------------------------------------------
+if CORS_ALLOW_ALL_ORIGINS:
+    raise ImproperlyConfigured(
+        "CORS_ALLOW_ALL_ORIGINS is True in production. This allows any origin to "
+        "make cross-origin requests. Set CORS_ALLOW_ALL_ORIGINS=false and configure "
+        "CORS_ALLOWED_ORIGINS explicitly (default: ['https://api.rivrhealth.com', 'https://rivrhealth.com'])."
+    )
+
+# --- Fail-closed database SSL/TLS validation -----------------------------------
+_raw_db_url = os.environ.get("DATABASE_URL", "")
+if _raw_db_url and "postgres" in _raw_db_url:
+    if "sslmode" not in _raw_db_url:
+        raise ImproperlyConfigured(
+            "PostgreSQL database URL must include sslmode parameter in production. "
+            "Example: postgres://user:pass@host:5432/db?sslmode=require"
+        )
+    # Only allow require or verify-full; reject allow, disable, prefer
+    if not re.search(r"sslmode=(require|verify-full)", _raw_db_url):
+        raise ImproperlyConfigured(
+            "DATABASE_URL sslmode must be 'require' or 'verify-full' (for mutual TLS), "
+            "not 'allow', 'disable', or 'prefer' (which permit fallback to unencrypted). "
+            "Set: postgres://...?sslmode=require"
+        )
 
 # Log to stdout so `docker compose logs` captures everything.
 LOGGING = {
