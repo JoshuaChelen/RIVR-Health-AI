@@ -49,6 +49,7 @@ def test_audit_log_delete_raises(user):
 
 
 def test_audit_log_queryset_delete_raises(user):
+    """Bulk queryset .delete() must be blocked too (it bypasses instance .delete())."""
     AuditLog.objects.create(
         user=user,
         resource_type="document",
@@ -56,7 +57,20 @@ def test_audit_log_queryset_delete_raises(user):
         action=AuditLog.Action.CREATE,
     )
     with pytest.raises(PermissionDenied):
-        AuditLog.objects.filter(resource_id="del_qs").first().delete()
+        AuditLog.objects.filter(resource_id="del_qs").delete()
+    # The entry must survive the failed bulk delete.
+    assert AuditLog.objects.filter(resource_id="del_qs").exists()
+
+
+def test_audit_log_instance_delete_via_queryset_object_raises(user):
+    AuditLog.objects.create(
+        user=user,
+        resource_type="document",
+        resource_id="del_inst",
+        action=AuditLog.Action.CREATE,
+    )
+    with pytest.raises(PermissionDenied):
+        AuditLog.objects.filter(resource_id="del_inst").first().delete()
 
 
 def test_middleware_attaches_audit_context(db, api_client):

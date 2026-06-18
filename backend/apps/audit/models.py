@@ -1,7 +1,7 @@
 from django.core.exceptions import PermissionDenied
 from django.db import models
 
-from apps.common.models import BaseModel
+from apps.common.models import AppendOnlyManager, BaseModel
 
 
 class AuditLog(BaseModel):
@@ -30,6 +30,8 @@ class AuditLog(BaseModel):
     user_agent = models.CharField(max_length=512, blank=True, default="")
     status_code = models.SmallIntegerField(null=True, blank=True)
 
+    objects = AppendOnlyManager()
+
     class Meta:
         db_table = "audit_logs"
         ordering = ["-created_at"]
@@ -39,11 +41,9 @@ class AuditLog(BaseModel):
         ]
 
     def save(self, *args, **kwargs):
-        # Reject updates: a new instance has force_insert or no existing DB row.
-        # We detect an update by checking if this is NOT a new insert.
-        if not kwargs.get("force_insert") and self.pk is not None:
-            if self.__class__.objects.filter(pk=self.pk).exists():
-                raise PermissionDenied("AuditLog entries are immutable.")
+        # Reject updates: an unsaved instance has _state.adding == True.
+        if not self._state.adding:
+            raise PermissionDenied("AuditLog entries are immutable.")
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

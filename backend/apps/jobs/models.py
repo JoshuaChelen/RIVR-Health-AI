@@ -2,7 +2,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import PermissionDenied
 from django.db import models
 
-from apps.common.models import BaseModel, SoftDeleteModel
+from apps.common.models import AppendOnlyManager, BaseModel, SoftDeleteModel
 from pgvector.django import HnswIndex, VectorField
 
 
@@ -100,8 +100,14 @@ class BackfillAuditLog(BaseModel):
         MANUAL_APPROVAL = "manual_approval"
         SYSTEM_IMPORT = "system_import"
 
+    # SET_NULL (nullable) so the log survives a user hard-purge without blocking
+    # it with a ProtectedError — the record is permanent, the user reference isn't.
     user = models.ForeignKey(
-        "accounts.User", on_delete=models.PROTECT, related_name="backfill_audit_logs"
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="backfill_audit_logs",
     )
     evaluation_id = models.CharField(max_length=64, blank=True, null=True)
     document_id = models.CharField(max_length=64, blank=True, null=True)
@@ -117,14 +123,15 @@ class BackfillAuditLog(BaseModel):
         related_name="approved_backfills",
     )
 
+    objects = AppendOnlyManager()
+
     class Meta:
         db_table = "backfill_audit_logs"
         ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):
-        if not kwargs.get("force_insert") and self.pk is not None:
-            if self.__class__.objects.filter(pk=self.pk).exists():
-                raise PermissionDenied("BackfillAuditLog entries are immutable.")
+        if not self._state.adding:
+            raise PermissionDenied("BackfillAuditLog entries are immutable.")
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

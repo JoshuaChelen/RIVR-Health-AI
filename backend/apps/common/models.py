@@ -1,6 +1,7 @@
 """Reusable abstract base models."""
 import uuid
 
+from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.utils import timezone
 
@@ -72,3 +73,22 @@ class SoftDeleteModel(models.Model):
     def delete(self, using=None, keep_parents=False):  # type: ignore[override]
         self.soft_delete()
         return 0, {}
+
+
+class AppendOnlyQuerySet(models.QuerySet):
+    """QuerySet for immutable logs: bulk delete is forbidden.
+
+    Instance .delete() is blocked on the model; this closes the bypass where
+    ``Model.objects.filter(...).delete()`` issues raw SQL that skips the instance
+    override and would wipe the audit trail.
+    """
+
+    def delete(self):
+        raise PermissionDenied("Append-only log entries cannot be deleted.")
+
+
+class AppendOnlyManager(models.Manager):
+    """Manager that returns an AppendOnlyQuerySet (create() still works)."""
+
+    def get_queryset(self):
+        return AppendOnlyQuerySet(self.model, using=self._db)

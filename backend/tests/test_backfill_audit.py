@@ -47,6 +47,20 @@ def test_backfill_audit_log_delete_raises(user):
         entry.delete()
 
 
+def test_backfill_audit_log_queryset_delete_raises(user):
+    """Bulk queryset .delete() must be blocked (it bypasses instance .delete())."""
+    from apps.jobs.models import BackfillAuditLog
+    BackfillAuditLog.objects.create(
+        user=user,
+        field_name="allergies",
+        new_value=["latex"],
+        source=BackfillAuditLog.Source.AI_EXTRACTION,
+    )
+    with pytest.raises(PermissionDenied):
+        BackfillAuditLog.objects.filter(field_name="allergies").delete()
+    assert BackfillAuditLog.objects.filter(field_name="allergies").exists()
+
+
 def test_log_backfill_helper_creates_entry(user):
     from apps.jobs.backfill_audit import log_backfill
     from apps.jobs.models import BackfillAuditLog
