@@ -56,6 +56,11 @@ export class RefreshManager {
     this.perRequest.delete(requestKey);
   }
 
+  /** Number of refresh attempts recorded for a request key (0 if none). */
+  getAttemptCount(requestKey: string): number {
+    return this.perRequest.get(requestKey)?.count ?? 0;
+  }
+
   isCircuitBreakerOpen(): boolean {
     const now = Date.now();
     const recent = this.failureTimes.filter((t) => now - t < FAILURE_WINDOW_MS);

@@ -137,14 +137,19 @@ export async function request<T = unknown>(path: string, opts: RequestOpts = {})
     }
 
     // Refresh failed — apply backoff then check circuit-breaker again.
-    const attempt = (refreshManager as any).perRequest?.get?.(requestKey)?.count ?? 1;
+    const attempt = refreshManager.getAttemptCount(requestKey) || 1;
     const delayMs = refreshManager.getBackoffMs(attempt);
     if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
 
     if (refreshManager.isCircuitBreakerOpen()) {
+      // Circuit-breaker tripped — force logout once and bail out so the generic
+      // 401 block below doesn't fire onUnauthorized a second time.
       await clearTokens();
       refreshManager.reset();
       onUnauthorized?.();
+      const text = await res.text();
+      const data = text ? safeJson(text) : null;
+      throw new ApiError(res.status, data);
     }
   }
 

@@ -31,6 +31,17 @@ describe("RefreshManager", () => {
     expect(mgr.canAttemptRefresh(key)).toBe(true);
   });
 
+  it("getAttemptCount returns the recorded count for a request key (0 if none)", () => {
+    const key = "GET:/api/data";
+    expect(mgr.getAttemptCount(key)).toBe(0);
+    mgr.recordAttempt(key, false);
+    expect(mgr.getAttemptCount(key)).toBe(1);
+    mgr.recordAttempt(key, false);
+    expect(mgr.getAttemptCount(key)).toBe(2);
+    mgr.recordSuccess(key);
+    expect(mgr.getAttemptCount(key)).toBe(0);
+  });
+
   it("implements exponential backoff (100ms × 2^(n-1), capped at 8s)", () => {
     expect(mgr.getBackoffMs(1)).toBe(100);
     expect(mgr.getBackoffMs(2)).toBe(200);
