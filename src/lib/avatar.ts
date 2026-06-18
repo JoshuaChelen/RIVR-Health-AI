@@ -1,23 +1,52 @@
+/**
+ * Avatar upload, caching, and display utilities.
+ *
+ * SECURITY: Avatar images are now cached on the device file-system
+ * (expo-file-system / documentDirectory) instead of base64 in AsyncStorage.
+ * AsyncStorage is plaintext and readable by other apps on Android and by
+ * forensic tools on non-jailbroken iOS.  The documentDirectory is
+ * app-sandboxed on both platforms.
+ *
+ * clearAvatarCache() is called on every sign-out via SessionContext so cached
+ * photos don't persist after the user logs out.
+ *
+ * MIGRATION: On first run after this upgrade, any avatar entries that still
+ * exist in AsyncStorage are moved to the file-system cache and then deleted.
+ */
+
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// expo-file-system v19 moved documentDirectory / EncodingType to the /legacy entrypoint.
+import * as FileSystem from "expo-file-system/legacy";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 import { updateProfile, uploadAvatar as uploadAvatarApi, getAvatar } from "./api/data";
 
-/** Edge of the square output. Matches the in-app avatar circle's max display size at 2x. */
 const AVATAR_DIM = 512;
-
-/** JPEG quality. 0.8 balances size and visual fidelity for face photos at 512px. */
 const JPEG_QUALITY = 0.8;
 
-/** AsyncStorage key for the persistent data-URI cache, scoped by storage path. */
-const cacheKeyFor = (avatarPath: string) => `avatar:${avatarPath}`;
+// documentDirectory is app-sandboxed on both iOS and Android.
+// Non-null assertion: documentDirectory is only null on web, where this module
+// is not used (web falls back to network URLs without a local cache).
+const CACHE_DIR = `${FileSystem.documentDirectory!}avatar-cache/`;
+const MIGRATION_KEY = "rivr.avatar_migration_v1";
 
-/**
- * Convert a Blob (from fetch().blob() or manipulator output) to a base64
- * data URI we can safely persist in AsyncStorage and feed to <Image source={{uri}}>.
- */
-async function blobToDataUri(blob: Blob): Promise<string> {
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function cacheFilePath(avatarPath: string): string {
+  // Replace slashes so path segments become a flat filename.
+  const safe = avatarPath.replace(/\//g, "_");
+  return `${CACHE_DIR}${safe}`;
+}
+
+async function ensureCacheDir(): Promise<void> {
+  const info = await FileSystem.getInfoAsync(CACHE_DIR);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+  }
+}
+
+function blobToDataUri(blob: Blob): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("FileReader failed"));
@@ -30,13 +59,79 @@ async function blobToDataUri(blob: Blob): Promise<string> {
   });
 }
 
+// ── migration ─────────────────────────────────────────────────────────────────
+
 /**
- * Resize + re-encode the source image to a 512×512 JPEG, upload it to
- * `profile-pictures/{userId}/avatar.jpg`, patch user_profiles.avatar_path,
- * and warm the on-device cache with the bytes so the next mount renders
- * instantly with no network round-trip.
- *
- * The re-encode strips EXIF / GPS metadata as a side effect.
+ * One-time migration: moves avatar data-URIs from AsyncStorage into the
+ * file-system cache, then deletes the AsyncStorage entries.
+ * Idempotent: the migration flag prevents re-runs.
+ */
+export async function migrateAvatarCache(): Promise<void> {
+  let done: string | null = null;
+  try {
+    done = await AsyncStorage.getItem(MIGRATION_KEY);
+  } catch {
+    // If unreadable assume not migrated.
+  }
+  if (done) return;
+
+  try {
+    await ensureCacheDir();
+    const allKeys = await AsyncStorage.getAllKeys();
+    const avatarKeys = allKeys.filter((k) => k.startsWith("avatar:"));
+
+    for (const key of avatarKeys) {
+      try {
+        const dataUri = await AsyncStorage.getItem(key);
+        if (dataUri) {
+          const path = key.slice("avatar:".length); // strip prefix
+          await FileSystem.writeAsStringAsync(cacheFilePath(path), dataUri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+        }
+      } catch (e) {
+        console.warn(`[Avatar] Migration failed for ${key}:`, e);
+      }
+      try {
+        await AsyncStorage.removeItem(key);
+      } catch {
+        // Stale key — not critical.
+      }
+    }
+  } catch (e) {
+    console.warn("[Avatar] Migration error:", e);
+  } finally {
+    try {
+      await AsyncStorage.setItem(MIGRATION_KEY, "1");
+    } catch {
+      // Non-fatal — migration will retry next launch.
+    }
+  }
+}
+
+// Run migration at module load (native only; no-op on web).
+migrateAvatarCache().catch((e) => console.warn("[Avatar] Migration startup error:", e));
+
+// ── cache management ──────────────────────────────────────────────────────────
+
+/**
+ * Delete all cached avatars.  Called on sign-out so a subsequent user on the
+ * same device does not see a previous user's photo.
+ */
+export async function clearAvatarCache(): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(CACHE_DIR, { idempotent: true });
+  } catch (e) {
+    console.warn("[Avatar] Failed to clear cache:", e);
+  }
+}
+
+// ── public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Resize + re-encode the source image to a 512×512 JPEG, upload it,
+ * patch user_profiles.avatar_path, and warm the on-device file cache.
+ * Strips EXIF/GPS metadata as a side-effect of re-encoding.
  */
 export async function uploadAvatar(userId: string, sourceUri: string): Promise<string> {
   if (!userId) throw new Error("uploadAvatar: userId required");
@@ -55,35 +150,33 @@ export async function uploadAvatar(userId: string, sourceUri: string): Promise<s
   const blob = await res.blob();
 
   await uploadAvatarApi(blob as any);
-
   await updateProfile({ avatar_path: path });
 
-  // Warm the persistent cache with the bytes we just uploaded. AsyncStorage
-  // uses IndexedDB/localStorage on web and SQLite/SharedPreferences on
-  // native — same semantics across platforms, persists across app restart.
+  // Warm file-system cache.
   try {
+    await ensureCacheDir();
     const dataUri = await blobToDataUri(blob);
-    await AsyncStorage.setItem(cacheKeyFor(path), dataUri);
+    await FileSystem.writeAsStringAsync(cacheFilePath(path), dataUri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
   } catch {
-    // Cache warm is best-effort — the hook will fall back to a network fetch.
+    // Cache warm is best-effort.
   }
 
   return path;
 }
 
 /**
- * Delete the avatar object from storage, clear the persistent cache so the
- * next render doesn't briefly show a deleted photo, then null out
- * user_profiles.avatar_path.
+ * Remove the avatar from remote storage and clear the local file cache entry.
  */
 export async function removeAvatar(userId: string, currentPath: string | null): Promise<void> {
   if (!userId) throw new Error("removeAvatar: userId required");
 
   if (currentPath) {
     try {
-      await AsyncStorage.removeItem(cacheKeyFor(currentPath));
+      await FileSystem.deleteAsync(cacheFilePath(currentPath), { idempotent: true });
     } catch {
-      // Idempotent — ignore.
+      // Idempotent — already absent is fine.
     }
   }
 
@@ -91,24 +184,29 @@ export async function removeAvatar(userId: string, currentPath: string | null): 
 }
 
 /**
- * Returns a stable URI to display the avatar, caching bytes locally in
- * AsyncStorage for instant rendering on every mount and after app restart.
+ * Return the cached local file path for an avatar, or null if not cached.
+ */
+async function getCachedAvatarUri(avatarPath: string): Promise<string | null> {
+  try {
+    const filePath = cacheFilePath(avatarPath);
+    const info = await FileSystem.getInfoAsync(filePath);
+    return info.exists ? filePath : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns a stable URI to display the avatar, reading from the file-system
+ * cache first for instant rendering, then refreshing in the background.
  *
- * Behaviour by case:
- *
- *   - avatarPath is null / undefined           → returns null
- *   - cache hit                                → return cached data URI immediately,
- *                                                then refresh in background
- *   - no cache, network OK                     → wait for sign + fetch + decode,
- *                                                then return the data URI
- *   - no cache, fetch fails                    → returns the signed URL directly
- *                                                so the user still sees the photo
- *   - no cache, sign fails                     → returns null
- *   - cache hit, network fails                 → keeps the cached URI on screen
- *
- * Persistence: AsyncStorage uses IndexedDB / localStorage on web and
- * SQLite / SharedPreferences on native. Both survive app restart and
- * device reboot.
+ * Behaviour:
+ *   - null/undefined avatarPath → returns null
+ *   - cache hit                 → return file URI immediately, then refresh
+ *   - no cache, network OK      → fetch, write to cache, return file URI
+ *   - no cache, fetch fails     → return signed URL directly as fallback
+ *   - no cache, sign fails      → return null
+ *   - cache hit, network fails  → keep cached URI on screen
  */
 export function useAvatarUrl(avatarPath: string | null | undefined): string | null {
   const [uri, setUri] = useState<string | null>(null);
@@ -122,23 +220,17 @@ export function useAvatarUrl(avatarPath: string | null | undefined): string | nu
         return;
       }
 
-      const key = cacheKeyFor(avatarPath);
-
-      // 1. Persistent cache check. Renders instantly without a single
-      //    network call when the user has visited any avatar-displaying
-      //    screen before.
+      // 1. File cache check — renders without a network round-trip.
       let cached: string | null = null;
       try {
-        cached = await AsyncStorage.getItem(key);
+        cached = await getCachedAvatarUri(avatarPath);
       } catch {
         // Treat as not-cached.
       }
       if (cancelled) return;
       if (cached) setUri(cached);
 
-      // 2. Background refresh: fetch the latest bytes so cross-device photo
-      //    changes are eventually reflected. The cached URI stays on screen
-      //    while this runs; we only swap the URI if the bytes actually changed.
+      // 2. Background refresh so cross-device photo changes are eventually visible.
       try {
         const { url } = await getAvatar();
         if (cancelled) return;
@@ -150,10 +242,7 @@ export function useAvatarUrl(avatarPath: string | null | undefined): string | nu
         const res = await fetch(url);
         if (cancelled) return;
         if (!res.ok) {
-          // Fetch failed (auth, network, deleted, etc.). If we had no cache,
-          // fall back to the signed URL directly so the user still sees the
-          // photo via RN's <Image> network loader.
-          if (!cached) setUri(url);
+          if (!cached) setUri(url); // signed URL fallback
           return;
         }
 
@@ -161,13 +250,18 @@ export function useAvatarUrl(avatarPath: string | null | undefined): string | nu
         const dataUri = await blobToDataUri(blob);
         if (cancelled) return;
 
-        if (dataUri !== cached) {
-          await AsyncStorage.setItem(key, dataUri).catch(() => {});
-          setUri(dataUri);
+        try {
+          await ensureCacheDir();
+          const filePath = cacheFilePath(avatarPath);
+          await FileSystem.writeAsStringAsync(filePath, dataUri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+          setUri(filePath);
+        } catch {
+          // Cache write failed — still show the remote URL.
+          setUri(url);
         }
       } catch {
-        // Background refresh failure: leave any cached URI in place;
-        // otherwise null out (no cache, no network).
         if (!cached) setUri(null);
       }
     })();
