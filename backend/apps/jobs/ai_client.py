@@ -20,19 +20,41 @@ def _client():
     return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, max_retries=4)
 
 
-def _parse_with_retry(make_call):
+def _revalidate(result, schema_class):
+    """Re-validate a parsed result against its Pydantic schema. The structured
+    Responses API normally guarantees the shape, but the retry path drops that
+    constraint via a corrective nudge, so we re-check explicitly to make sure no
+    malformed output slips through into the medical record."""
+    if schema_class is None or result is None:
+        return result
+    data = result.model_dump() if hasattr(result, "model_dump") else result
+    schema_class.model_validate(data)
+    return result
+
+
+def _parse_with_retry(make_call, schema_class=None):
     """Attempt a structured parse; on a SCHEMA/validation failure retry once with a
     corrective nudge. Transient API/transport errors (rate limit, network, timeout, 5xx)
     are re-raised unchanged — the SDK already retried them with backoff, and a corrective
-    nudge cannot fix them."""
+    nudge cannot fix them.
+
+    When ``schema_class`` is given, the result is re-validated against it on both the
+    first attempt and the retry. A retry that still fails validation raises (it is not
+    silently accepted)."""
     from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
 
     try:
-        return make_call(False)
+        return _revalidate(make_call(False), schema_class)
     except (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError):
         raise
     except Exception:
-        return make_call(True)
+        result = make_call(True)
+        if schema_class is not None:
+            try:
+                _revalidate(result, schema_class)
+            except Exception as exc:
+                raise ValueError(f"Retry produced output that failed schema validation: {exc}") from exc
+        return result
 
 
 # ── Document fact extraction ──────────────────────────────────────────────────
@@ -143,11 +165,12 @@ def extract_document_facts(document_id: str, title: str | None, text: str) -> Do
         if is_retry:
             messages.append({"role": "user", "content": _RETRY_NUDGE_EXTRACT})
         resp = client.responses.parse(
-            model=settings.AI_MODEL_EXTRACT, input=messages, text_format=DocumentFacts
+            model=settings.AI_MODEL_EXTRACT, input=messages, text_format=DocumentFacts,
+            max_output_tokens=settings.AI_EXTRACT_MAX_TOKENS,
         )
         return resp.output_parsed
 
-    return _parse_with_retry(make_call)
+    return _parse_with_retry(make_call, schema_class=DocumentFacts)
 
 
 def _split_for_extraction(text: str, cap: int) -> list[str]:
@@ -536,11 +559,12 @@ def evaluate_user_health(user_id, doc_facts, apple_health, manual_profile=None, 
         if is_retry:
             messages.append({"role": "user", "content": _RETRY_NUDGE_EVAL})
         resp = client.responses.parse(
-            model=settings.AI_MODEL_EVAL, input=messages, text_format=HealthEvaluation
+            model=settings.AI_MODEL_EVAL, input=messages, text_format=HealthEvaluation,
+            max_output_tokens=settings.AI_EVAL_MAX_TOKENS,
         )
         return resp.output_parsed
 
-    return _parse_with_retry(make_call)
+    return _parse_with_retry(make_call, schema_class=HealthEvaluation)
 
 
 # ── OCR + transcription ───────────────────────────────────────────────────────
@@ -569,6 +593,7 @@ def _ocr_batch(images: list[bytes]) -> str:
             {"role": "system", "content": [{"type": "input_text", "text": _OCR_SYSTEM}]},
             {"role": "user", "content": user_content},
         ],
+        max_output_tokens=settings.AI_OCR_MAX_TOKENS,
     )
     return getattr(resp, "output_text", "") or ""
 
@@ -644,5 +669,12 @@ def answer_health_question(question: str, context: str, history=None):
         if role in ("user", "assistant") and content:
             messages.append({"role": role, "content": content[:4000]})
     messages.append({"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"})
-    resp = client.responses.parse(model=model, input=messages, text_format=QAAnswer)
-    return resp.output_parsed
+
+    def make_call(is_retry: bool) -> QAAnswer:
+        resp = client.responses.parse(
+            model=model, input=messages, text_format=QAAnswer,
+            max_output_tokens=settings.AI_QA_MAX_TOKENS,
+        )
+        return resp.output_parsed
+
+    return _parse_with_retry(make_call, schema_class=QAAnswer)

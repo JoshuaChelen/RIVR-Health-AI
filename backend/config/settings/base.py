@@ -225,6 +225,16 @@ AI_MODEL_OCR = env("AI_MODEL_OCR", default="gpt-4o-mini")
 AI_MODEL_TRANSCRIBE = env("AI_MODEL_TRANSCRIBE", default="whisper-1")
 AI_MODEL_QUESTION_ANSWER = env("AI_MODEL_QUESTION_ANSWER", default="")
 
+# --- AI cost control / DoS prevention -----------------------------------------
+# Per-call output-token caps for the Responses API (param: max_output_tokens).
+# Generous on purpose: legitimate structured output (full eval summary +
+# recommendations + emergency card) must never truncate, since truncation breaks
+# the JSON parse and the whole pipeline.
+AI_EXTRACT_MAX_TOKENS = env.int("AI_EXTRACT_MAX_TOKENS", default=8000)
+AI_EVAL_MAX_TOKENS = env.int("AI_EVAL_MAX_TOKENS", default=12000)
+AI_QA_MAX_TOKENS = env.int("AI_QA_MAX_TOKENS", default=2000)
+AI_OCR_MAX_TOKENS = env.int("AI_OCR_MAX_TOKENS", default=6000)
+
 # --- Embeddings (Q&A vectorizing) --------------------------------------------
 EMBEDDING_BASE_URL = env("EMBEDDING_BASE_URL", default=OPENAI_BASE_URL)
 EMBEDDING_API_KEY = env("EMBEDDING_API_KEY", default=OPENAI_API_KEY)
