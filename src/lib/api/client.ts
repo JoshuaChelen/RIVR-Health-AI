@@ -1,23 +1,39 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  initTokenStorage,
+  setTokens,
+} from "./tokenStorage";
+import { refreshManager } from "./refreshManager";
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
-const ACCESS = "rivr.access";
-const REFRESH = "rivr.refresh";
+// Re-export so callers that import from "./client" still get the token helpers.
+export { clearTokens, getAccessToken, getRefreshToken, setTokens };
 
-export async function setTokens(access: string, refresh?: string): Promise<void> {
-  const pairs: [string, string][] = [[ACCESS, access]];
-  if (refresh) pairs.push([REFRESH, refresh]);
-  await AsyncStorage.multiSet(pairs);
-}
-export async function clearTokens(): Promise<void> {
-  await AsyncStorage.multiRemove([ACCESS, REFRESH]);
-}
-export async function getAccessToken(): Promise<string | null> {
-  return AsyncStorage.getItem(ACCESS);
-}
-export async function getRefreshToken(): Promise<string | null> {
-  return AsyncStorage.getItem(REFRESH);
-}
+// ── HTTPS guard ───────────────────────────────────────────────────────────────
+// Validate the API base URL at module load time.  In production we must use
+// HTTPS; http://localhost is allowed for local dev only.
+// __DEV__ is a Metro/Expo global — guard typeof for test environments (vitest).
+const BASE = (() => {
+  const url = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+  const isLocalhost =
+    url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1");
+  const isDev =
+    typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
+  if (!isDev && !url.startsWith("https://") && !isLocalhost) {
+    // This will surface as a startup crash in production — intentional.
+    throw new Error(
+      `[ApiClient] EXPO_PUBLIC_API_URL must use HTTPS in production builds; got: ${url}`,
+    );
+  }
+  return url;
+})();
+
+// Kick off the one-time migration from AsyncStorage → SecureStore (native).
+// Failures are non-fatal; they only mean the user might need to re-login once.
+initTokenStorage().catch((e) =>
+  console.warn("[ApiClient] Token storage init failed:", e),
+);
 
 // Called when a request is unauthorized and the session can't be refreshed.
 // SessionContext registers this to drop the user, sending the app to Login.
@@ -63,15 +79,19 @@ function safeJson(text: string): unknown {
 async function tryRefresh(): Promise<boolean> {
   const refresh = await getRefreshToken();
   if (!refresh) return false;
-  const res = await fetch(`${BASE}/api/auth/token/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  await setTokens(data.access, data.refresh);
-  return true;
+  try {
+    const res = await fetch(`${BASE}/api/auth/token/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    await setTokens(data.access, data.refresh ?? refresh);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 interface RequestOpts {
@@ -94,15 +114,47 @@ export async function request<T = unknown>(path: string, opts: RequestOpts = {})
     payload = JSON.stringify(body);
   }
   const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
-  if (res.status === 401 && retry && (await tryRefresh())) {
-    return request<T>(path, { ...opts, retry: false });
+
+  if (res.status === 401 && retry) {
+    const requestKey = `${method}:${path}`;
+
+    if (!refreshManager.canAttemptRefresh(requestKey)) {
+      // Circuit-breaker open or per-request limit exhausted — force logout.
+      await clearTokens();
+      refreshManager.reset();
+      onUnauthorized?.();
+      const text = await res.text();
+      const data = text ? safeJson(text) : null;
+      throw new ApiError(res.status, data);
+    }
+
+    const refreshSucceeded = await tryRefresh();
+    refreshManager.recordAttempt(requestKey, refreshSucceeded);
+
+    if (refreshSucceeded) {
+      refreshManager.recordSuccess(requestKey);
+      return request<T>(path, { ...opts, retry: false });
+    }
+
+    // Refresh failed — apply backoff then check circuit-breaker again.
+    const attempt = (refreshManager as any).perRequest?.get?.(requestKey)?.count ?? 1;
+    const delayMs = refreshManager.getBackoffMs(attempt);
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+
+    if (refreshManager.isCircuitBreakerOpen()) {
+      await clearTokens();
+      refreshManager.reset();
+      onUnauthorized?.();
+    }
   }
+
   if (res.status === 401) {
-    // Session is invalid and couldn't be refreshed: clear it and tell the app to
-    // show Login, instead of surfacing a 401 error on whatever the user tapped.
+    // Session is invalid and couldn't be refreshed: clear it and tell the app
+    // to show Login instead of surfacing a 401 error on whatever the user tapped.
     await clearTokens();
     onUnauthorized?.();
   }
+
   const text = await res.text();
   const data = text ? safeJson(text) : null;
   if (!res.ok) throw new ApiError(res.status, data);
@@ -115,5 +167,6 @@ export const api = {
   patch: <T = unknown>(p: string, b?: unknown) => request<T>(p, { method: "PATCH", body: b }),
   put: <T = unknown>(p: string, b?: unknown) => request<T>(p, { method: "PUT", body: b }),
   del: <T = unknown>(p: string) => request<T>(p, { method: "DELETE" }),
-  upload: <T = unknown>(p: string, form: FormData) => request<T>(p, { method: "POST", body: form, isForm: true }),
+  upload: <T = unknown>(p: string, form: FormData) =>
+    request<T>(p, { method: "POST", body: form, isForm: true }),
 };

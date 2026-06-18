@@ -1,4 +1,4 @@
-import { api, clearTokens, getRefreshToken, setTokens } from "./client";
+import { api, clearTokens, getAccessToken, getRefreshToken, setTokens } from "./client";
 
 export interface ApiUser {
   id: string;
@@ -27,8 +27,16 @@ export async function login(email: string, password: string): Promise<ApiUser> {
 
 export async function logout(): Promise<void> {
   const refresh = await getRefreshToken();
+  const access = await getAccessToken();
   try {
-    if (refresh) await api.post("/api/auth/logout", { refresh });
+    // Send both tokens so the backend can denylist the access token immediately
+    // (Phase 2 access-token denylist) AND invalidate the refresh token.
+    if (refresh || access) {
+      await api.post("/api/auth/logout", {
+        ...(refresh ? { refresh } : {}),
+        ...(access ? { access } : {}),
+      });
+    }
   } finally {
     await clearTokens();
   }
