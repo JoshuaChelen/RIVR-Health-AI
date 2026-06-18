@@ -1,3 +1,20 @@
+/**
+ * SECURITY INVARIANT — XSS-safe text rendering.
+ *
+ * React Native's <Text> component renders content as plain text and has no
+ * concept of innerHTML.  All server/LLM-generated content (health summaries,
+ * QA answers, extracted fields) is safe to pass as children here — HTML tags
+ * and script content are rendered as literal characters, not executed.
+ *
+ * Rules to maintain this invariant:
+ *   - NEVER use dangerouslySetInnerHTML (not applicable in RN, but guard if
+ *     this component is ever ported to a React DOM context).
+ *   - NEVER add a markdown renderer without sanitization (e.g. DOMPurify).
+ *   - NEVER render raw HTML from the backend directly to the DOM.
+ *
+ * Verified by: src/components/ui/Primitives/AppText.test.ts
+ */
+
 import React from "react";
 import { Text, TextProps, StyleSheet } from "react-native";
 import { fonts, typescale } from "../../../theme/tokens";
