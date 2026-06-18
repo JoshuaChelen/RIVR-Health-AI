@@ -32,8 +32,18 @@ _LOGIN_MAX_FAILURES = 5
 _LOGIN_LOCKOUT_DURATION = 60 * 15  # 15 min
 
 
-def _login_cache_keys(email: str) -> tuple[str, str]:
-    h = hashlib.sha256(email.encode()).hexdigest()
+def _client_ip(request) -> str:
+    # Behind Caddy: prefer the first X-Forwarded-For entry, else REMOTE_ADDR.
+    # XFF can be spoofed, but that only lets an attacker avoid their OWN
+    # lockout — it can't lock the victim, which is the goal of IP-scoping.
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "") or ""
+
+
+def _login_cache_keys(email: str, client_ip: str) -> tuple[str, str]:
+    h = hashlib.sha256(f"{email}:{client_ip}".encode()).hexdigest()
     return f"login_lock:{h}", f"login_fail:{h}"
 
 
@@ -64,7 +74,7 @@ class LoginView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         email = (request.data.get("email") or "").strip().lower()
-        lock_key, fail_key = _login_cache_keys(email)
+        lock_key, fail_key = _login_cache_keys(email, _client_ip(request))
 
         if cache.get(lock_key):
             return Response(
@@ -169,9 +179,17 @@ class PasswordResetView(APIView):
             return Response(
                 {"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST
             )
+        # Atomically claim the token BEFORE changing the password so two
+        # concurrent requests with the same token can't both reset it (TOCTOU).
+        claimed = User.objects.filter(
+            pk=user.pk, password_reset_token_used_at__isnull=True
+        ).update(password_reset_token_used_at=timezone.now())
+        if claimed != 1:
+            return Response(
+                {"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST
+            )
         user.set_password(serializer.validated_data["password"])
-        user.password_reset_token_used_at = timezone.now()
-        user.save(update_fields=["password", "password_reset_token_used_at"])
+        user.save(update_fields=["password"])
         return Response({"detail": "Password updated."})
 
 

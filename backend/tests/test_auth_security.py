@@ -91,43 +91,81 @@ class TestSingleUsePasswordReset:
 
         assert read_password_reset(uid, token) is None
 
+    def test_concurrent_reset_second_request_rejected(self, make_user, api_client):
+        """TOCTOU: two requests pass the read check, but only one can claim the token.
+
+        Simulates the race by having a competing request claim the token (atomic
+        UPDATE) after `read_password_reset` returns a valid user but before the
+        view's own claim. The view's claim must then fail → 400, and the second
+        request must NOT have changed the password.
+        """
+        user = make_user(email="toctou@example.com")
+        from apps.accounts.tokens import make_password_reset_tokens
+        uid, token = make_password_reset_tokens(user)
+
+        from unittest.mock import patch
+        import apps.accounts.views as views_mod
+
+        real_read = views_mod.read_password_reset
+
+        def racing_read(u, t):
+            result = real_read(u, t)
+            if result is not None:
+                # A concurrent request wins the claim first.
+                User.objects.filter(
+                    pk=result.pk, password_reset_token_used_at__isnull=True
+                ).update(password_reset_token_used_at=timezone.now())
+            return result
+
+        with patch.object(views_mod, "read_password_reset", side_effect=racing_read):
+            resp = api_client.post(
+                RESET, {"uid": uid, "token": token, "password": NEW_PW}, format="json"
+            )
+        assert resp.status_code == 400  # lost the race → token already claimed
+
+        # The losing request must not have set the new password.
+        user.refresh_from_db()
+        assert not user.check_password(NEW_PW)
+
 
 # ── Task 4: LOGIN LOCKOUT ─────────────────────────────────────────────────────
 
 @pytest.mark.django_db
 class TestLoginLockout:
+    IP = "203.0.113.10"  # consistent client IP so the email+IP lockout key is stable
+
     def test_lockout_after_five_failures(self, make_user, api_client):
         make_user(email="lockout@example.com")
         # 5 wrong-password attempts.
         for _ in range(5):
-            r = api_client.post(LOGIN, {"email": "lockout@example.com", "password": "wrong"}, format="json")
+            r = api_client.post(LOGIN, {"email": "lockout@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=self.IP)
             assert r.status_code == 401
 
         # 6th attempt must be locked out.
-        r = api_client.post(LOGIN, {"email": "lockout@example.com", "password": "wrong"}, format="json")
+        r = api_client.post(LOGIN, {"email": "lockout@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=self.IP)
         assert r.status_code == 423
 
     def test_lockout_blocks_correct_password_too(self, make_user, api_client):
         make_user(email="lockout2@example.com")
         for _ in range(5):
-            api_client.post(LOGIN, {"email": "lockout2@example.com", "password": "wrong"}, format="json")
+            api_client.post(LOGIN, {"email": "lockout2@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=self.IP)
 
         # Even the correct password is blocked while locked out.
-        r = api_client.post(LOGIN, {"email": "lockout2@example.com", "password": PW}, format="json")
+        r = api_client.post(LOGIN, {"email": "lockout2@example.com", "password": PW}, format="json", REMOTE_ADDR=self.IP)
         assert r.status_code == 423
 
     def test_lockout_clears_on_success(self, make_user, api_client):
         make_user(email="lockout3@example.com")
         # 4 failures (not yet locked).
         for _ in range(4):
-            api_client.post(LOGIN, {"email": "lockout3@example.com", "password": "wrong"}, format="json")
+            api_client.post(LOGIN, {"email": "lockout3@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=self.IP)
 
         # Correct password clears the failure counter.
-        r = api_client.post(LOGIN, {"email": "lockout3@example.com", "password": PW}, format="json")
+        r = api_client.post(LOGIN, {"email": "lockout3@example.com", "password": PW}, format="json", REMOTE_ADDR=self.IP)
         assert r.status_code == 200
 
         # Counter is reset — subsequent wrong attempts restart the window.
-        r2 = api_client.post(LOGIN, {"email": "lockout3@example.com", "password": "wrong"}, format="json")
+        r2 = api_client.post(LOGIN, {"email": "lockout3@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=self.IP)
         assert r2.status_code == 401  # not 423
 
     def test_lockout_is_per_email(self, make_user, api_client):
@@ -135,11 +173,49 @@ class TestLoginLockout:
         make_user(email="lockout4b@example.com")
         # Exhaust lockout for lockout4a.
         for _ in range(5):
-            api_client.post(LOGIN, {"email": "lockout4a@example.com", "password": "wrong"}, format="json")
+            api_client.post(LOGIN, {"email": "lockout4a@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=self.IP)
 
         # lockout4b should still be able to log in.
-        r = api_client.post(LOGIN, {"email": "lockout4b@example.com", "password": PW}, format="json")
+        r = api_client.post(LOGIN, {"email": "lockout4b@example.com", "password": PW}, format="json", REMOTE_ADDR=self.IP)
         assert r.status_code == 200
+
+    def test_lockout_is_per_ip_no_victim_dos(self, make_user, api_client):
+        """An attacker locking an email from their IP must NOT lock the victim's own IP."""
+        make_user(email="victim@example.com")
+        attacker_ip = "198.51.100.5"
+        victim_ip = "203.0.113.99"
+
+        # Attacker exhausts the lockout for the victim's email from the attacker IP.
+        for _ in range(5):
+            api_client.post(LOGIN, {"email": "victim@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=attacker_ip)
+        r_attacker = api_client.post(LOGIN, {"email": "victim@example.com", "password": "wrong"}, format="json", REMOTE_ADDR=attacker_ip)
+        assert r_attacker.status_code == 423  # attacker's IP is locked
+
+        # The victim, from their own IP, can still log in with correct credentials.
+        r_victim = api_client.post(LOGIN, {"email": "victim@example.com", "password": PW}, format="json", REMOTE_ADDR=victim_ip)
+        assert r_victim.status_code == 200
+
+    def test_lockout_uses_x_forwarded_for(self, make_user, api_client):
+        """Behind Caddy, the client IP is the first X-Forwarded-For entry."""
+        make_user(email="xff@example.com")
+        # Same REMOTE_ADDR (the proxy), but different XFF client IPs → separate counters.
+        for _ in range(5):
+            api_client.post(
+                LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
+                REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
+            )
+        # Locked for the XFF client 198.51.100.7.
+        r_locked = api_client.post(
+            LOGIN, {"email": "xff@example.com", "password": "wrong"}, format="json",
+            REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
+        )
+        assert r_locked.status_code == 423
+        # A different XFF client through the same proxy is NOT locked.
+        r_other = api_client.post(
+            LOGIN, {"email": "xff@example.com", "password": PW}, format="json",
+            REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR="198.51.100.250, 10.0.0.1",
+        )
+        assert r_other.status_code == 200
 
 
 # ── Task 5: CONSTANT-TIME VERIFY ─────────────────────────────────────────────
