@@ -52,3 +52,6 @@ yarn-error.*
 
 # local dev launcher artifacts
 .dev/
+
+# docs kept local only — never tracked/pushed
+docs/
