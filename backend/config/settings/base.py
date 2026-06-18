@@ -3,6 +3,7 @@
 Values are read from the environment (see .env.example). Local defaults are
 safe for development only.
 """
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -11,7 +12,10 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
-environ.Env.read_env(BASE_DIR / ".env")
+# Gate .env loading so subprocess-based tests can set DJANGO_READ_DOT_ENV_FILE=false
+# and test true production validation without .env polluting the environment.
+if os.environ.get("DJANGO_READ_DOT_ENV_FILE", "true").lower() != "false":
+    environ.Env.read_env(BASE_DIR / ".env")
 
 # --- Core ---------------------------------------------------------------------
 SECRET_KEY = env(
@@ -160,6 +164,13 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+# --- Session/CSRF Cookie Security ------------------------------------------------
+# All environments get strict cookie security defaults; prod already sets SECURE.
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Strict"
+CSRF_COOKIE_SAMESITE = "Strict"
+CSRF_COOKIE_HTTPONLY = True
 
 # --- CORS ---------------------------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=True)
