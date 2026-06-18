@@ -21,7 +21,7 @@ from apps.health.models import HealthEvaluation, HealthProfile
 from apps.profiles.models import UserProfile
 from apps.timeline.models import TimelineEvent
 
-from . import ai_client, citations, extraction, index, profile_logic
+from . import ai_client, citations, extraction, index, output_validator, profile_logic
 from .models import AiJob, AiJobEvent
 
 class CancellationError(Exception):
@@ -450,6 +450,11 @@ def _common_tail(job: AiJob, doc_facts: list[dict], limited_doc_ids: list, manua
             _set_stage(job, "ai_backfill")
             try:
                 candidates = profile_logic.extract_backfill_candidates(doc_facts)
+                # Validate AI-extracted candidates BEFORE they mutate the permanent
+                # medical record. A malicious/garbled document that produced unsafe
+                # values (control chars, HTML, injection text, oversized fields) is
+                # rejected here, so the backfill is skipped rather than poisoned.
+                candidates = output_validator.validate_backfill_candidates(candidates)
                 result = profile_logic.compute_backfill_patch(
                     raw_profile, candidates, {"job_id": str(job.id), "evaluation_id": str(eval_row.id)}
                 )

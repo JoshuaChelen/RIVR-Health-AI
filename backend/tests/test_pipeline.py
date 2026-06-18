@@ -100,6 +100,63 @@ def test_process_documents_full_flow(user, mock_ai, monkeypatch):
     assert user.timeline_events.filter(source="document_ai").count() == 1
 
 
+def test_malicious_document_does_not_poison_profile(user, mock_ai, monkeypatch):
+    """A document whose extracted facts carry an XSS payload must NOT write the
+    backfill into the permanent profile (output validator rejects the batch)."""
+    UserProfile.objects.create(user=user)  # empty profile so backfill would normally add items
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/x.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    poisoned = fake_facts(
+        doc.id,
+        key_facts={
+            "blood_type": None,
+            "allergies": [{"substance": "Penicillin", "reaction": "Rash <script>steal()</script>",
+                           "severity": "high", "type": "allergy"}],
+            "medications": [], "conditions": [], "surgeries_procedures": [],
+            "implants_devices": [], "key_labs_vitals": [], "extra_notes": [],
+        },
+    )
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: poisoned)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    # The job still succeeds (backfill is non-fatal), but nothing was written.
+    assert job.status == AiJob.Status.SUCCEEDED
+    prof = UserProfile.objects.get(user=user)
+    assert (prof.allergies or []) == []
+    assert not (prof.ai_backfill_meta or {}).get("fields")
+
+
+def test_clean_document_still_backfills_profile(user, mock_ai, monkeypatch):
+    """Sanity: a clean document's facts DO backfill, proving the validator isn't
+    blocking legitimate data."""
+    UserProfile.objects.create(user=user)
+    doc = Document.objects.create(user=user, source_type="pdf", status="processing", mime_type="application/pdf")
+    doc.pdf_path = default_storage.save(f"documents/{user.id}/x.pdf", ContentFile(b"%PDF-1.4 fake"))
+    doc.save()
+    clean = fake_facts(
+        doc.id,
+        key_facts={
+            "blood_type": None,
+            "allergies": [{"substance": "Penicillin", "reaction": "Rash, hives", "severity": "high", "type": "allergy"}],
+            "medications": [{"name": "Metformin", "dose": "500 mg", "frequency": "twice daily"}],
+            "conditions": [], "surgeries_procedures": [],
+            "implants_devices": [], "key_labs_vitals": [], "extra_notes": [],
+        },
+    )
+    monkeypatch.setattr(ai_client, "extract_document_facts", lambda *a, **k: clean)
+    job = AiJob.objects.create(user=user, job_type=AiJob.JobType.PROCESS_DOCUMENTS, document_ids=[doc.id])
+    pipeline.run_job(job.id)
+    job.refresh_from_db()
+    assert job.status == AiJob.Status.SUCCEEDED
+    prof = UserProfile.objects.get(user=user)
+    allergens = [a.get("allergen") for a in (prof.allergies or [])]
+    assert "Penicillin" in allergens
+    meds = [m.get("name") for m in (prof.medications or [])]
+    assert "Metformin" in meds
+
+
 def test_cancellation_reverts_documents(user, mock_ai):
     doc = Document.objects.create(user=user, source_type="pdf", status="processing")
     job = AiJob.objects.create(
