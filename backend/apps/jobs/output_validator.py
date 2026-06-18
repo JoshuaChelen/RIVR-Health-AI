@@ -110,6 +110,35 @@ def _check_value(field: str, value: Any) -> str:
     return value
 
 
+# Public name for the shared content gate, reused by the manual-profile and
+# ai-item edit paths so they apply the SAME calibrated rules.
+def validate_text_value(field: str, value: Any) -> str:
+    return _check_value(field, value)
+
+
+_ANGLE = re.compile(r"[<>]")
+_DELIM_RUN = re.compile(r"(<{3,}|>{3,})")
+
+
+def sanitize_freetext_for_prompt(value: Any, *, max_len: int = _FIELD_CAP) -> str:
+    """Neutralize already-stored free text before it is embedded in an LLM prompt.
+
+    Unlike validate_text_value this does NOT reject — the data is already in the
+    record and the model must still see it; it only DEFANGS so the text can't act
+    as instructions or break structural delimiters: strips control chars, replaces
+    angle brackets so HTML/markup is inert, and breaks delimiter runs. Words are
+    preserved so the content stays usable as data.
+    """
+    if not isinstance(value, str):
+        return ""
+    value = _CONTROL_CHARS.sub("", value)[:max_len]
+    # Break any 3+ bracket run first (defeats embedded structural end markers)...
+    value = _DELIM_RUN.sub(lambda m: m.group(0)[0] + " " + m.group(0)[1:], value)
+    # ...then make remaining angle brackets inert so <script>/<img> can't render.
+    value = _ANGLE.sub(lambda m: "(" if m.group(0) == "<" else ")", value)
+    return value
+
+
 def _validate_item(item: Dict[str, Any], allowed_fields: tuple, required: str) -> Dict[str, Any]:
     if not isinstance(item, dict):
         raise OutputValidationError("candidate is not an object")
