@@ -83,7 +83,8 @@ class DocumentViewSet(OwnedModelViewSet):
     @action(detail=True, methods=["get"])
     def file(self, request, pk=None):
         doc = self.get_object()
-        return Response({"url": storage.signed_url(doc.pdf_path)})
+        # Documents use a longer-lived URL (600s) than share artifacts (60s)
+        return Response({"url": storage.signed_url(doc.pdf_path, expire=600)})
 
     @action(detail=True, methods=["get"])
     def analysis(self, request, pk=None):
