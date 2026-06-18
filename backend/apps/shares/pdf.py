@@ -1,5 +1,6 @@
 """Minimal branded PDF builders for shared health artifacts (reportlab)."""
 import io
+import re
 
 from apps.health.models import HealthProfile
 from apps.profiles.models import UserProfile
@@ -11,6 +12,21 @@ TITLES = {
     "pre_visit_note": "RIVR Pre-Visit Note",
     "full_timeline": "RIVR Health Timeline",
 }
+
+
+def _sanitize_name(name: str, max_length: int = 50) -> str:
+    """Sanitize a profile name for safe PDF rendering.
+
+    Removes control characters (newlines, null bytes, tabs), collapses
+    multiple spaces, and truncates to max_length characters.
+    """
+    if not name:
+        return ""
+    # Replace newlines, tabs, and control chars (ASCII 0-31) with a space
+    name = re.sub(r"[\r\n\t\x00-\x1f]", " ", name)
+    # Collapse multiple spaces
+    name = re.sub(r"\s+", " ", name).strip()
+    return name[:max_length]
 
 
 def _timeline_lines(events) -> list[str]:
@@ -46,7 +62,9 @@ def _lines_for(share_type: str, user_id) -> list[str]:
     elif share_type == "full_timeline":
         events = TimelineEvent.objects.filter(user_id=user_id).exclude(source="apple_health").order_by("-occurred_at")[:200]
         lines += _timeline_lines(events)
-    name = f"{profile.first_name} {profile.last_name}".strip() if profile else ""
+    first = _sanitize_name(profile.first_name) if profile else ""
+    last = _sanitize_name(profile.last_name) if profile else ""
+    name = f"{first} {last}".strip()
     header = [TITLES.get(share_type, "RIVR"), name, ""] if name else [TITLES.get(share_type, "RIVR"), ""]
     return header + lines
 
