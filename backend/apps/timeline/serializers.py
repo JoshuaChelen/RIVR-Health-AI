@@ -19,3 +19,28 @@ class TimelineEventSerializer(serializers.ModelSerializer):
 
     def validate_date_precision(self, value):
         return value or ""
+
+    def validate_title(self, value):
+        if not value:
+            return value
+        if any(c in value for c in ('<', '>', '&')):
+            raise serializers.ValidationError("Title cannot contain HTML characters.")
+        control_chars = [chr(i) for i in range(0, 32) if i not in (9, 10, 13)]
+        if any(c in value for c in control_chars):
+            raise serializers.ValidationError("Title cannot contain control characters.")
+        return value
+
+    def validate_summary(self, value):
+        if not value:
+            return value
+        if any(c in value for c in ('<', '>', '&')):
+            raise serializers.ValidationError("Summary cannot contain HTML characters.")
+        control_chars = [chr(i) for i in range(0, 32) if i not in (9, 10, 13)]
+        if any(c in value for c in control_chars):
+            raise serializers.ValidationError("Summary cannot contain control characters.")
+        return value
+
+    def validate_tags(self, value):
+        if isinstance(value, list) and len(value) > 20:
+            raise serializers.ValidationError("tags cannot exceed 20 items.")
+        return value

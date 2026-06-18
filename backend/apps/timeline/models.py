@@ -28,7 +28,7 @@ class TimelineEvent(BaseModel):
     event_type = models.CharField(max_length=128, blank=True, default="")
     category = models.CharField(max_length=128, blank=True, default="")
     source = models.CharField(max_length=64, blank=True, default="")
-    summary = models.TextField(blank=True, default="")
+    summary = models.TextField(max_length=2000, blank=True, default="")
     tags = ArrayField(models.CharField(max_length=128), default=list, blank=True)
     data = models.JSONField(default=dict, blank=True)
     included_in_previsit = models.BooleanField(default=False)

@@ -113,6 +113,19 @@ class AiItemEditView(_ItemBase):
         if bad:
             return Response({"detail": f"Cannot edit: {', '.join(sorted(bad))}."},
                             status=status.HTTP_400_BAD_REQUEST)
+        import json
+        try:
+            payload_json = json.dumps(incoming)
+            if len(payload_json) > 5000:
+                return Response(
+                    {"detail": "Edit payload exceeds 5KB limit."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Invalid payload."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if "type" in incoming and incoming["type"] not in ("allergy", "intolerance"):
             return Response({"detail": "type must be 'allergy' or 'intolerance'."},
                             status=status.HTTP_400_BAD_REQUEST)

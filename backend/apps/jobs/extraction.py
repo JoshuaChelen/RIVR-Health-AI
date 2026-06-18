@@ -45,6 +45,8 @@ def assess_text_quality(text):
     """Heuristic flag for garbage OCR/extraction. Returns {score: 0-1, is_low: bool}.
     Low score => mostly non-word characters or vowel-less tokens (likely OCR noise)."""
     t = (text or "").strip()
+    if len(t) > 180000:
+        t = t[:180000]
     if len(t) < 20:
         return {"score": 0.0, "is_low": True}
     printable = len(re.findall(r"[A-Za-z0-9\s.,;:%/()\-+]", t))

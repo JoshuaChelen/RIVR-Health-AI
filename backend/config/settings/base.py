@@ -145,10 +145,17 @@ REST_FRAMEWORK = {
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.LimitedLimitOffsetPagination",
     "PAGE_SIZE": 30,
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"share_resolve": "30/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "share_resolve": "30/min",
+        "register": "5/h",
+        "login": "10/min",
+        "upload": "30/h",
+        "qa_calls": "60/h",
+        "password_reset": "5/h",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -232,3 +239,15 @@ SHARE_PUBLIC_URL = env("SHARE_PUBLIC_URL", default="http://localhost:3000/share"
 SHARE_EXPIRES_MINUTES = env.int("SHARE_EXPIRES_MINUTES", default=1)
 SHARE_MAX_VIEWS = env.int("SHARE_MAX_VIEWS", default=2)
 SHARE_MAX_PIN_ATTEMPTS = env.int("SHARE_MAX_PIN_ATTEMPTS", default=5)
+
+# --- Cache (required for DRF throttling) ----------------------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache"
+        if DEBUG
+        else "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://localhost:6379/2")
+        if not DEBUG
+        else "rivr-throttle-cache",
+    }
+}

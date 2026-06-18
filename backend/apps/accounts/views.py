@@ -20,6 +20,7 @@ from .serializers import (
     UserSerializer,
 )
 from .tokens import read_email_verify_token, read_password_reset
+from apps.common.throttles import LoginThrottle, PasswordResetThrottle, RegisterThrottle
 
 User = get_user_model()
 
@@ -31,6 +32,7 @@ def _tokens_for(user) -> dict:
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [RegisterThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -45,6 +47,7 @@ class RegisterView(APIView):
 
 class LoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
     serializer_class = LoginSerializer
 
 
@@ -87,6 +90,7 @@ class VerifyEmailView(APIView):
 
 class PasswordForgotView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
 
     def post(self, request):
         serializer = PasswordForgotSerializer(data=request.data)
@@ -101,6 +105,7 @@ class PasswordForgotView(APIView):
 
 class PasswordResetView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
 
     def post(self, request):
         serializer = PasswordResetSerializer(data=request.data)

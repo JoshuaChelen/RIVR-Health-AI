@@ -48,6 +48,13 @@ class DocumentViewSet(OwnedModelViewSet):
         upload = request.FILES.get("file")
         if upload is None:
             return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        from .validation import validate_file_size, validate_file_magic_bytes
+        is_valid, error_msg = validate_file_size(upload)
+        if not is_valid:
+            return Response({"detail": error_msg}, status=413)
+        is_valid, error_msg = validate_file_magic_bytes(upload)
+        if not is_valid:
+            return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)
         # Only the document kinds we can actually process (PDFs, images for OCR, audio
         # for transcription). content_type is client-supplied so this isn't a security
         # boundary, but it rejects obviously-wrong uploads (executables, archives, html).

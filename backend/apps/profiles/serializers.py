@@ -38,3 +38,50 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 for name, value in data.items()
             }
         return super().to_internal_value(data)
+
+    def validate_current_symptoms(self, value):
+        if not value:
+            return value
+        if len(value) > 5000:
+            raise serializers.ValidationError("current_symptoms cannot exceed 5000 characters.")
+        if any(c in value for c in ('<', '>', '&')):
+            raise serializers.ValidationError("Text cannot contain HTML characters (<, >, &).")
+        control_chars = [chr(i) for i in range(0, 32) if i not in (9, 10, 13)]
+        if any(c in value for c in control_chars):
+            raise serializers.ValidationError("Text cannot contain control characters.")
+        return value
+
+    def validate_allergies(self, value):
+        if isinstance(value, list) and len(value) > 50:
+            raise serializers.ValidationError("allergies cannot exceed 50 items.")
+        return value
+
+    def validate_medications(self, value):
+        if isinstance(value, list) and len(value) > 100:
+            raise serializers.ValidationError("medications cannot exceed 100 items.")
+        return value
+
+    def validate_medical_history(self, value):
+        if isinstance(value, list) and len(value) > 100:
+            raise serializers.ValidationError("medical_history cannot exceed 100 items.")
+        return value
+
+    def validate_surgical_history(self, value):
+        if isinstance(value, list) and len(value) > 50:
+            raise serializers.ValidationError("surgical_history cannot exceed 50 items.")
+        return value
+
+    def validate_family_history(self, value):
+        if isinstance(value, list) and len(value) > 50:
+            raise serializers.ValidationError("family_history cannot exceed 50 items.")
+        return value
+
+    def validate_hospitalizations(self, value):
+        if isinstance(value, list) and len(value) > 50:
+            raise serializers.ValidationError("hospitalizations cannot exceed 50 items.")
+        return value
+
+    def validate_social_history(self, value):
+        if isinstance(value, list) and len(value) > 50:
+            raise serializers.ValidationError("social_history cannot exceed 50 items.")
+        return value

@@ -75,7 +75,12 @@ _RETRY_NUDGE_EVAL = (
 )
 
 
+EXTRACT_CHAR_CAP = 180_000
+
+
 def extract_document_facts(document_id: str, title: str | None, text: str) -> DocumentFacts:
+    if len(text) > EXTRACT_CHAR_CAP:
+        text = text[:EXTRACT_CHAR_CAP]
     client = _client()
     user_content = _wrap_untrusted(document_id, title, text)
 
@@ -92,9 +97,6 @@ def extract_document_facts(document_id: str, title: str | None, text: str) -> Do
         return resp.output_parsed
 
     return _parse_with_retry(make_call)
-
-
-EXTRACT_CHAR_CAP = 180_000
 
 
 def _split_for_extraction(text: str, cap: int) -> list[str]:

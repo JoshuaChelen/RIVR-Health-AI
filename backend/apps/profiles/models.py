@@ -31,7 +31,7 @@ class UserProfile(BaseModel):
     smoking_status = models.CharField(max_length=64, blank=True, default="")
     alcohol_use = models.CharField(max_length=64, blank=True, default="")
     exercise_level = models.CharField(max_length=64, blank=True, default="")
-    current_symptoms = models.TextField(blank=True, default="")
+    current_symptoms = models.TextField(max_length=5000, blank=True, default="")
 
     # JSON list fields (default [])
     allergies = models.JSONField(default=list, blank=True)
@@ -60,3 +60,18 @@ class UserProfile(BaseModel):
         """Return the user's profile, creating it on first access."""
         profile, _ = cls.objects.get_or_create(user=user)
         return profile
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        array_limits = {
+            'allergies': 50, 'medications': 100, 'medical_history': 100,
+            'surgical_history': 50, 'family_history': 50,
+            'hospitalizations': 50, 'social_history': 50,
+        }
+        for field_name, max_count in array_limits.items():
+            arr = getattr(self, field_name, []) or []
+            if isinstance(arr, list) and len(arr) > max_count:
+                errors[field_name] = f"Cannot exceed {max_count} items."
+        if errors:
+            raise ValidationError(errors)

@@ -12,4 +12,14 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
-REST_FRAMEWORK = {**REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {"share_resolve": "1000/min"}}  # noqa: F405
+REST_FRAMEWORK = {  # noqa: F405
+    **REST_FRAMEWORK,  # noqa: F405
+    "DEFAULT_THROTTLE_RATES": {
+        "share_resolve": "10000/min",
+        "register": "10000/min",
+        "login": "10000/min",
+        "upload": "10000/min",
+        "qa_calls": "10000/min",
+        "password_reset": "10000/min",
+    },
+}
