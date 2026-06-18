@@ -131,6 +131,15 @@ class AiItemEditView(_ItemBase):
         if "type" in incoming and incoming["type"] not in ("allergy", "intolerance"):
             return Response({"detail": "type must be 'allergy' or 'intolerance'."},
                             status=status.HTTP_400_BAD_REQUEST)
+        # Content-gate edited values with the same calibrated rules as AI backfill /
+        # manual edits (no HTML/control-chars/injection); legit clinical values pass.
+        from apps.jobs.output_validator import OutputValidationError, validate_text_value
+        for k, v in incoming.items():
+            if isinstance(v, str):
+                try:
+                    validate_text_value(k, v)
+                except OutputValidationError as exc:
+                    return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         if "ai_original" not in item:
             item["ai_original"] = {k: item.get(k) for k in ({KEY_FIELD[field]} | allowed)}
         item.update(incoming)

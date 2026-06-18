@@ -9,7 +9,15 @@ MAX_ITEM_BYTES = 5000
 
 
 def _validate_array(value, field_name, max_count):
-    """Enforce array count cap and per-item 5KB serialized-size cap."""
+    """Enforce array count cap, per-item 5KB serialized-size cap, and per-value
+    content rules (no HTML/control-chars/injection in nested string values).
+
+    The content gate is shared with the AI output validator (same calibrated rules),
+    so legitimate clinical values ("500 mg", "hives & itching") still pass while a
+    nested ``<script>`` / control char / injection string is rejected before save.
+    """
+    from apps.jobs.output_validator import OutputValidationError, validate_text_value
+
     if not isinstance(value, list):
         return value
     if len(value) > max_count:
@@ -22,6 +30,14 @@ def _validate_array(value, field_name, max_count):
                 )
         except (TypeError, ValueError):
             raise serializers.ValidationError(f"{field_name}[{idx}] is not serializable.")
+        if isinstance(item, dict):
+            for key, val in item.items():
+                if key == "id" or not isinstance(val, str):
+                    continue  # ids are server-controlled; non-strings handled elsewhere
+                try:
+                    validate_text_value(f"{field_name}[{idx}].{key}", val)
+                except OutputValidationError as exc:
+                    raise serializers.ValidationError(str(exc))
     return value
 
 
