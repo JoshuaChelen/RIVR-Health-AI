@@ -25,6 +25,7 @@ def _minimal_prod_env(**overrides) -> dict:
         "CORS_ALLOW_ALL_ORIGINS", "DJANGO_SECRET_KEY", "DJANGO_ALLOWED_HOSTS",
         "DATABASE_URL", "DJANGO_DEBUG", "DJANGO_SETTINGS_MODULE",
         "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND",
+        "AWS_S3_ENDPOINT_URL", "AWS_S3_PUBLIC_ENDPOINT_URL",
     ):
         env.pop(key, None)
     # Sane valid prod baseline
@@ -129,6 +130,12 @@ class TestAllowedHostsValidation:
         assert result.returncode != 0
         assert "ALLOWED_HOSTS" in result.stderr.upper()
 
+    def test_prod_rejects_mixed_wildcard_allowed_hosts(self):
+        """Prod must reject any list containing '*', e.g. ['*', 'api.example.com']."""
+        result = _run(DJANGO_ALLOWED_HOSTS="*,api.example.com")
+        assert result.returncode != 0
+        assert "ALLOWED_HOSTS" in result.stderr.upper()
+
     def test_prod_rejects_missing_allowed_hosts(self):
         """Prod must reject empty DJANGO_ALLOWED_HOSTS."""
         env = _minimal_prod_env()
@@ -161,6 +168,20 @@ class TestDatabaseSSLValidation:
         result = _run(DATABASE_URL="postgres://user:pass@db.example.com:5432/mydb")
         assert result.returncode != 0
         assert "SSL" in result.stderr.upper() or "SSLMODE" in result.stderr.upper()
+
+    def test_prod_rejects_missing_database_url(self):
+        """Prod must fail closed when DATABASE_URL is unset (no plaintext fallback)."""
+        env = _minimal_prod_env()
+        env.pop("DATABASE_URL", None)
+        result = subprocess.run([sys.executable, "-c", _CMD], env=env, cwd=_CWD,
+                                capture_output=True, text=True)
+        assert result.returncode != 0
+        assert "DATABASE_URL" in result.stderr.upper()
+
+    def test_prod_rejects_sslmode_with_suffix(self):
+        """Prod must reject sslmode=requirex (boundary not anchored would accept it)."""
+        result = _run(DATABASE_URL="postgres://user:pass@db.example.com:5432/mydb?sslmode=requirex")
+        assert result.returncode != 0
 
     def test_prod_rejects_database_ssl_allow(self):
         """Prod must reject sslmode=allow (permits fallback to plaintext)."""
@@ -236,10 +257,16 @@ assert len(settings.CSRF_TRUSTED_ORIGINS) > 0, 'CSRF_TRUSTED_ORIGINS is empty'
         assert result.returncode == 0, f"Failed: {result.stderr}"
 
     def test_csrf_trusted_origins_contains_https(self):
-        """Prod CSRF_TRUSTED_ORIGINS entries should use https scheme."""
+        """Prod CSRF_TRUSTED_ORIGINS default entries use the https scheme."""
         result = _run("""
 from django.conf import settings
 for origin in settings.CSRF_TRUSTED_ORIGINS:
     assert origin.startswith('https://'), f'Origin {origin} should use https'
 """)
         assert result.returncode == 0, f"Failed: {result.stderr}"
+
+    def test_prod_rejects_non_https_trusted_origin(self):
+        """Prod must fail closed when a CSRF_TRUSTED_ORIGIN uses the http scheme."""
+        result = _run(DJANGO_CSRF_TRUSTED_ORIGINS="http://insecure.example.com")
+        assert result.returncode != 0
+        assert "CSRF_TRUSTED_ORIGIN" in result.stderr or "https" in result.stderr.lower()

@@ -30,10 +30,12 @@ if not SECRET_KEY or len(SECRET_KEY) < 50:  # noqa: F405
     )
 
 # --- Fail-closed ALLOWED_HOSTS validation --------------------------------------
-if not ALLOWED_HOSTS or ALLOWED_HOSTS == ["*"]:  # noqa: F405
+# Reject empty or any list containing the wildcard (e.g. ["*", "api.example.com"]).
+if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:  # noqa: F405
     raise ImproperlyConfigured(
         "DJANGO_ALLOWED_HOSTS must be explicitly set in production and "
-        "must not be wildcard. Set DJANGO_ALLOWED_HOSTS=api.example.com,www.example.com "
+        "must not contain the wildcard '*'. Set "
+        "DJANGO_ALLOWED_HOSTS=api.example.com,www.example.com "
         "in environment, or it defaults to unsafe ['*']."
     )
 
@@ -78,14 +80,15 @@ CSRF_TRUSTED_ORIGINS = env.list(  # noqa: F405
     default=["https://api.rivrhealth.com"],
 )
 
-# Validate CSRF_TRUSTED_ORIGINS entries use secure scheme
+# Fail-closed: CSRF_TRUSTED_ORIGINS must use the https scheme in production.
+# Caddy serves HTTPS, so a non-https trusted origin is a real misconfiguration
+# that opens a protocol-downgrade vector.
 for _origin in CSRF_TRUSTED_ORIGINS:
     if not _origin.startswith("https://"):
-        import warnings
-        warnings.warn(
-            f"CSRF_TRUSTED_ORIGIN {_origin} should use https scheme. "
-            "Non-HTTPS origins may be vulnerable to protocol-downgrade attacks.",
-            category=RuntimeWarning,
+        raise ImproperlyConfigured(
+            f"CSRF_TRUSTED_ORIGIN {_origin} must use the https scheme in production. "
+            "Non-HTTPS origins are vulnerable to protocol-downgrade attacks. "
+            "Set DJANGO_CSRF_TRUSTED_ORIGINS to https:// origins only."
         )
 
 # CORS: fail closed in production. base.py defaults CORS_ALLOW_ALL_ORIGINS to
@@ -108,20 +111,28 @@ if CORS_ALLOW_ALL_ORIGINS:
     )
 
 # --- Fail-closed database SSL/TLS validation -----------------------------------
+# Require DATABASE_URL to be set and to be a postgres URL, then enforce sslmode.
+# A missing DATABASE_URL must NOT fall back to base.py's plaintext localhost
+# default — that would silently boot prod on an unencrypted connection.
 _raw_db_url = os.environ.get("DATABASE_URL", "")
-if _raw_db_url and "postgres" in _raw_db_url:
-    if "sslmode" not in _raw_db_url:
-        raise ImproperlyConfigured(
-            "PostgreSQL database URL must include sslmode parameter in production. "
-            "Example: postgres://user:pass@host:5432/db?sslmode=require"
-        )
-    # Only allow require or verify-full; reject allow, disable, prefer
-    if not re.search(r"sslmode=(require|verify-full)", _raw_db_url):
-        raise ImproperlyConfigured(
-            "DATABASE_URL sslmode must be 'require' or 'verify-full' (for mutual TLS), "
-            "not 'allow', 'disable', or 'prefer' (which permit fallback to unencrypted). "
-            "Set: postgres://...?sslmode=require"
-        )
+if not _raw_db_url or "postgres" not in _raw_db_url:
+    raise ImproperlyConfigured(
+        "DATABASE_URL must be explicitly set to a PostgreSQL URL in production. "
+        "Example: postgres://user:pass@host:5432/db?sslmode=require"
+    )
+if "sslmode" not in _raw_db_url:
+    raise ImproperlyConfigured(
+        "PostgreSQL database URL must include sslmode parameter in production. "
+        "Example: postgres://user:pass@host:5432/db?sslmode=require"
+    )
+# Only allow require or verify-full (boundary-anchored so sslmode=requirex is
+# rejected); reject allow, disable, prefer.
+if not re.search(r"sslmode=(require|verify-full)(\b|&|$)", _raw_db_url):
+    raise ImproperlyConfigured(
+        "DATABASE_URL sslmode must be 'require' or 'verify-full' (for mutual TLS), "
+        "not 'allow', 'disable', or 'prefer' (which permit fallback to unencrypted). "
+        "Set: postgres://...?sslmode=require"
+    )
 
 # Log to stdout so `docker compose logs` captures everything.
 LOGGING = {
