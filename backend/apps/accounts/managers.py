@@ -1,10 +1,9 @@
 from django.contrib.auth.base_user import BaseUserManager
+from django.db import models
 
 
-class UserManager(BaseUserManager):
-    """Email-based user manager (no username field)."""
-
-    use_in_migrations = True
+class _UserManagerMixin:
+    """Shared create_user / create_superuser logic."""
 
     def _create_user(self, email, password, **extra_fields):
         if not email:
@@ -28,3 +27,19 @@ class UserManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
         return self._create_user(email, password, **extra_fields)
+
+
+class UserManager(_UserManagerMixin, BaseUserManager):
+    """Default manager: hides soft-deleted users."""
+
+    use_in_migrations = True
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class AllUsersManager(_UserManagerMixin, BaseUserManager):
+    """Returns all users including soft-deleted ones."""
+
+    def get_queryset(self):
+        return super().get_queryset()

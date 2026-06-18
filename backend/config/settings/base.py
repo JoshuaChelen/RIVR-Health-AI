@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     "apps.health",
     "apps.jobs",
     "apps.shares",
+    "apps.audit",
+    "apps.compliance",
 ]
 
 MIDDLEWARE = [
@@ -57,6 +59,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.audit.middleware.AuditLoggingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -214,6 +217,10 @@ CELERY_BEAT_SCHEDULE = {
     "cleanup-expired-shares": {
         "task": "apps.shares.tasks.cleanup_expired_shares_task",
         "schedule": 3600.0,  # every 1 hour
+    },
+    "purge-expired-soft-deletes": {
+        "task": "apps.jobs.tasks.purge_expired_soft_deletes_task",
+        "schedule": 86400.0,  # every 24 hours
     },
 }
 

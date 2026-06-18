@@ -46,3 +46,37 @@ def cleanup_expired_shares_task() -> int:
     from apps.shares.cleanup import cleanup_expired_shares
     grace = getattr(djsettings, "SHARE_CLEANUP_GRACE_HOURS", 1)
     return cleanup_expired_shares(grace_period_hours=grace)
+
+
+@shared_task(name="apps.jobs.tasks.purge_expired_soft_deletes_task")
+def purge_expired_soft_deletes_task() -> dict:
+    """Daily task: hard-delete PHI rows soft-deleted more than 30 days ago."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.accounts.models import User
+    from apps.documents.models import Document
+    from apps.jobs.models import AiJob
+    from apps.profiles.models import UserProfile
+    from apps.timeline.models import TimelineEvent
+
+    cutoff = timezone.now() - timedelta(days=30)
+    counts = {}
+
+    n, _ = Document.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["documents"] = n
+
+    n, _ = UserProfile.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["user_profiles"] = n
+
+    n, _ = TimelineEvent.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["timeline_events"] = n
+
+    n, _ = AiJob.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["ai_jobs"] = n
+
+    n, _ = User.all_objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff).delete()
+    counts["users"] = n
+
+    return counts

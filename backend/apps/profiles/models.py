@@ -1,9 +1,9 @@
 from django.db import models
 
-from apps.common.models import BaseModel
+from apps.common.models import BaseModel, SoftDeleteModel
 
 
-class UserProfile(BaseModel):
+class UserProfile(SoftDeleteModel, BaseModel):
     """Per-user demographic + medical profile (replaces user_profiles).
 
     The seven medical list fields hold arrays of dict items; AI-backfilled

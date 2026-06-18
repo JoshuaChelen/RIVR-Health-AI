@@ -1,11 +1,11 @@
 from django.db import models
 from django.db.models import Q, UniqueConstraint
 
-from apps.common.models import BaseModel
+from apps.common.models import BaseModel, SoftDeleteManager, SoftDeleteModel
 from apps.jobs.error_sanitizer import sanitize_log_message
 
 
-class Document(BaseModel):
+class Document(SoftDeleteModel, BaseModel):
     class Status(models.TextChoices):
         UPLOADED = "uploaded"
         PROCESSING = "processing"

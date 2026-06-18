@@ -74,9 +74,12 @@ def test_share_token_hash_unique(user, other_user):
 
 
 def test_timeline_document_set_null_on_delete(user):
+    # Document.delete() is now soft-delete: the row is hidden from the default
+    # manager but the FK on TimelineEvent is only NULLed on a real DB DELETE.
+    # Use the hard-delete path (all_objects queryset delete) to test SET_NULL.
     doc = Document.objects.create(user=user, source_type=Document.SourceType.PDF)
     ev = TimelineEvent.objects.create(user=user, document=doc, title="Visit")
-    doc.delete()
+    Document.all_objects.filter(pk=doc.pk).delete()  # hard-delete triggers SET_NULL
     ev.refresh_from_db()
     assert ev.document_id is None  # SET_NULL, event survives
 

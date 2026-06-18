@@ -1,11 +1,12 @@
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import PermissionDenied
 from django.db import models
 
-from apps.common.models import BaseModel
+from apps.common.models import BaseModel, SoftDeleteModel
 from pgvector.django import HnswIndex, VectorField
 
 
-class AiJob(BaseModel):
+class AiJob(SoftDeleteModel, BaseModel):
     class JobType(models.TextChoices):
         PROCESS_DOCUMENTS = "process_documents"
         PROFILE_EVALUATION = "profile_evaluation"
@@ -89,3 +90,42 @@ class Embedding(BaseModel):
                       opclasses=["vector_cosine_ops"]),
             models.Index(fields=["user"]),
         ]
+
+
+class BackfillAuditLog(BaseModel):
+    """Append-only record of every AI/manual backfill mutation on the health profile."""
+
+    class Source(models.TextChoices):
+        AI_EXTRACTION = "ai_extraction"
+        MANUAL_APPROVAL = "manual_approval"
+        SYSTEM_IMPORT = "system_import"
+
+    user = models.ForeignKey(
+        "accounts.User", on_delete=models.PROTECT, related_name="backfill_audit_logs"
+    )
+    evaluation_id = models.CharField(max_length=64, blank=True, null=True)
+    document_id = models.CharField(max_length=64, blank=True, null=True)
+    field_name = models.CharField(max_length=128)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField()
+    source = models.CharField(max_length=32, choices=Source.choices)
+    approved_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_backfills",
+    )
+
+    class Meta:
+        db_table = "backfill_audit_logs"
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not kwargs.get("force_insert") and self.pk is not None:
+            if self.__class__.objects.filter(pk=self.pk).exists():
+                raise PermissionDenied("BackfillAuditLog entries are immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionDenied("BackfillAuditLog entries cannot be deleted.")

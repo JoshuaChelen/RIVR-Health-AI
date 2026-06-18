@@ -2,11 +2,11 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.common.models import BaseModel
+from apps.common.models import BaseModel, SoftDeleteModel
 from apps.jobs.error_sanitizer import validate_timeline_event_data
 
 
-class TimelineEvent(BaseModel):
+class TimelineEvent(SoftDeleteModel, BaseModel):
     class DatePrecision(models.TextChoices):
         DAY = "day"
         MONTH = "month"
