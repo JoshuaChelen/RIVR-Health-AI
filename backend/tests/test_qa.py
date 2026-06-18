@@ -1,6 +1,7 @@
 """Health Q&A endpoint tests (OpenAI mocked)."""
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from apps.jobs import ai_client
 from apps.jobs.schemas import QAAnswer
@@ -10,7 +11,7 @@ User = get_user_model()
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="a@example.com", password="pw")
+    return User.objects.create_user(email="a@example.com", password="pw", email_verified_at=timezone.now())
 
 
 @pytest.fixture

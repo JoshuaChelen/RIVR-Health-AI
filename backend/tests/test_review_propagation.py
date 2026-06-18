@@ -19,7 +19,7 @@ EVAL = AiJob.JobType.PROFILE_EVALUATION
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="prop@example.com", password=PW)
+    return User.objects.create_user(email="prop@example.com", password=PW, email_verified_at=timezone.now())
 
 
 @pytest.fixture

@@ -16,7 +16,7 @@ PW = "Str0ngPass!23"
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="integ@example.com", password=PW)
+    return User.objects.create_user(email="integ@example.com", password=PW, email_verified_at=timezone.now())
 
 
 @pytest.fixture

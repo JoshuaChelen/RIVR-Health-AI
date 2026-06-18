@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -15,7 +16,7 @@ PW = "Str0ngPass!23"
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="hard2@example.com", password=PW)
+    return User.objects.create_user(email="hard2@example.com", password=PW, email_verified_at=timezone.now())
 
 
 @pytest.fixture
@@ -241,7 +242,7 @@ class TestAuthThrottles:
         from unittest.mock import patch
         from rest_framework.throttling import SimpleRateThrottle
         cache.clear()
-        u = User.objects.create_user(email='throttle_upload@ex.com', password=PW)
+        u = User.objects.create_user(email='throttle_upload@ex.com', password=PW, email_verified_at=timezone.now())
         with patch.object(SimpleRateThrottle, 'THROTTLE_RATES', TIGHT_RATES):
             client = APIClient()
             client.force_authenticate(user=u)
@@ -260,7 +261,7 @@ class TestAuthThrottles:
         from unittest.mock import patch
         from rest_framework.throttling import SimpleRateThrottle
         cache.clear()
-        u = User.objects.create_user(email='throttle_qa@ex.com', password=PW)
+        u = User.objects.create_user(email='throttle_qa@ex.com', password=PW, email_verified_at=timezone.now())
         with patch.object(SimpleRateThrottle, 'THROTTLE_RATES', TIGHT_RATES):
             client = APIClient()
             client.force_authenticate(user=u)

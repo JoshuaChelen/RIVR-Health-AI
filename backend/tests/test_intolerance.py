@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
 
 from apps.documents.models import Document
 from apps.profiles.models import UserProfile
@@ -12,7 +13,7 @@ from apps.profiles.models import UserProfile
 
 @pytest.fixture
 def user(db):
-    return get_user_model().objects.create_user(email="intol@example.com", password="Str0ngPass!23")
+    return get_user_model().objects.create_user(email="intol@example.com", password="Str0ngPass!23", email_verified_at=timezone.now())
 
 
 @pytest.fixture

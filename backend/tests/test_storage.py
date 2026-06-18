@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from PIL import Image
 
 from apps.documents.models import Document
@@ -15,7 +16,7 @@ PW = "Str0ngPass!23"
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="a@example.com", password=PW)
+    return User.objects.create_user(email="a@example.com", password=PW, email_verified_at=timezone.now())
 
 
 @pytest.fixture

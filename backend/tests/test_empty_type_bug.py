@@ -1,6 +1,7 @@
 """Test that verifies the empty type bug"""
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from apps.profiles.models import UserProfile
 
 User = get_user_model()
@@ -8,7 +9,7 @@ PW = "Str0ngPass!23"
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="item@example.com", password=PW)
+    return User.objects.create_user(email="item@example.com", password=PW, email_verified_at=timezone.now())
 
 @pytest.fixture
 def client(api_client, user):

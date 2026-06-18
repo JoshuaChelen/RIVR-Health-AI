@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
 
 from apps.documents.models import Document
 from apps.profiles.models import UserProfile
@@ -14,7 +15,7 @@ PW = "Str0ngPass!23"
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="item@example.com", password=PW)
+    return User.objects.create_user(email="item@example.com", password=PW, email_verified_at=timezone.now())
 
 
 @pytest.fixture
@@ -81,6 +82,6 @@ def test_item_404_for_unknown_id(client, user, profile_with_med):
 
 
 def test_item_endpoints_owner_scoped(api_client, profile_with_med):
-    other = User.objects.create_user(email="evil@example.com", password=PW)
+    other = User.objects.create_user(email="evil@example.com", password=PW, email_verified_at=timezone.now())
     api_client.force_authenticate(user=other)
     assert api_client.post("/api/profile/ai-items/ai_m1/confirm").status_code == 404
