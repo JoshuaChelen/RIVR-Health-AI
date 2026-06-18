@@ -1,5 +1,10 @@
 from django.db import models
 
+from apps.common.encryption import (
+    EncryptedCharField,
+    EncryptedDateField,
+    EncryptedEmailField,
+)
 from apps.common.models import BaseModel, SoftDeleteModel
 
 
@@ -14,19 +19,22 @@ class UserProfile(SoftDeleteModel, BaseModel):
         "accounts.User", on_delete=models.CASCADE, related_name="profile"
     )
 
-    first_name = models.CharField(max_length=255, blank=True, default="")
-    last_name = models.CharField(max_length=255, blank=True, default="")
-    date_of_birth = models.DateField(null=True, blank=True)
+    # Direct-identifier PII — encrypted at rest (Phase 7B). Never DB-queried.
+    first_name = EncryptedCharField(max_length=255, blank=True, default="")
+    last_name = EncryptedCharField(max_length=255, blank=True, default="")
+    date_of_birth = EncryptedDateField(null=True, blank=True)
     sex_or_gender = models.CharField(max_length=64, blank=True, default="")
     occupation = models.CharField(max_length=255, blank=True, default="")
     marital_status = models.CharField(max_length=64, blank=True, default="")
     number_of_children = models.IntegerField(null=True, blank=True)
 
-    email = models.EmailField(blank=True, default="")
-    mobile_phone = models.CharField(max_length=64, blank=True, default="")
-    emergency_contact_name = models.CharField(max_length=255, blank=True, default="")
-    emergency_contact_phone = models.CharField(max_length=64, blank=True, default="")
-    emergency_contact_relationship = models.CharField(max_length=128, blank=True, default="")
+    # email here is the profile contact email (NOT the login identifier on
+    # accounts.User); never used in a DB filter, so safe to encrypt.
+    email = EncryptedEmailField(blank=True, default="")
+    mobile_phone = EncryptedCharField(max_length=64, blank=True, default="")
+    emergency_contact_name = EncryptedCharField(max_length=255, blank=True, default="")
+    emergency_contact_phone = EncryptedCharField(max_length=64, blank=True, default="")
+    emergency_contact_relationship = EncryptedCharField(max_length=128, blank=True, default="")
 
     smoking_status = models.CharField(max_length=64, blank=True, default="")
     alcohol_use = models.CharField(max_length=64, blank=True, default="")
