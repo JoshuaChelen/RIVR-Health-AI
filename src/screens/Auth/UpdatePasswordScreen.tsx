@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/authTypes";
 import { captureException } from "../../lib/sentry";
 import { api } from "../../lib/api/client";
+import { isValidResetToken } from "../../lib/tokenValidator";
 import { AuthLogo } from "../../components/ui/Account/AuthLogo";
 import { Screen } from "../../components/ui/Primitives/Screen";
 import { Card } from "../../components/ui/Primitives/Card";
@@ -38,7 +39,9 @@ export function UpdatePasswordScreen({ navigation, route }: Props) {
   const [success, setSuccess]   = useState<string | null>(null);
 
   useEffect(() => {
-    setReady(!!uid && !!token);
+    // Validate format in addition to presence — linking.ts parse() already
+    // nulls out malformed values, but we guard here too for defence-in-depth.
+    setReady(isValidResetToken(uid, token));
   }, [uid, token]);
 
   const update = async () => {

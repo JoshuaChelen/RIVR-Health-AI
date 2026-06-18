@@ -1,5 +1,7 @@
 import type { LinkingOptions } from "@react-navigation/native";
 
+import { validateTokenFormat } from "../lib/tokenValidator";
+
 type RootLinkingParamList = {
   Login: undefined;
   UpdatePassword: { uid?: string; token?: string } | undefined;
@@ -23,7 +25,19 @@ export const appLinking: LinkingOptions<RootLinkingParamList> = {
   config: {
     screens: {
       Login: "auth/confirmed",
-      UpdatePassword: "auth/reset",
+      UpdatePassword: {
+        path: "auth/reset",
+        parse: {
+          // Reject malformed or injected uid/token values at parse time — before
+          // navigation even completes — so UpdatePasswordScreen never receives
+          // an unvalidated value.  Invalid params are nulled out; the screen
+          // checks isValidResetToken() and shows an appropriate error message.
+          uid: (value: string) =>
+            validateTokenFormat(value, "uid") ? value : null,
+          token: (value: string) =>
+            validateTokenFormat(value, "token") ? value : null,
+        },
+      },
       Home: "",
       AskAI: "ask-ai",
       ManageDocuments: "documents",
