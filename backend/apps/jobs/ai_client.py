@@ -17,7 +17,12 @@ from .schemas import DocumentFacts, HealthEvaluation
 def _client():
     from openai import OpenAI
 
-    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, max_retries=4)
+    try:
+        return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, max_retries=4)
+    except Exception as exc:  # never let a construction error echo the key back
+        from .error_sanitizer import sanitize_error_message
+
+        raise RuntimeError(sanitize_error_message(str(exc))) from None
 
 
 def _revalidate(result, schema_class):

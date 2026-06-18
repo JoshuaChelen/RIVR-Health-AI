@@ -35,7 +35,12 @@ def embed(texts: list[str], *, query: bool = False) -> list[list[float]]:
         return []
     from openai import OpenAI
 
+    from .error_sanitizer import sanitize_error_message
+
     prefix = "search_query: " if query else "search_document: "
-    client = OpenAI(api_key=settings.EMBEDDING_API_KEY, base_url=settings.EMBEDDING_BASE_URL)
-    resp = client.embeddings.create(model=settings.EMBEDDING_MODEL, input=[prefix + t for t in texts])
-    return [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]
+    try:
+        client = OpenAI(api_key=settings.EMBEDDING_API_KEY, base_url=settings.EMBEDDING_BASE_URL)
+        resp = client.embeddings.create(model=settings.EMBEDDING_MODEL, input=[prefix + t for t in texts])
+        return [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]
+    except Exception as exc:  # strip any leaked api key/credential before it propagates
+        raise RuntimeError(sanitize_error_message(str(exc))) from None
