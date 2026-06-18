@@ -40,8 +40,26 @@ def _suppression(user):
     return sup, flat
 
 
+# Phrases that signal an attempt to override the assistant's instructions. A turn
+# is dropped only when it carries 2+ of these, so ordinary medical language (a lone
+# "ignore", "rules", etc.) is never discarded.
+_HISTORY_INJECTION_KEYWORDS = (
+    "ignore previous", "ignore all", "ignore safety", "disregard previous",
+    "disregard all", "override", "new instructions", "new rules", "new prompt",
+    "previous instructions", "forget previous", "forget everything",
+    "stop following", "don't follow", "do not follow", "system prompt",
+    "you are now", "act as", "jailbreak",
+)
+
+
+def _has_history_injection(content: str) -> bool:
+    low = content.lower()
+    return sum(1 for kw in _HISTORY_INJECTION_KEYWORDS if kw in low) >= 2
+
+
 def _sanitize_history(raw) -> list[dict]:
-    """Keep only well-formed user/assistant turns; cap count and length."""
+    """Keep only well-formed user/assistant turns; cap count/length and drop turns
+    that look like prompt-injection priming (2+ override phrases)."""
     out: list[dict] = []
     if isinstance(raw, list):
         for turn in raw[-MAX_HISTORY_TURNS:]:
@@ -50,6 +68,8 @@ def _sanitize_history(raw) -> list[dict]:
             role = turn.get("role")
             content = turn.get("content")
             if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+                if _has_history_injection(content):
+                    continue  # attacker-controlled history priming — drop silently
                 out.append({"role": role, "content": content.strip()[:4000]})
     return out
 
