@@ -62,19 +62,22 @@ def test_resolve_view_limit(user, settings):
 
 
 def test_resolve_pin_flow(user):
-    token, _ = create_share(user, ["card_3x5"], pin="1234")
+    token, pkg = create_share(user, ["card_3x5"], pin="1234")
     assert resolve_share(token)["pinRequired"] is True            # missing pin
     wrong = resolve_share(token, pin="0000")
     assert wrong["status"] == 401 and wrong["error"] == "Wrong PIN"
-    assert resolve_share(token, pin="1234")["pinRequired"] is False  # correct pin
+    # After a wrong PIN, the time-based lockout kicks in; expire it manually
+    SharePackage.objects.filter(pk=pkg.pk).update(
+        pin_locked_until=timezone.now() - timedelta(seconds=1)
+    )
+    assert resolve_share(token, pin="1234")["pinRequired"] is False  # correct pin after lockout expires
 
 
-def test_resolve_pin_lockout(user, settings):
-    settings.SHARE_MAX_PIN_ATTEMPTS = 2
+def test_resolve_pin_lockout(user):
+    """Wrong PIN immediately triggers time-based lockout."""
     token, _ = create_share(user, ["card_3x5"], pin="1234")
-    resolve_share(token, pin="x")
-    resolve_share(token, pin="y")
-    locked = resolve_share(token, pin="1234")  # correct, but locked out
+    resolve_share(token, pin="x")                    # fail → locked
+    locked = resolve_share(token, pin="1234")        # correct, but still locked
     assert locked["status"] == 429
 
 
