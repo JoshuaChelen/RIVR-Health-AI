@@ -38,7 +38,8 @@
       "@bacons/apple-targets",
       "react-native-health-connect",
       "./plugins/with-health-connect-android14",
-      "./plugins/with-health-connect-permission-delegate"
+      "./plugins/with-health-connect-permission-delegate",
+      "expo-secure-store"
     ],
     "ios": {
       "supportsTablet": true,
