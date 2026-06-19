@@ -1,0 +1,17 @@
+# Gitleaks config — extends the default ruleset and allowlists known, intentional,
+# PUBLIC dev/test default keys that are NOT real secrets. Production fail-closes on
+# these exact values (see config/settings/prod.py), so committing them is safe and
+# deliberate. Real secrets are still detected and block CI.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentional public dev/test default keys + test fixtures (prod rejects these values)."
+# The published insecure dev FIELD_ENCRYPTION_KEY default (base.py / prod.py guard).
+regexes = [
+  '''c2fNUbFUXwFYVDqKHRgFOysUwAYMBtDaRW0pF5ehoE8=''',
+]
+# Test files legitimately contain fabricated keys/tokens as fixtures, never real secrets.
+paths = [
+  '''backend/tests/.*''',
+]
