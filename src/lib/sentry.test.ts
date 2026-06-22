@@ -5,7 +5,6 @@ import type { ErrorEvent } from "@sentry/react-native";
 vi.mock("@sentry/react-native", () => ({
   init: vi.fn(),
   captureException: vi.fn(),
-  captureMessage: vi.fn(),
   setUser: vi.fn(),
 }));
 

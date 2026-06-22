@@ -94,13 +94,6 @@ export function captureException(error: unknown): void {
   Sentry.captureException(error);
 }
 
-export function captureMessage(
-  message: string,
-  level?: "fatal" | "error" | "warning" | "log" | "debug" | "info",
-): void {
-  Sentry.captureMessage(message, level);
-}
-
 export function setUser(user: { id: string; email?: string } | null): void {
   if (user) {
     // Deliberately omit email — tracked by ID only.

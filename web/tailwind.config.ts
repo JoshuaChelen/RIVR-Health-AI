@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        teal: { DEFAULT: "#1FADA6", soft: "#E6FAF8" },
+        teal: { DEFAULT: "#1FADA6" },
         ink: "#0D1B2A",
         sub: "#3D526B",
         muted: "#64748B",

@@ -28,16 +28,11 @@ class BaseModel(UUIDModel, TimeStampedModel):
         abstract = True
 
 
-class SoftDeleteQuerySet(models.QuerySet):
-    def alive(self):
-        return self.filter(deleted_at__isnull=True)
-
-
 class SoftDeleteManager(models.Manager):
     """Default manager: returns only non-deleted rows."""
 
     def get_queryset(self):
-        return SoftDeleteQuerySet(self.model, using=self._db).filter(deleted_at__isnull=True)
+        return super().get_queryset().filter(deleted_at__isnull=True)
 
 
 class AllObjectsManager(models.Manager):
