@@ -50,6 +50,8 @@ describe("validateUrlUid", () => {
   it("accepts numeric IDs and UUID-style strings", () => {
     expect(validateUrlUid("12345")).toBe(true);
     expect(validateUrlUid("a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8")).toBe(true);
+    // Real Django reset uid: urlsafe-base64 of the user's UUID pk
+    expect(validateUrlUid("ODI1ODZkZDYtMjhmMC00MWE1LWJhZjEtOTJhMDUzMzRlMmFi")).toBe(true);
   });
 
   it("rejects null, undefined, and empty string", () => {

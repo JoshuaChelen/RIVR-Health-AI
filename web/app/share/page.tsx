@@ -17,13 +17,11 @@ function ShareView() {
   const [pin, setPin] = useState("");
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const tokenValid = validateUrlToken(token);
 
   async function resolve() {
-    if (submitted || !tokenValid) return; // prevent double-submit / link reuse
-    setSubmitted(true);
+    if (busy || !tokenValid) return;
     setBusy(true);
     try {
       const res = await fetch(`${apiBase}/api/shares/resolve`, {
@@ -31,11 +29,12 @@ function ShareView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, pin: pin || undefined }),
       });
+      // A pinRequired / wrong-PIN / rate-limit response does NOT consume the link
+      // (the server enforces the real view limit atomically), so the form stays
+      // usable for a retry. Only a successful resolve renders the items view.
       setResult(await res.json());
     } catch {
-      // Network error — allow the user to retry (e.g. PIN entry) instead of
-      // permanently disabling the button.
-      setSubmitted(false);
+      setResult({ error: "Something went wrong. Please try again." });
     } finally {
       setBusy(false);
     }
@@ -71,16 +70,16 @@ function ShareView() {
                   <Input
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
-                    disabled={submitted}
+                    disabled={busy}
                   />
                 </Field>
               )}
               <ErrorText>{result?.error}</ErrorText>
               <Button
                 onClick={resolve}
-                disabled={busy || !token || submitted || !tokenValid}
+                disabled={busy || !token || !tokenValid}
               >
-                {busy ? "Opening…" : submitted ? "Link used" : "View records"}
+                {busy ? "Opening…" : "View records"}
               </Button>
               <p className="text-xs text-muted">
                 These links expire quickly and have a limited number of views.

@@ -10,8 +10,10 @@
 // "data:timestamp:signature" (contains colons); reset/share tokens use only
 // base64url. Rejecting ':' here was silently failing every verification link.
 const TOKEN_REGEX = /^[A-Za-z0-9_.:-]{20,500}$/;
-const UID_NUMERIC_REGEX = /^\d+$/;
-const UID_UUID_REGEX = /^[0-9a-f-]{1,36}$/i;
+// uid is urlsafe-base64 of the user's UUID pk (e.g. "ODI1ODZkZDYt..."), i.e.
+// base64url chars — NOT a raw UUID or integer. The server does the real check
+// (urlsafe_base64_decode + token validation); this is only a sanity pre-check.
+const UID_REGEX = /^[A-Za-z0-9_-]+$/;
 
 /** Throw if the API base URL is not HTTPS in production. */
 export function enforceHttps(url: string, isDev: boolean): void {
@@ -33,9 +35,9 @@ export function validateUrlToken(token: string | null | undefined): boolean {
   return TOKEN_REGEX.test(token);
 }
 
-/** Returns true if the value looks like a numeric user ID or UUID. */
+/** Returns true if the value is a plausible base64url uid (server validates for real). */
 export function validateUrlUid(uid: string | null | undefined): boolean {
   if (!uid) return false;
-  if (uid.length === 0 || uid.length >= 100) return false;
-  return UID_NUMERIC_REGEX.test(uid) || UID_UUID_REGEX.test(uid);
+  if (uid.length < 1 || uid.length > 64) return false;
+  return UID_REGEX.test(uid);
 }
