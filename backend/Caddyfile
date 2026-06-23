@@ -1,15 +1,16 @@
-# Caddy auto-provisions a Let's Encrypt cert for this domain once its DNS
-# A record points at this server. TLS is terminated here; plain HTTP is
-# proxied to the app on the internal compose network.
-api.rivrhealth.com, 87.99.138.168.sslip.io {
+# Caddy terminates TLS (auto Let's Encrypt for api.rivrhealth.ai) and routes by
+# path: the Django API/admin/media stay on the backend, everything else goes to
+# the Next.js web app (verify-email, reset-password, share pages).
+api.rivrhealth.ai {
 	encode zstd gzip
 
-	# Tell browsers to stick to HTTPS for this host (defense against SSL-strip).
+	# Security headers on every response (defense-in-depth; Django/Next set their own too).
 	header Strict-Transport-Security "max-age=31536000"
+	header X-Content-Type-Options "nosniff"
+	header X-Frame-Options "DENY"
 
-	# Object storage: presigned MinIO URLs are path-style (/<bucket>/<key>).
-	# boto3 signs them against the internal endpoint host `minio:9000`, so we
-	# must forward that exact Host upstream or MinIO rejects the signature.
+	# Object storage: presigned MinIO URLs are path-style (/<bucket>/<key>). boto3
+	# signs them against the internal host `minio:9000`, so forward that exact Host.
 	@media path /rivr-media/*
 	handle @media {
 		reverse_proxy minio:9000 {
@@ -17,14 +18,20 @@ api.rivrhealth.com, 87.99.138.168.sslip.io {
 		}
 	}
 
-	# Everything else → Django (gunicorn).
-	handle {
+	# Django backend: API, admin, health check, and Django/DRF static assets.
+	@backend path /api/* /healthz /admin /admin/* /static/*
+	handle @backend {
 		reverse_proxy web:8000 {
-			# Overwrite (not append) X-Forwarded-For with the real client IP
-			# so the header can't carry attacker-supplied entries. The app's
-			# get_client_ip / DRF NUM_PROXIES read this for lockout, throttle
-			# and audit-log IPs.
+			# Overwrite (not append) X-Forwarded-For with the real client IP so the
+			# header can't carry attacker-supplied entries. get_client_ip / DRF
+			# NUM_PROXIES read this for lockout, throttle and audit-log IPs.
 			header_up X-Forwarded-For {remote_host}
 		}
+	}
+
+	# Everything else -> Next.js web app (/, /verify-email, /reset-password,
+	# /share, /_next/*, favicon, etc.).
+	handle {
+		reverse_proxy webapp:3000
 	}
 }

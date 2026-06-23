@@ -8,6 +8,7 @@ name: rivr-prod
 services:
   db:
     image: pgvector/pgvector:pg16
+    command: postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/data/server.crt -c ssl_key_file=/var/lib/postgresql/data/server.key
     restart: unless-stopped
     env_file: [.env.prod]
     volumes: ["pgdata:/var/lib/postgresql/data"]
@@ -100,10 +101,19 @@ services:
       web: {condition: service_healthy}
       redis: {condition: service_healthy}
 
+  # Next.js web app (verify-email, reset-password, share) served at api.rivrhealth.ai/*.
+  # No env_file: the only config (NEXT_PUBLIC_API_URL) is baked at build time, so no
+  # secrets ever reach this container. Build context ./web exists on the server.
+  webapp:
+    build: {context: ./web, dockerfile: Dockerfile}
+    image: rivr-webapp:latest
+    restart: unless-stopped
+    expose: ["3000"]
+
   caddy:
     image: caddy:2
     restart: unless-stopped
-    depends_on: [web]
+    depends_on: [web, webapp]
     ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
