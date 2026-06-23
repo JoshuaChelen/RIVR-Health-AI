@@ -6,7 +6,10 @@
  *   params before submitting them to the backend.
  */
 
-const TOKEN_REGEX = /^[A-Za-z0-9_-]{20,500}$/;
+// base64url chars plus ':' and '.' — Django's signed email-verify token is
+// "data:timestamp:signature" (contains colons); reset/share tokens use only
+// base64url. Rejecting ':' here was silently failing every verification link.
+const TOKEN_REGEX = /^[A-Za-z0-9_.:-]{20,500}$/;
 const UID_NUMERIC_REGEX = /^\d+$/;
 const UID_UUID_REGEX = /^[0-9a-f-]{1,36}$/i;
 

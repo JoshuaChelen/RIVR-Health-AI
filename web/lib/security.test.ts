@@ -28,6 +28,8 @@ describe("validateUrlToken", () => {
     expect(validateUrlToken("abcdefghij0123456789")).toBe(true);
     expect(validateUrlToken("A".repeat(500))).toBe(true);
     expect(validateUrlToken("abc-_ABC123abc-_ABC1")).toBe(true);
+    // Django signed email-verify token: data:timestamp:signature (colons allowed)
+    expect(validateUrlToken("ImMwZmZlZQ:1wbzMa:5-JXFrIW_upwjDyYl_ohzbEH4kXt8Ze0")).toBe(true);
   });
 
   it("rejects null, undefined, and empty string", () => {
