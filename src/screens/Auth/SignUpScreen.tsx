@@ -35,13 +35,11 @@ export function SignUpScreen({ navigation }: Props) {
   const [confirm, setConfirm]   = useState("");
   const [busy, setBusy]         = useState(false);
   const [errorText, setErrorText]     = useState<string | null>(null);
-  const [successText, setSuccessText] = useState<string | null>(null);
 
   const { headerOpacity, headerSlide, formOpacity, formSlide, footerOpacity } = useAuthEntrance();
 
   const onSignUp = async () => {
     setErrorText(null);
-    setSuccessText(null);
 
     if (!email.trim() || !password) {
       setErrorText("Please fill out all fields.");
@@ -58,8 +56,9 @@ export function SignUpScreen({ navigation }: Props) {
 
     try {
       setBusy(true);
-      const result = await signUp(email.trim(), password);
-      setSuccessText(result ? "Account created!" : "Check your inbox to verify your email.");
+      await signUp(email.trim(), password);
+      // On success the user becomes logged-in-but-unverified and the root
+      // navigator swaps to the email-verification gate, so this screen unmounts.
     } catch (e: any) {
       captureException(e);
       setErrorText(e?.message ?? "Sign up failed.");
@@ -103,12 +102,6 @@ export function SignUpScreen({ navigation }: Props) {
                 {errorText ? (
                   <View style={styles.errorBanner}>
                     <AppText style={styles.errorText}>{errorText}</AppText>
-                  </View>
-                ) : null}
-
-                {successText ? (
-                  <View style={styles.successBanner}>
-                    <AppText style={styles.successText}>{successText}</AppText>
                   </View>
                 ) : null}
 
