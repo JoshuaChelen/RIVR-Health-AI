@@ -300,7 +300,8 @@ SHARE_PUBLIC_URL = env("SHARE_PUBLIC_URL", default="http://localhost:3000/share"
 # --- Shares -------------------------------------------------------------------
 SHARE_EXPIRES_MINUTES = env.int("SHARE_EXPIRES_MINUTES", default=1440)  # 24h: usable for async "share with my doctor" (was 1 min)
 SHARE_MAX_VIEWS = env.int("SHARE_MAX_VIEWS", default=10)
-SHARE_MAX_PIN_ATTEMPTS = env.int("SHARE_MAX_PIN_ATTEMPTS", default=5)
+# PIN brute-force is handled by exponential backoff in apps/shares/services.py
+# (no fixed attempt cap), so there's no SHARE_MAX_PIN_ATTEMPTS setting.
 SHARE_CLEANUP_GRACE_HOURS = env.int("SHARE_CLEANUP_GRACE_HOURS", default=1)
 
 # Trusted reverse-proxy IPs for X-Forwarded-For extraction.
