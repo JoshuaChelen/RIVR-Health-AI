@@ -151,6 +151,10 @@ class PasswordForgotView(APIView):
         email = serializer.validated_data["email"].strip().lower()
         user = User.objects.filter(email__iexact=email).first()
         if user is not None:
+            # Re-arm the single-use marker so a user who already reset once can
+            # reset again — read_password_reset() rejects any token while
+            # password_reset_token_used_at is set.
+            User.objects.filter(pk=user.pk).update(password_reset_token_used_at=None)
             send_password_reset_email(user)
         # Always 200 — never reveal whether the email is registered.
         return Response({"detail": "If that email exists, a reset link has been sent."})

@@ -98,11 +98,11 @@ if "minio:9000" in AWS_S3_ENDPOINT_URL and not AWS_S3_PUBLIC_ENDPOINT_URL:  # no
         "AWS_S3_ENDPOINT_URL points at the internal MinIO host (minio:9000) but "
         "AWS_S3_PUBLIC_ENDPOINT_URL is unset — signed media URLs would be "
         "unreachable by clients. Set AWS_S3_PUBLIC_ENDPOINT_URL to the public "
-        "storage URL (e.g. https://api.rivrhealth.com/media)."
+        "storage URL (e.g. https://api.rivrhealth.ai)."
     )
 CSRF_TRUSTED_ORIGINS = env.list(  # noqa: F405
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=["https://api.rivrhealth.com"],
+    default=["https://api.rivrhealth.ai"],
 )
 
 # Fail-closed: CSRF_TRUSTED_ORIGINS must use the https scheme in production.
@@ -124,7 +124,7 @@ for _origin in CSRF_TRUSTED_ORIGINS:
 CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)  # noqa: F405
 CORS_ALLOWED_ORIGINS = env.list(  # noqa: F405
     "CORS_ALLOWED_ORIGINS",
-    default=["https://api.rivrhealth.com", "https://rivrhealth.com"],
+    default=["https://rivrhealth.ai", "https://rivrhealth.com"],
 )
 
 # --- Fail-closed CORS validation -----------------------------------------------
@@ -132,7 +132,7 @@ if CORS_ALLOW_ALL_ORIGINS:
     raise ImproperlyConfigured(
         "CORS_ALLOW_ALL_ORIGINS is True in production. This allows any origin to "
         "make cross-origin requests. Set CORS_ALLOW_ALL_ORIGINS=false and configure "
-        "CORS_ALLOWED_ORIGINS explicitly (default: ['https://api.rivrhealth.com', 'https://rivrhealth.com'])."
+        "CORS_ALLOWED_ORIGINS explicitly (default: ['https://rivrhealth.ai', 'https://rivrhealth.com'])."
     )
 
 # --- Fail-closed database SSL/TLS validation -----------------------------------
@@ -158,6 +158,18 @@ if not re.search(r"sslmode=(require|verify-full)(\b|&|$)", _raw_db_url):
         "not 'allow', 'disable', or 'prefer' (which permit fallback to unencrypted). "
         "Set: postgres://...?sslmode=require"
     )
+
+# --- Fail-closed Redis (throttle cache + Celery broker) ------------------------
+# CACHES (base.py) and Celery fall back to localhost when these are unset, which
+# silently breaks every throttled endpoint (login / password-reset / share
+# resolve -> 500) and the Celery worker. Require real, non-localhost redis URLs.
+for _redis_var in ("REDIS_URL", "CELERY_BROKER_URL"):
+    _redis_val = os.environ.get(_redis_var, "")
+    if not _redis_val or "localhost" in _redis_val or "127.0.0.1" in _redis_val:
+        raise ImproperlyConfigured(
+            f"{_redis_var} must be set in production to a non-localhost redis:// URL "
+            "(e.g. redis://redis:6379/N)."
+        )
 
 # Log to stdout so `docker compose logs` captures everything.
 LOGGING = {
