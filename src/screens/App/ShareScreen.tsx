@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Pressable,
+  Switch,
+  TextInput,
   Share as NativeShare,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -89,6 +91,8 @@ export function ShareScreen() {
   const [shareUrl, setShareUrl]       = useState<string | null>(null);
   const [copied, setCopied]           = useState(false);
   const [nativeShareBusy, setNativeShareBusy] = useState(false);
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [pin, setPin] = useState("");
 
   const toggle = (type: ShareType) => {
     setSelected((prev) => {
@@ -108,7 +112,7 @@ export function ShareScreen() {
     setCopied(false);
 
     try {
-      const pkg = await createShare(Array.from(selected));
+      const pkg = await createShare(Array.from(selected), pinEnabled ? pin : undefined);
       if (pkg?.shareUrl) setShareUrl(pkg.shareUrl);
       else throw new Error("No share URL returned");
     } catch (e: any) {
@@ -148,7 +152,8 @@ export function ShareScreen() {
     setNativeShareBusy(false);
   };
 
-  const canGenerate = selected.size > 0;
+  const pinValid = !pinEnabled || pin.length >= 4;
+  const canGenerate = selected.size > 0 && pinValid;
 
   return (
     <Screen edges={["left", "right", "bottom"]}>
@@ -188,16 +193,73 @@ export function ShareScreen() {
           );
         })}
 
+        {/* ── PIN protection ──────────────────────────────────── */}
+        <View style={styles.pinCard}>
+          <Pressable
+            accessible
+            accessibilityRole="switch"
+            accessibilityLabel="Require a PIN to open the link"
+            accessibilityState={{ checked: pinEnabled }}
+            onPress={() => setPinEnabled((v) => !v)}
+            style={styles.pinToggleRow}
+          >
+            <View style={styles.pinToggleIcon}>
+              <Ionicons name="keypad-outline" size={18} color={colors.teal} />
+            </View>
+            <View style={styles.pinToggleText}>
+              <AppText style={styles.pinToggleTitle}>Require a PIN</AppText>
+              <AppText style={styles.pinToggleSub}>
+                The recipient must enter a code you choose to open the link.
+              </AppText>
+            </View>
+            <Switch
+              value={pinEnabled}
+              onValueChange={setPinEnabled}
+              trackColor={{ true: colors.teal, false: colors.border }}
+              thumbColor="#fff"
+            />
+          </Pressable>
+
+          {pinEnabled ? (
+            <View style={styles.pinInputWrap}>
+              <TextInput
+                value={pin}
+                onChangeText={(t) => setPin(t.replace(/[^0-9]/g, "").slice(0, 8))}
+                placeholder="4–8 digit PIN"
+                placeholderTextColor={colors.subtle}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={8}
+                style={styles.pinInput}
+                accessibilityLabel="Share PIN"
+              />
+              {pin.length > 0 && pin.length < 4 ? (
+                <AppText style={styles.pinHint}>PIN must be at least 4 digits.</AppText>
+              ) : (
+                <AppText style={styles.pinHintMuted}>
+                  Share the PIN with your recipient separately (e.g. by text).
+                </AppText>
+              )}
+            </View>
+          ) : null}
+        </View>
+
         {/* ── Link settings row ───────────────────────────────── */}
         <View style={styles.settingsRow}>
           <View style={styles.settingChip}>
             <Ionicons name="timer-outline" size={14} color={colors.textSub} />
-            <AppText style={styles.settingChipText}>Expires in 1 min</AppText>
+            <AppText style={styles.settingChipText}>Expires in 24 hours</AppText>
           </View>
           <View style={styles.settingChip}>
             <Ionicons name="eye-outline" size={14} color={colors.textSub} />
-            <AppText style={styles.settingChipText}>Max 2 views</AppText>
+            <AppText style={styles.settingChipText}>Max 10 views</AppText>
           </View>
+          {pinEnabled ? (
+            <View style={styles.settingChip}>
+              <Ionicons name="lock-closed-outline" size={14} color={colors.textSub} />
+              <AppText style={styles.settingChipText}>PIN protected</AppText>
+            </View>
+          ) : null}
         </View>
 
         {/* ── Security note ───────────────────────────────────── */}
@@ -229,9 +291,11 @@ export function ShareScreen() {
               !canGenerate && styles.generateBtnTextDisabled,
             ]}
           >
-            {canGenerate
-              ? `Generate Secure Link · ${selected.size} item${selected.size === 1 ? "" : "s"}`
-              : "Select at least one option"}
+            {selected.size === 0
+              ? "Select at least one option"
+              : !pinValid
+              ? "Enter a 4-digit PIN"
+              : `Generate Secure Link · ${selected.size} item${selected.size === 1 ? "" : "s"}`}
           </AppText>
         </Pressable>
       </ScrollView>
@@ -259,7 +323,9 @@ export function ShareScreen() {
               </AppText>
               {!shareLoading && !shareError && shareUrl ? (
                 <AppText style={styles.modalSubtitle}>
-                  Expires in 1 min · Max 2 views
+                  {pinEnabled
+                    ? "Expires in 24 hours · Max 10 views · PIN protected"
+                    : "Expires in 24 hours · Max 10 views"}
                 </AppText>
               ) : null}
             </View>
@@ -340,6 +406,16 @@ export function ShareScreen() {
                   {shareUrl}
                 </AppText>
               </View>
+
+              {pinEnabled ? (
+                <View style={styles.pinReminder}>
+                  <Ionicons name="lock-closed" size={14} color={colors.teal} />
+                  <AppText style={styles.pinReminderText}>
+                    PIN required to open. Share the PIN with your recipient
+                    separately — not in the same message as the link.
+                  </AppText>
+                </View>
+              ) : null}
 
               {/* Copy button */}
               <Pressable
@@ -668,6 +744,84 @@ const useStyles = createStyles((c) => StyleSheet.create({
     flex: 1,
     fontSize: typescale.size.xs,
     color: c.muted,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+
+  // PIN protection
+  pinCard: {
+    backgroundColor: c.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  pinToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  pinToggleIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    backgroundColor: c.tealSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  pinToggleText: {
+    flex: 1,
+    gap: 3,
+  },
+  pinToggleTitle: {
+    fontSize: typescale.size.base,
+    fontWeight: typescale.weight.bold,
+    color: c.text,
+  },
+  pinToggleSub: {
+    fontSize: typescale.size.xs,
+    color: c.muted,
+    lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
+  },
+  pinInputWrap: {
+    gap: 5,
+  },
+  pinInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    fontSize: typescale.size.base,
+    color: c.text,
+    backgroundColor: c.bgSecondary,
+    letterSpacing: 4,
+  },
+  pinHint: {
+    fontSize: typescale.size.xs,
+    color: c.danger,
+  },
+  pinHintMuted: {
+    fontSize: typescale.size.xs,
+    color: c.muted,
+  },
+  pinReminder: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    backgroundColor: c.tealSoft,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: c.tealBorder,
+    width: "100%",
+  },
+  pinReminderText: {
+    flex: 1,
+    fontSize: typescale.size.xs,
+    color: c.text,
     lineHeight: typescale.size.xs * typescale.lineHeight.relaxed,
   },
 
