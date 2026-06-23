@@ -1,0 +1,14 @@
+{% autoescape off %}{{ heading }}
+
+{{ intro }}
+
+{{ button_label }}:
+{{ button_url }}
+
+{{ expiry }}
+
+Need help? Contact {{ support_email }}.
+You received this email because someone {{ reason }} at RIVR Health. If this wasn't you, you can safely ignore it.
+
+© RIVR Health · {{ frontend_url }}
+{% endautoescape %}

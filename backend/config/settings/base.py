@@ -244,11 +244,22 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# --- Email (Mailpit locally) --------------------------------------------------
+# --- Email --------------------------------------------------------------------
+# Local dev uses Mailpit (no auth/TLS, port 1025). Production sends through
+# MailerSend SMTP relay: smtp.mailersend.net:587 with STARTTLS. Set EMAIL_HOST,
+# EMAIL_HOST_USER, EMAIL_HOST_PASSWORD and EMAIL_USE_TLS=true in .env.prod, and
+# DEFAULT_FROM_EMAIL to an address on your MailerSend-verified domain.
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = env("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env.int("EMAIL_PORT", default=1025)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="RIVR <no-reply@rivrhealth.local>")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+# Cap blocking time on the synchronous send path (signup / password reset run in
+# the request thread) so a stalled SMTP connection can't hang a worker.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="RIVR <no-reply@rivrhealth.ai>")
+SERVER_EMAIL = env("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 
 # --- OpenAI / AI models (worker phase) ----------------------------------------
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
