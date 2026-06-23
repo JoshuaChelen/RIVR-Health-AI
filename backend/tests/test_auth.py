@@ -57,6 +57,21 @@ def test_register_rejects_duplicate(api_client, make_user):
 
 
 @pytest.mark.django_db
+def test_register_after_soft_delete_reuses_email(api_client, make_user, mailoutbox):
+    """A soft-deleted account's email can be re-registered (regression: this 500'd
+    before the partial unique index — the active manager hid the deleted row from
+    validation, but the old full unique constraint blocked the insert)."""
+    u = make_user(email="redeleted@example.com")
+    u.soft_delete(reason="test")
+    resp = api_client.post(REGISTER, {"email": "redeleted@example.com", "password": PW}, format="json")
+    assert resp.status_code == 201, resp.content
+    assert resp.json()["user"]["email"] == "redeleted@example.com"
+    # active + soft-deleted rows coexist under the partial unique constraint
+    assert User.objects.filter(email="redeleted@example.com").count() == 1
+    assert User.all_objects.filter(email="redeleted@example.com").count() == 2
+
+
+@pytest.mark.django_db
 def test_register_rejects_weak_password(api_client):
     resp = api_client.post(REGISTER, {"email": "weak@example.com", "password": "123"}, format="json")
     assert resp.status_code == 400

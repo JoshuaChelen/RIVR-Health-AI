@@ -106,6 +106,12 @@ DATABASES = {
 
 # --- Auth ---------------------------------------------------------------------
 AUTH_USER_MODEL = "accounts.User"
+# email is unique only among active users (partial UniqueConstraint
+# `unique_active_email` on accounts.User) so a deleted account's email can be
+# reused. auth.E003 demands a plain unique=True on USERNAME_FIELD; silence it —
+# login looks users up via the active-only default manager, so it stays
+# unambiguous.
+SILENCED_SYSTEM_CHECKS = ["auth.E003"]
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

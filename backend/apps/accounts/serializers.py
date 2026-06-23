@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -26,9 +27,16 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
-        return User.objects.create_user(
-            email=validated_data["email"], password=validated_data["password"]
-        )
+        try:
+            return User.objects.create_user(
+                email=validated_data["email"], password=validated_data["password"]
+            )
+        except IntegrityError:
+            # Race (concurrent signups) or residual collision: return a clean
+            # 400 instead of a 500.
+            raise serializers.ValidationError(
+                {"email": "A user with this email already exists."}
+            )
 
 
 class LoginSerializer(TokenObtainPairSerializer):

@@ -14,7 +14,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """Custom user keyed by email and a UUID primary key (replaces auth.users)."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     email_verified_at = models.DateTimeField(null=True, blank=True)
@@ -32,6 +32,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Meta:
         db_table = "users"
         ordering = ["-date_joined"]
+        constraints = [
+            # Email is unique only among ACTIVE (non-soft-deleted) users, so a
+            # user who deletes their account can register again with the same
+            # email while the old soft-deleted row awaits purge.
+            models.UniqueConstraint(
+                fields=["email"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="unique_active_email",
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.email
