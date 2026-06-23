@@ -45,3 +45,7 @@ export async function logout(): Promise<void> {
 export function me(): Promise<ApiUser> {
   return api.get<ApiUser>("/api/auth/me");
 }
+
+export async function resendVerificationEmail(): Promise<void> {
+  await api.post("/api/auth/verify-email/resend", {});
+}

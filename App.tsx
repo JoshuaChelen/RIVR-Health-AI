@@ -13,6 +13,7 @@ import { AppNavigator } from "./src/navigation/AppNavigator";
 import { AppleHealthProvider } from "./src/context/AppleHealthContext";
 import { AuthNavigator } from "./src/navigation/AuthNavigator";
 import { OnboardingNavigator } from "./src/navigation/OnboardingNavigator";
+import { EmailVerificationScreen } from "./src/screens/Auth/EmailVerificationScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import { navRef } from "./src/navigation/navRef";
 import { appLinking } from "./src/navigation/linking";
@@ -52,7 +53,9 @@ function AppInner() {
 
   useEffect(() => {
     if (sessionLoading) return;
-    if (user) {
+    // Onboarding/profile is gated behind email verification on the backend, so
+    // only fetch it once the user is verified; unverified users hit the gate.
+    if (user && user.is_email_verified) {
       checkOnboarding();
     } else {
       setOnboardingComplete(false);
@@ -73,6 +76,17 @@ function AppInner() {
   }
 
   const showApp = !!user;
+
+  // Email-verification gate ("onboarding zero"): a logged-in user with an
+  // unverified email cannot reach onboarding until they verify. Rendered
+  // standalone (like the splash) — it needs no navigator.
+  if (user && !user.is_email_verified) {
+    return (
+      <NetworkProvider>
+        <EmailVerificationScreen />
+      </NetworkProvider>
+    );
+  }
 
   return (
     <NetworkProvider>

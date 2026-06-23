@@ -14,6 +14,7 @@ interface SessionValue {
   signIn: (email: string, password: string) => Promise<ApiUser>;
   signUp: (email: string, password: string) => Promise<ApiUser>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<ApiUser>;
 }
 
 const SessionContext = createContext<SessionValue | undefined>(undefined);
@@ -78,8 +79,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     applyUser(null);
   }, []);
 
+  // Re-fetch the current user (e.g. to pick up email verification done in the
+  // browser). Used by the email-verification gate to advance once verified.
+  const refreshUser = useCallback(async () => {
+    const me = await apiAuth.me();
+    setUser(me);
+    applyUser(me);
+    return me;
+  }, []);
+
   return (
-    <SessionContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <SessionContext.Provider value={{ user, loading, signIn, signUp, signOut, refreshUser }}>
       {children}
     </SessionContext.Provider>
   );
