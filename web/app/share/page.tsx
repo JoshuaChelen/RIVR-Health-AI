@@ -34,7 +34,9 @@ function ShareView() {
       // usable for a retry. Only a successful resolve renders the items view.
       setResult(await res.json());
     } catch {
-      setResult({ error: "Something went wrong. Please try again." });
+      // Merge (don't replace) so a transient network error during a PIN retry
+      // doesn't drop the pinRequired flag and hide the PIN field.
+      setResult((prev) => ({ ...prev, error: "Something went wrong. Please try again." }));
     } finally {
       setBusy(false);
     }

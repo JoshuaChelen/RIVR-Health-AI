@@ -148,6 +148,9 @@ class TestProdFailsClosed:
         env["CORS_ALLOW_ALL_ORIGINS"] = "false"
         # A real, valid prod key by default — overridden per test.
         env["FIELD_ENCRYPTION_KEY"] = "Hh3y0p3F0t8wXp4nGq2QbVr9Yd1mZc6sJ7kLwTxNuE0="
+        env["REDIS_URL"] = "redis://redis:6379/2"
+        env["CELERY_BROKER_URL"] = "redis://redis:6379/0"
+        env["CELERY_RESULT_BACKEND"] = "redis://redis:6379/1"
         env.update(overrides)
         return env
 

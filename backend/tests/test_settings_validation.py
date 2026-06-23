@@ -39,6 +39,10 @@ def _minimal_prod_env(**overrides) -> dict:
     # A real, valid Fernet key so prod.py's field-encryption validation passes
     # for tests targeting the other prod validations.
     env["FIELD_ENCRYPTION_KEY"] = "Hh3y0p3F0t8wXp4nGq2QbVr9Yd1mZc6sJ7kLwTxNuE0="
+    # Non-localhost redis URLs so prod.py's fail-closed redis guard passes.
+    env["REDIS_URL"] = "redis://redis:6379/2"
+    env["CELERY_BROKER_URL"] = "redis://redis:6379/0"
+    env["CELERY_RESULT_BACKEND"] = "redis://redis:6379/1"
     env.update(overrides)
     return env
 
@@ -51,6 +55,24 @@ def _run(cmd=_CMD, **env_overrides):
         capture_output=True,
         text=True,
     )
+
+
+class TestRedisValidation:
+    """Throttle cache + Celery require non-localhost redis URLs in prod."""
+
+    def test_prod_rejects_missing_redis_url(self):
+        result = _run(REDIS_URL="")
+        assert result.returncode != 0
+        assert "REDIS_URL" in result.stderr
+
+    def test_prod_rejects_localhost_redis_url(self):
+        result = _run(REDIS_URL="redis://localhost:6379/2")
+        assert result.returncode != 0
+        assert "REDIS_URL" in result.stderr
+
+    def test_prod_accepts_valid_redis_urls(self):
+        result = _run()
+        assert result.returncode == 0, f"Failed: {result.stderr}"
 
 
 # ── Task 1 ────────────────────────────────────────────────────────────────────

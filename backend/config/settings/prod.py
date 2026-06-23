@@ -163,7 +163,7 @@ if not re.search(r"sslmode=(require|verify-full)(\b|&|$)", _raw_db_url):
 # CACHES (base.py) and Celery fall back to localhost when these are unset, which
 # silently breaks every throttled endpoint (login / password-reset / share
 # resolve -> 500) and the Celery worker. Require real, non-localhost redis URLs.
-for _redis_var in ("REDIS_URL", "CELERY_BROKER_URL"):
+for _redis_var in ("REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND"):
     _redis_val = os.environ.get(_redis_var, "")
     if not _redis_val or "localhost" in _redis_val or "127.0.0.1" in _redis_val:
         raise ImproperlyConfigured(
